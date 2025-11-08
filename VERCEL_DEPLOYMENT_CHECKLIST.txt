@@ -48,7 +48,6 @@ STEP 3: Add PostgreSQL Database
   ⬜ Wait for database creation (30-60 seconds)
   ⬜ Verify POSTGRES_PRISMA_URL was auto-added to env vars
 
-
 STEP 4: Add Environment Variables
   ⬜ Click "Settings" (top menu)
   ⬜ Click "Environment Variables" (left sidebar)
@@ -89,13 +88,11 @@ STEP 4: Add Environment Variables
     Value: https://your-app.vercel.app (use actual URL from Step 5)
     Envs:  ☑ Production ☑ Preview ☑ Development
 
-
 STEP 5: Get Your Vercel URL
   ⬜ Go to "Deployments" tab
   ⬜ Click on the latest deployment
   ⬜ Copy the URL (e.g., https://checkin-abc123.vercel.app)
   ⬜ WRITE IT HERE: _________________________________
-
 
 STEP 6: Update NEXT_PUBLIC_APP_URL
   ⬜ Go back to "Settings" → "Environment Variables"
@@ -104,7 +101,6 @@ STEP 6: Update NEXT_PUBLIC_APP_URL
   ⬜ Replace value with your actual Vercel URL from Step 5
   ⬜ Click "Save"
 
-
 STEP 7: Redeploy
   ⬜ Go to "Deployments" tab
   ⬜ Find the latest deployment
@@ -112,7 +108,6 @@ STEP 7: Redeploy
   ⬜ Click "Redeploy"
   ⬜ Wait 2-3 minutes for build to complete
   ⬜ Deployment should succeed this time! ✅
-
 
 🧪 POST-DEPLOYMENT TESTING
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -130,7 +125,6 @@ STEP 7: Redeploy
   ⬜ Scan the QR code
   ⬜ Check-in succeeds
 
-
 📊 VERIFY DATABASE
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -139,7 +133,6 @@ STEP 7: Redeploy
   ⬜ Run: SELECT * FROM "Ticket" LIMIT 10;
   ⬜ Verify your test ticket appears
   ⬜ Check that checkedIn = true
-
 
 🎉 SUCCESS CRITERIA
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -153,14 +146,12 @@ STEP 7: Redeploy
   ⬜ Check-in with camera works
   ⬜ Database records are created
 
-
 📚 DOCUMENTATION
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   Detailed Guide:  DEPLOYMENT.md
   Quick Summary:   READY_TO_DEPLOY.md
   This Checklist:  VERCEL_DEPLOYMENT_CHECKLIST.txt
-
 
 🐛 IF SOMETHING FAILS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -172,7 +163,6 @@ STEP 7: Redeploy
   5. Try redeploying again
   6. Check DEPLOYMENT.md troubleshooting section
 
-
 ═══════════════════════════════════════════════════════════════════
 
                     YOU'RE READY TO GO! 🚀
@@ -180,4 +170,3 @@ STEP 7: Redeploy
         Start with: git push origin main
 
 ═══════════════════════════════════════════════════════════════════
-
