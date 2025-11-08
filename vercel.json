@@ -1,17 +1,4 @@
-{{
-
-  "buildCommand": "prisma generate && next build",  "buildCommand": "prisma generate && next build",
-
-  "installCommand": "npm install",  "devCommand": "next dev",
-
-  "framework": "nextjs",  "installCommand": "npm install",
-
-  "regions": ["sin1"]  "framework": "nextjs",
-
-}  "regions": ["sin1"],
-
-  "env": {
-    "STORAGE_POSTGRES_PRISMA_URL": "@storage_postgres_prisma_url",
-    "STORAGE_POSTGRES_URL_NON_POOLING": "@storage_postgres_url_non_pooling"
-  }
+{
+  "framework": "nextjs",
+  "regions": ["sin1"]
 }
