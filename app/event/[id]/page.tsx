@@ -591,6 +591,8 @@ END:VCALENDAR`;
                                     </div>
                                 </div>
 
+
+
                                 {/* Event Reminders */}
                                 <div className="glass rounded-2xl p-5 hover-lift">
                                     <h4 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
@@ -609,319 +611,298 @@ END:VCALENDAR`;
                                         Notify Me
                                     </button>
                                 </div>
-                            </div>
-                                </div>
 
-                    {/* Event Reminders */}
-                    <div className="glass rounded-2xl p-5 hover-lift">
-                        <h4 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
-                            <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                            </svg>
-                            Get Reminders
-                        </h4>
-                        <p className="text-sm text-zinc-400 mb-4">
-                            We'll remind you 24 hours before the event starts.
-                        </p>
-                        <button
-                            onClick={() => showToast('Reminder set for 24h before event!', 'success')}
-                            className="w-full py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl text-sm font-medium transition-colors border border-zinc-700 hover:border-zinc-600"
-                        >
-                            Notify Me
-                        </button>
-                    </div>
-
-                    {/* Terms */}
-                    {event.termsAndConditions && (
-                        <div className="glass rounded-2xl p-6 hover-lift">
-                            <h3 className="text-lg font-bold text-white mb-3 flex items-center gap-2">
-                                <span className="w-1 h-6 bg-red-500 rounded-full"></span>
-                                Terms & Conditions
-                            </h3>
-                            <p className="text-zinc-400 text-sm leading-relaxed">{event.termsAndConditions}</p>
-                        </div>
-                    )}
-
-                    {/* Live Polls & Q&A */}
-                    <div className="glass rounded-2xl p-6 hover-lift">
-                        <EventPolls eventId={event.id} />
-                    </div>
-                </div>
-                        )}
-
-                {/* Schedule Tab */}
-                {activeTab === 'schedule' && (
-                    <div className="glass rounded-2xl p-6 animate-fade-in-up">
-                        <h2 className="text-xl font-bold text-white mb-8 flex items-center gap-2">
-                            <span className="w-1 h-6 bg-red-500 rounded-full"></span>
-                            Event Schedule
-                        </h2>
-                        {event.schedule.length === 0 ? (
-                            <div className="text-center py-16">
-                                <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-zinc-800 flex items-center justify-center">
-                                    <svg className="w-10 h-10 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                    </svg>
-                                </div>
-                                <p className="text-zinc-500">Schedule will be announced soon</p>
-                            </div>
-                        ) : (
-                            <div className="relative">
-                                {/* Timeline Line */}
-                                <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-gradient-to-b from-red-500 via-red-600 to-transparent"></div>
-
-                                <div className="space-y-6">
-                                    {event.schedule.map((item, index) => (
-                                        <div key={item.id} className="relative flex gap-6 group" style={{ animationDelay: `${index * 0.1}s` }}>
-                                            {/* Timeline Dot */}
-                                            <div className="relative z-10 w-12 flex-shrink-0 flex items-start justify-center pt-1">
-                                                <div className={`w-4 h-4 rounded-full border-4 border-red-500 bg-black ${index === 0 ? 'animate-timeline-pulse' : ''}`}></div>
-                                            </div>
-
-                                            {/* Content */}
-                                            <div className="flex-1 glass-light rounded-xl p-5 hover-lift group-hover:border-red-900/50 transition-colors">
-                                                <div className="flex flex-wrap items-center gap-3 mb-2">
-                                                    <span className="px-3 py-1 bg-red-600/20 text-red-400 rounded-lg text-sm font-bold">
-                                                        {item.time}
-                                                    </span>
-                                                    <h4 className="text-lg font-semibold text-white">{item.title}</h4>
-                                                </div>
-                                                {item.description && <p className="text-zinc-400 text-sm">{item.description}</p>}
-                                                {item.speaker && (
-                                                    <div className="flex items-center gap-2 mt-3 text-sm text-zinc-500">
-                                                        <div className="w-6 h-6 rounded-full bg-zinc-700 flex items-center justify-center">
-                                                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                                            </svg>
-                                                        </div>
-                                                        {item.speaker}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                )}
-
-                {/* Reviews Tab */}
-                {activeTab === 'reviews' && (
-                    <div className="glass rounded-2xl p-6 animate-fade-in-up">
-                        <div className="flex items-center justify-between mb-8">
-                            <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                                <span className="w-1 h-6 bg-red-500 rounded-full"></span>
-                                Reviews
-                                {avgRating > 0 && (
-                                    <span className="ml-2 px-3 py-1 bg-yellow-600/20 text-yellow-400 rounded-lg text-sm">
-                                        ★ {avgRating.toFixed(1)}
-                                    </span>
+                                {/* Terms */}
+                                {event.termsAndConditions && (
+                                    <div className="glass rounded-2xl p-6 hover-lift">
+                                        <h3 className="text-lg font-bold text-white mb-3 flex items-center gap-2">
+                                            <span className="w-1 h-6 bg-red-500 rounded-full"></span>
+                                            Terms & Conditions
+                                        </h3>
+                                        <p className="text-zinc-400 text-sm leading-relaxed">{event.termsAndConditions}</p>
+                                    </div>
                                 )}
-                            </h2>
-                            <button
-                                onClick={() => setShowReviewForm(!showReviewForm)}
-                                className="px-4 py-2 bg-red-600/20 text-red-400 rounded-xl hover:bg-red-600/30 transition-colors text-sm font-medium"
-                            >
-                                {showReviewForm ? 'Cancel' : 'Write Review'}
-                            </button>
-                        </div>
 
-                        {showReviewForm && (
-                            <div className="glass-light rounded-xl p-5 mb-6 space-y-4 animate-scale-in">
-                                <input
-                                    type="text"
-                                    placeholder="Your name"
-                                    value={reviewData.name}
-                                    onChange={e => setReviewData({ ...reviewData, name: e.target.value })}
-                                    className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl text-white placeholder-zinc-500 focus:border-red-500 focus:outline-none transition-colors"
-                                />
-                                <div className="flex gap-2">
-                                    {[1, 2, 3, 4, 5].map(n => (
-                                        <button
-                                            key={n}
-                                            onClick={() => setReviewData({ ...reviewData, rating: n })}
-                                            className={`text-3xl transition-all hover:scale-110 ${n <= reviewData.rating ? 'text-yellow-400 drop-shadow-lg' : 'text-zinc-600'}`}
-                                        >
-                                            ★
-                                        </button>
-                                    ))}
+                                {/* Live Polls & Q&A */}
+                                <div className="glass rounded-2xl p-6 hover-lift">
+                                    <EventPolls eventId={event.id} />
                                 </div>
-                                <textarea
-                                    placeholder="Share your experience..."
-                                    value={reviewData.comment}
-                                    onChange={e => setReviewData({ ...reviewData, comment: e.target.value })}
-                                    rows={3}
-                                    className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl text-white placeholder-zinc-500 focus:border-red-500 focus:outline-none resize-none transition-colors"
-                                />
-                                <button
-                                    onClick={submitReview}
-                                    className="px-6 py-3 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-xl hover:from-red-700 hover:to-red-800 font-medium transition-all"
-                                >
-                                    Submit Review
-                                </button>
                             </div>
                         )}
 
-                        {eventReviews.length === 0 ? (
-                            <div className="text-center py-16">
-                                <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-zinc-800 flex items-center justify-center">
-                                    <svg className="w-10 h-10 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                                    </svg>
-                                </div>
-                                <p className="text-zinc-500">Be the first to review this event!</p>
-                            </div>
-                        ) : (
-                            <div className="space-y-4">
-                                {eventReviews.map((review, index) => (
-                                    <div key={review.id} className="glass-light rounded-xl p-5 hover-lift" style={{ animationDelay: `${index * 0.1}s` }}>
-                                        <div className="flex items-start gap-4">
-                                            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-red-600 to-red-800 flex items-center justify-center text-white font-bold text-lg">
-                                                {review.userName.charAt(0).toUpperCase()}
-                                            </div>
-                                            <div className="flex-1">
-                                                <div className="flex items-center justify-between mb-1">
-                                                    <p className="font-semibold text-white">{review.userName}</p>
-                                                    <span className="text-yellow-400 text-sm">{'★'.repeat(review.rating)}<span className="text-zinc-700">{'★'.repeat(5 - review.rating)}</span></span>
+                        {/* Schedule Tab */}
+                        {activeTab === 'schedule' && (
+                            <div className="glass rounded-2xl p-6 animate-fade-in-up">
+                                <h2 className="text-xl font-bold text-white mb-8 flex items-center gap-2">
+                                    <span className="w-1 h-6 bg-red-500 rounded-full"></span>
+                                    Event Schedule
+                                </h2>
+                                {event.schedule.length === 0 ? (
+                                    <div className="text-center py-16">
+                                        <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-zinc-800 flex items-center justify-center">
+                                            <svg className="w-10 h-10 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                            </svg>
+                                        </div>
+                                        <p className="text-zinc-500">Schedule will be announced soon</p>
+                                    </div>
+                                ) : (
+                                    <div className="relative">
+                                        {/* Timeline Line */}
+                                        <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-gradient-to-b from-red-500 via-red-600 to-transparent"></div>
+
+                                        <div className="space-y-6">
+                                            {event.schedule.map((item, index) => (
+                                                <div key={item.id} className="relative flex gap-6 group" style={{ animationDelay: `${index * 0.1}s` }}>
+                                                    {/* Timeline Dot */}
+                                                    <div className="relative z-10 w-12 flex-shrink-0 flex items-start justify-center pt-1">
+                                                        <div className={`w-4 h-4 rounded-full border-4 border-red-500 bg-black ${index === 0 ? 'animate-timeline-pulse' : ''}`}></div>
+                                                    </div>
+
+                                                    {/* Content */}
+                                                    <div className="flex-1 glass-light rounded-xl p-5 hover-lift group-hover:border-red-900/50 transition-colors">
+                                                        <div className="flex flex-wrap items-center gap-3 mb-2">
+                                                            <span className="px-3 py-1 bg-red-600/20 text-red-400 rounded-lg text-sm font-bold">
+                                                                {item.time}
+                                                            </span>
+                                                            <h4 className="text-lg font-semibold text-white">{item.title}</h4>
+                                                        </div>
+                                                        {item.description && <p className="text-zinc-400 text-sm">{item.description}</p>}
+                                                        {item.speaker && (
+                                                            <div className="flex items-center gap-2 mt-3 text-sm text-zinc-500">
+                                                                <div className="w-6 h-6 rounded-full bg-zinc-700 flex items-center justify-center">
+                                                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                                                    </svg>
+                                                                </div>
+                                                                {item.speaker}
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 </div>
-                                                <p className="text-zinc-400 text-sm leading-relaxed">{review.comment}</p>
-                                                <p className="text-xs text-zinc-600 mt-2">
-                                                    {new Date(review.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Reviews Tab */}
+                        {activeTab === 'reviews' && (
+                            <div className="glass rounded-2xl p-6 animate-fade-in-up">
+                                <div className="flex items-center justify-between mb-8">
+                                    <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                                        <span className="w-1 h-6 bg-red-500 rounded-full"></span>
+                                        Reviews
+                                        {avgRating > 0 && (
+                                            <span className="ml-2 px-3 py-1 bg-yellow-600/20 text-yellow-400 rounded-lg text-sm">
+                                                ★ {avgRating.toFixed(1)}
+                                            </span>
+                                        )}
+                                    </h2>
+                                    <button
+                                        onClick={() => setShowReviewForm(!showReviewForm)}
+                                        className="px-4 py-2 bg-red-600/20 text-red-400 rounded-xl hover:bg-red-600/30 transition-colors text-sm font-medium"
+                                    >
+                                        {showReviewForm ? 'Cancel' : 'Write Review'}
+                                    </button>
+                                </div>
+
+                                {showReviewForm && (
+                                    <div className="glass-light rounded-xl p-5 mb-6 space-y-4 animate-scale-in">
+                                        <input
+                                            type="text"
+                                            placeholder="Your name"
+                                            value={reviewData.name}
+                                            onChange={e => setReviewData({ ...reviewData, name: e.target.value })}
+                                            className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl text-white placeholder-zinc-500 focus:border-red-500 focus:outline-none transition-colors"
+                                        />
+                                        <div className="flex gap-2">
+                                            {[1, 2, 3, 4, 5].map(n => (
+                                                <button
+                                                    key={n}
+                                                    onClick={() => setReviewData({ ...reviewData, rating: n })}
+                                                    className={`text-3xl transition-all hover:scale-110 ${n <= reviewData.rating ? 'text-yellow-400 drop-shadow-lg' : 'text-zinc-600'}`}
+                                                >
+                                                    ★
+                                                </button>
+                                            ))}
+                                        </div>
+                                        <textarea
+                                            placeholder="Share your experience..."
+                                            value={reviewData.comment}
+                                            onChange={e => setReviewData({ ...reviewData, comment: e.target.value })}
+                                            rows={3}
+                                            className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl text-white placeholder-zinc-500 focus:border-red-500 focus:outline-none resize-none transition-colors"
+                                        />
+                                        <button
+                                            onClick={submitReview}
+                                            className="px-6 py-3 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-xl hover:from-red-700 hover:to-red-800 font-medium transition-all"
+                                        >
+                                            Submit Review
+                                        </button>
+                                    </div>
+                                )}
+
+                                {eventReviews.length === 0 ? (
+                                    <div className="text-center py-16">
+                                        <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-zinc-800 flex items-center justify-center">
+                                            <svg className="w-10 h-10 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                                            </svg>
+                                        </div>
+                                        <p className="text-zinc-500">Be the first to review this event!</p>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-4">
+                                        {eventReviews.map((review, index) => (
+                                            <div key={review.id} className="glass-light rounded-xl p-5 hover-lift" style={{ animationDelay: `${index * 0.1}s` }}>
+                                                <div className="flex items-start gap-4">
+                                                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-red-600 to-red-800 flex items-center justify-center text-white font-bold text-lg">
+                                                        {review.userName.charAt(0).toUpperCase()}
+                                                    </div>
+                                                    <div className="flex-1">
+                                                        <div className="flex items-center justify-between mb-1">
+                                                            <p className="font-semibold text-white">{review.userName}</p>
+                                                            <span className="text-yellow-400 text-sm">{'★'.repeat(review.rating)}<span className="text-zinc-700">{'★'.repeat(5 - review.rating)}</span></span>
+                                                        </div>
+                                                        <p className="text-zinc-400 text-sm leading-relaxed">{review.comment}</p>
+                                                        <p className="text-xs text-zinc-600 mt-2">
+                                                            {new Date(review.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Sidebar */}
+                    <div className="space-y-6">
+                        {/* Sticky Ticket Card */}
+                        <div className="lg:sticky lg:top-6">
+                            <div className="glass rounded-2xl p-6 glow-hover transition-all">
+                                {/* Early Bird Banner */}
+                                {event.earlyBirdEnabled && event.earlyBirdDeadline && new Date(event.earlyBirdDeadline) > new Date() && (
+                                    <div className="mb-4 -mt-2 -mx-2 px-4 py-2 bg-gradient-to-r from-green-600/20 to-emerald-600/20 rounded-xl border border-green-700/50 flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            </svg>
+                                            <div>
+                                                <p className="text-green-400 text-sm font-semibold">Early Bird Active!</p>
+                                                <p className="text-green-500/70 text-xs">
+                                                    Ends {new Date(event.earlyBirdDeadline).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
                                                 </p>
                                             </div>
                                         </div>
+                                        <span className="px-2 py-1 bg-green-600 text-white rounded-lg text-xs font-bold">
+                                            Save {Math.round(((event.price - event.earlyBirdPrice) / event.price) * 100)}%
+                                        </span>
                                     </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                )}
-            </div>
+                                )}
 
-            {/* Sidebar */}
-            <div className="space-y-6">
-                {/* Sticky Ticket Card */}
-                <div className="lg:sticky lg:top-6">
-                    <div className="glass rounded-2xl p-6 glow-hover transition-all">
-                        {/* Early Bird Banner */}
-                        {event.earlyBirdEnabled && event.earlyBirdDeadline && new Date(event.earlyBirdDeadline) > new Date() && (
-                            <div className="mb-4 -mt-2 -mx-2 px-4 py-2 bg-gradient-to-r from-green-600/20 to-emerald-600/20 rounded-xl border border-green-700/50 flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                    <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                    </svg>
-                                    <div>
-                                        <p className="text-green-400 text-sm font-semibold">Early Bird Active!</p>
-                                        <p className="text-green-500/70 text-xs">
-                                            Ends {new Date(event.earlyBirdDeadline).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                                {/* Price Display */}
+                                {event.earlyBirdEnabled && event.earlyBirdDeadline && new Date(event.earlyBirdDeadline) > new Date() ? (
+                                    <div className="mb-2">
+                                        <div className="flex items-end gap-2">
+                                            <span className="text-4xl font-bold gradient-text">₹{(event.earlyBirdPrice / 100).toLocaleString()}</span>
+                                            <span className="text-zinc-500 pb-1">/ ticket</span>
+                                        </div>
+                                        <p className="text-sm text-zinc-500 mt-1">
+                                            <span className="line-through">₹{(event.price / 100).toLocaleString()}</span>
+                                            <span className="ml-2 text-green-400">Early Bird Price</span>
                                         </p>
                                     </div>
-                                </div>
-                                <span className="px-2 py-1 bg-green-600 text-white rounded-lg text-xs font-bold">
-                                    Save {Math.round(((event.price - event.earlyBirdPrice) / event.price) * 100)}%
-                                </span>
-                            </div>
-                        )}
-
-                        {/* Price Display */}
-                        {event.earlyBirdEnabled && event.earlyBirdDeadline && new Date(event.earlyBirdDeadline) > new Date() ? (
-                            <div className="mb-2">
-                                <div className="flex items-end gap-2">
-                                    <span className="text-4xl font-bold gradient-text">₹{(event.earlyBirdPrice / 100).toLocaleString()}</span>
-                                    <span className="text-zinc-500 pb-1">/ ticket</span>
-                                </div>
-                                <p className="text-sm text-zinc-500 mt-1">
-                                    <span className="line-through">₹{(event.price / 100).toLocaleString()}</span>
-                                    <span className="ml-2 text-green-400">Early Bird Price</span>
-                                </p>
-                            </div>
-                        ) : (
-                            <div className="flex items-end gap-2 mb-2">
-                                <span className="text-4xl font-bold gradient-text">₹{(event.price / 100).toLocaleString()}</span>
-                                <span className="text-zinc-500 pb-1">/ ticket</span>
-                            </div>
-                        )}
-                        {event.entryFee !== event.price && !event.earlyBirdEnabled && (
-                            <p className="text-sm text-zinc-500 mb-4">Entry fee: ₹{(event.entryFee / 100).toLocaleString()}</p>
-                        )}
-
-                        {/* Capacity Ring */}
-                        <div className="flex items-center justify-between mb-6 py-4 border-y border-zinc-800">
-                            <div>
-                                <p className="text-zinc-400 text-sm">Capacity</p>
-                                <p className="text-white font-semibold text-lg">
-                                    {event.soldCount} / {event.capacity}
-                                </p>
-                                <p className={`text-xs ${capacityPercent >= 90 ? 'text-red-400' : capacityPercent >= 70 ? 'text-yellow-400' : 'text-green-400'}`}>
-                                    {event.capacity - event.soldCount} spots left
-                                </p>
-                            </div>
-                            <CapacityRing soldCount={event.soldCount} capacity={event.capacity} />
-                        </div>
-
-                        {/* CTA Button */}
-                        <button
-                            onClick={handleGetTickets}
-                            disabled={isSoldOut}
-                            className={`w-full py-4 rounded-xl font-bold text-lg transition-all ${isSoldOut
-                                ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed'
-                                : 'bg-gradient-to-r from-red-600 to-red-700 text-white hover:from-red-700 hover:to-red-800 glow-red hover:scale-[1.02]'
-                                }`}
-                        >
-                            {isSoldOut ? (
-                                <span className="flex items-center justify-center gap-2">
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                    </svg>
-                                    Sold Out
-                                </span>
-                            ) : (
-                                <span className="flex items-center justify-center gap-2">
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
-                                    </svg>
-                                    Get Tickets Now
-                                </span>
-                            )}
-                        </button>
-
-                        {/* Assurance */}
-                        <div className="flex items-center justify-center gap-4 mt-4 text-xs text-zinc-500">
-                            <span className="flex items-center gap-1">
-                                <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                                </svg>
-                                Secure
-                            </span>
-                            <span className="flex items-center gap-1">
-                                <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                                Instant Confirmation
-                            </span>
-                        </div>
-                    </div>
-
-                    {/* Social Proof */}
-                    <div className="glass rounded-2xl p-5 mt-4">
-                        <div className="flex items-center gap-4">
-                            <div className="flex -space-x-3">
-                                {[...Array(4)].map((_, i) => (
-                                    <div key={i} className="w-10 h-10 rounded-full border-2 border-zinc-900 bg-gradient-to-br from-zinc-700 to-zinc-800 flex items-center justify-center text-xs text-zinc-400">
-                                        {['A', 'S', 'M', 'R'][i]}
+                                ) : (
+                                    <div className="flex items-end gap-2 mb-2">
+                                        <span className="text-4xl font-bold gradient-text">₹{(event.price / 100).toLocaleString()}</span>
+                                        <span className="text-zinc-500 pb-1">/ ticket</span>
                                     </div>
-                                ))}
+                                )}
+                                {event.entryFee !== event.price && !event.earlyBirdEnabled && (
+                                    <p className="text-sm text-zinc-500 mb-4">Entry fee: ₹{(event.entryFee / 100).toLocaleString()}</p>
+                                )}
+
+                                {/* Capacity Ring */}
+                                <div className="flex items-center justify-between mb-6 py-4 border-y border-zinc-800">
+                                    <div>
+                                        <p className="text-zinc-400 text-sm">Capacity</p>
+                                        <p className="text-white font-semibold text-lg">
+                                            {event.soldCount} / {event.capacity}
+                                        </p>
+                                        <p className={`text-xs ${capacityPercent >= 90 ? 'text-red-400' : capacityPercent >= 70 ? 'text-yellow-400' : 'text-green-400'}`}>
+                                            {event.capacity - event.soldCount} spots left
+                                        </p>
+                                    </div>
+                                    <CapacityRing soldCount={event.soldCount} capacity={event.capacity} />
+                                </div>
+
+                                {/* CTA Button */}
+                                <button
+                                    onClick={handleGetTickets}
+                                    disabled={isSoldOut}
+                                    className={`w-full py-4 rounded-xl font-bold text-lg transition-all ${isSoldOut
+                                        ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed'
+                                        : 'bg-gradient-to-r from-red-600 to-red-700 text-white hover:from-red-700 hover:to-red-800 glow-red hover:scale-[1.02]'
+                                        }`}
+                                >
+                                    {isSoldOut ? (
+                                        <span className="flex items-center justify-center gap-2">
+                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            </svg>
+                                            Sold Out
+                                        </span>
+                                    ) : (
+                                        <span className="flex items-center justify-center gap-2">
+                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
+                                            </svg>
+                                            Get Tickets Now
+                                        </span>
+                                    )}
+                                </button>
+
+                                {/* Assurance */}
+                                <div className="flex items-center justify-center gap-4 mt-4 text-xs text-zinc-500">
+                                    <span className="flex items-center gap-1">
+                                        <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                                        </svg>
+                                        Secure
+                                    </span>
+                                    <span className="flex items-center gap-1">
+                                        <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                        Instant Confirmation
+                                    </span>
+                                </div>
                             </div>
-                            <div>
-                                <p className="text-white font-medium">{event.soldCount}+ attending</p>
-                                <p className="text-zinc-500 text-xs">Join them at this event</p>
+
+                            {/* Social Proof */}
+                            <div className="glass rounded-2xl p-5 mt-4">
+                                <div className="flex items-center gap-4">
+                                    <div className="flex -space-x-3">
+                                        {[...Array(4)].map((_, i) => (
+                                            <div key={i} className="w-10 h-10 rounded-full border-2 border-zinc-900 bg-gradient-to-br from-zinc-700 to-zinc-800 flex items-center justify-center text-xs text-zinc-400">
+                                                {['A', 'S', 'M', 'R'][i]}
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <div>
+                                        <p className="text-white font-medium">{event.soldCount}+ attending</p>
+                                        <p className="text-zinc-500 text-xs">Join them at this event</p>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
-            </div>
-        </div>
             </div >
         </main >
     );
