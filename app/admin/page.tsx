@@ -10,13 +10,14 @@ import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
     PieChart, Pie, Cell, AreaChart, Area,
 } from 'recharts';
+import { LogOut, Home, CheckCircle, Search, Trash2, Edit, Copy, Plus, Users, Calendar, BarChart as BarChartIcon } from 'lucide-react';
 
 export default function AdminPage() {
     const router = useRouter();
     const { events, tickets, teamMembers, siteSettings, festivals, emailTemplates, surveys, promoCodes, waitlist, isAdminLoggedIn, loginAdmin, logoutAdmin, addEvent, updateEvent, deleteEvent, duplicateEvent, addTicket, updateTicket, deleteTicket, addTeamMember, updateTeamMember, removeTeamMember, updateSiteSettings, addFestival, updateFestival, deleteFestival, updateEmailTemplate, addSurvey, updateSurvey, deleteSurvey, addPromoCode, updatePromoCode, deletePromoCode, addToWaitlist, removeFromWaitlist, notifyWaitlist } = useApp();
     const { showToast } = useToast();
 
-    const [activeTab, setActiveTab] = useState<'overview' | 'events' | 'attendees' | 'team' | 'festivals' | 'emails' | 'surveys' | 'settings' | 'layout' | 'promo' | 'analytics' | 'polls'>('overview');
+    const [activeTab, setActiveTab] = useState<'overview' | 'events' | 'attendees' | 'team' | 'festivals' | 'emails' | 'surveys' | 'settings' | 'layout' | 'promo' | 'analytics' | 'polls' | 'history'>('overview');
     const [password, setPassword] = useState('');
     const [showEventModal, setShowEventModal] = useState(false);
     const [editingEvent, setEditingEvent] = useState<Event | null>(null);
@@ -59,9 +60,9 @@ export default function AdminPage() {
     }, 0);
 
     const salesByEvent = events.map(event => ({
-        name: event.name.split(' ')[0],
-        tickets: tickets.filter(t => t.eventId === event.id && t.status === 'paid').length,
-        revenue: (tickets.filter(t => t.eventId === event.id && t.status === 'paid').length * event.price) / 100,
+        name: (event?.name || 'Unknown').split(' ')[0],
+        tickets: tickets.filter(t => t.eventId === event?.id && t.status === 'paid').length,
+        revenue: (tickets.filter(t => t.eventId === event?.id && t.status === 'paid').length * (event?.price || 0)) / 100,
     }));
 
     const checkInData = [{ name: 'Checked In', value: checkedIn }, { name: 'Pending', value: paidTickets - checkedIn }];
@@ -146,11 +147,9 @@ export default function AdminPage() {
                 <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-8 w-full max-w-md">
                     <div className="text-center mb-8">
                         <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-red-600 to-red-800 rounded-2xl mb-4">
-                            <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                            </svg>
+                            <Users className="w-8 h-8 text-white" />
                         </div>
-                        <h1 className="text-2xl font-bold text-white mb-2">Admin Login</h1>
+                        <h1 className="text-2xl font-bold text-white mb-2">EventHub Admin</h1>
                     </div>
                     <form onSubmit={handleLogin} className="space-y-4">
                         <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter password" className="w-full px-4 py-4 bg-zinc-800 border border-zinc-700 rounded-xl text-white text-center text-lg tracking-widest" autoFocus />
@@ -170,12 +169,10 @@ export default function AdminPage() {
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
                     <div className="flex items-center gap-4">
                         <div className="w-10 h-10 bg-gradient-to-br from-red-600 to-red-800 rounded-xl flex items-center justify-center">
-                            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                            </svg>
+                            <Users className="w-5 h-5 text-white" />
                         </div>
                         <div>
-                            <h1 className="text-2xl font-bold text-white">Admin Dashboard</h1>
+                            <h1 className="text-2xl font-bold text-white">EventHub Dashboard</h1>
                             <div className="flex items-center gap-4 text-sm">
                                 <span className="flex items-center gap-1 text-green-400"><span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>{liveStats.online} online</span>
                                 <span className="text-zinc-500">{liveStats.checkinsToday} check-ins today</span>
@@ -183,15 +180,21 @@ export default function AdminPage() {
                         </div>
                     </div>
                     <div className="flex items-center gap-3 mt-4 md:mt-0">
-                        <a href="/" className="text-zinc-400 hover:text-white text-sm">← Home</a>
-                        <a href="/checkin" className="text-zinc-400 hover:text-white text-sm">Check-In</a>
-                        <button onClick={logoutAdmin} className="px-4 py-2 bg-zinc-800 text-zinc-300 rounded-lg hover:bg-zinc-700 text-sm">Logout</button>
+                        <a href="/" className="flex items-center text-zinc-400 hover:text-white text-sm">
+                            <Home className="w-4 h-4 mr-1" /> Home
+                        </a>
+                        <a href="/checkin" className="flex items-center text-zinc-400 hover:text-white text-sm">
+                            <CheckCircle className="w-4 h-4 mr-1" /> Check-In
+                        </a>
+                        <button onClick={logoutAdmin} className="flex items-center px-4 py-2 bg-zinc-800 text-zinc-300 rounded-lg hover:bg-zinc-700 text-sm">
+                            Logout <LogOut className="w-4 h-4 ml-2" />
+                        </button>
                     </div>
                 </div>
 
                 {/* Tabs */}
                 <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
-                    {(['overview', 'events', 'attendees', 'team', 'polls', 'festivals', 'emails', 'surveys', 'layout', 'promo', 'settings', 'analytics'] as const).map(tab => (
+                    {(['overview', 'events', 'attendees', 'team', 'polls', 'festivals', 'emails', 'surveys', 'layout', 'promo', 'analytics', 'history', 'settings'] as const).map(tab => (
                         <button key={tab} onClick={() => setActiveTab(tab)} className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-colors ${activeTab === tab ? 'bg-red-600 text-white' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`}>
                             {tab === 'promo' ? 'Promo Codes' : tab === 'polls' ? 'Polls & Q&A' : tab.charAt(0).toUpperCase() + tab.slice(1)}
                         </button>
@@ -2100,6 +2103,97 @@ export default function AdminPage() {
                     </div>
                 )}
 
+                {/* Analytics Tab */}
+                {activeTab === 'analytics' && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in-up">
+                        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6">
+                            <h3 className="text-lg font-bold text-white mb-6">Sales by Event</h3>
+                            <div className="h-80">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={salesByEvent}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+                                        <XAxis dataKey="name" stroke="#666" />
+                                        <YAxis stroke="#666" />
+                                        <Tooltip contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a' }} />
+                                        <Bar dataKey="tickets" fill="#EF4444" radius={[4, 4, 0, 0]} />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
+
+                        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6">
+                            <h3 className="text-lg font-bold text-white mb-6">Revenue by Event</h3>
+                            <div className="h-80">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={salesByEvent}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+                                        <XAxis dataKey="name" stroke="#666" />
+                                        <YAxis stroke="#666" />
+                                        <Tooltip contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a' }} />
+                                        <Bar dataKey="revenue" fill="#10B981" radius={[4, 4, 0, 0]} />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* History Tab */}
+                {activeTab === 'history' && (
+                    <div className="animate-fade-in-up">
+                        <div className="flex items-center justify-between mb-6">
+                            <h2 className="text-2xl font-bold text-white">Scan History</h2>
+                            <button onClick={exportCSV} className="flex items-center gap-2 px-4 py-2 bg-zinc-800 text-white rounded-xl hover:bg-zinc-700 transition-colors">
+                                <Copy className="w-4 h-4" /> Export All
+                            </button>
+                        </div>
+                        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
+                            <div className="overflow-x-auto">
+                                <table className="w-full">
+                                    <thead className="bg-zinc-800/50">
+                                        <tr>
+                                            <th className="px-6 py-4 text-left text-sm font-medium text-zinc-400">Attendee</th>
+                                            <th className="px-6 py-4 text-left text-sm font-medium text-zinc-400">Event</th>
+                                            <th className="px-6 py-4 text-left text-sm font-medium text-zinc-400">Scan Time</th>
+                                            <th className="px-6 py-4 text-left text-sm font-medium text-zinc-400">Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-zinc-800">
+                                        {tickets
+                                            .filter(t => t.checkedIn)
+                                            .sort((a, b) => new Date(b.checkedInAt || b.updatedAt).getTime() - new Date(a.checkedInAt || a.updatedAt).getTime())
+                                            .slice(0, 50)
+                                            .map(ticket => (
+                                                <tr key={ticket.id} className="hover:bg-zinc-800/30">
+                                                    <td className="px-6 py-4">
+                                                        <div className="text-white font-medium">{ticket.name}</div>
+                                                        <div className="text-zinc-500 text-xs">{ticket.email}</div>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-zinc-300">
+                                                        {events.find(e => e.id === ticket.eventId)?.name || 'Unknown Event'}
+                                                    </td>
+                                                    <td className="px-6 py-4 text-zinc-300">
+                                                        {new Date(ticket.checkedInAt || ticket.updatedAt).toLocaleString()}
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-900/30 text-green-400 border border-green-900/50">
+                                                            Checked In
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                    </tbody>
+                                </table>
+                                {tickets.filter(t => t.checkedIn).length === 0 && (
+                                    <div className="py-12 text-center text-zinc-500">
+                                        No recent scan history found.
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {showEventModal && <EventModal event={editingEvent} onSave={handleSaveEvent} onClose={() => { setShowEventModal(false); setEditingEvent(null); }} />}
             </div>
         </main>
@@ -2136,7 +2230,7 @@ function ChartCard({ title, children }: { title: string; children: React.ReactNo
 }
 
 function EventModal({ event, onSave, onClose }: { event: Event | null; onSave: (data: Partial<Event>) => void; onClose: () => void }) {
-    const [tab, setTab] = useState<'basic' | 'details' | 'pricing' | 'schedule' | 'media'>('basic');
+    const [tab, setTab] = useState<'basic' | 'details' | 'pricing' | 'schedule' | 'sponsors' | 'media'>('basic');
     const [formData, setFormData] = useState({
         name: event?.name || '',
         description: event?.description || '',
@@ -2165,6 +2259,7 @@ function EventModal({ event, onSave, onClose }: { event: Event | null; onSave: (
         earlyBirdDeadline: event?.earlyBirdDeadline || '',
         // Event Reminders
         sendReminders: event?.sendReminders ?? true,
+        sponsors: event?.sponsors || [],
     });
 
     const addScheduleItem = () => {
@@ -2206,7 +2301,7 @@ function EventModal({ event, onSave, onClose }: { event: Event | null; onSave: (
 
                 {/* Tabs */}
                 <div className="flex border-b border-zinc-800 px-6 overflow-x-auto">
-                    {(['basic', 'details', 'pricing', 'schedule', 'media'] as const).map(t => (
+                    {(['basic', 'details', 'pricing', 'schedule', 'sponsors', 'media'] as const).map(t => (
                         <button key={t} onClick={() => setTab(t)} className={`px-4 py-3 text-sm font-medium border-b-2 -mb-px whitespace-nowrap ${tab === t ? 'border-red-500 text-red-500' : 'border-transparent text-zinc-400 hover:text-white'}`}>
                             {t.charAt(0).toUpperCase() + t.slice(1)}
                         </button>
@@ -2398,6 +2493,99 @@ function EventModal({ event, onSave, onClose }: { event: Event | null; onSave: (
                         </>
                     )}
 
+
+
+                    {tab === 'sponsors' && (
+                        <>
+                            <div className="flex justify-between items-center">
+                                <h3 className="text-lg font-medium text-white">Event Sponsors</h3>
+                                <button
+                                    type="button"
+                                    onClick={() => setFormData({
+                                        ...formData,
+                                        sponsors: [...formData.sponsors, { id: `sp-${Date.now()}`, name: '', logoUrl: '', tier: 'gold' }]
+                                    })}
+                                    className="px-3 py-1 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700"
+                                >
+                                    + Add Sponsor
+                                </button>
+                            </div>
+                            {formData.sponsors.length === 0 ? (
+                                <p className="text-zinc-500 text-center py-8">No sponsors added yet</p>
+                            ) : (
+                                <div className="space-y-4">
+                                    {formData.sponsors.map((sponsor, index) => (
+                                        <div key={sponsor.id} className="bg-zinc-800 rounded-xl p-4 space-y-3">
+                                            <div className="flex gap-3">
+                                                <div className="flex-1 space-y-2">
+                                                    <label className="text-xs text-zinc-400">Name</label>
+                                                    <input
+                                                        type="text"
+                                                        value={sponsor.name}
+                                                        onChange={(e) => {
+                                                            const newSponsors = [...formData.sponsors];
+                                                            newSponsors[index] = { ...sponsor, name: e.target.value };
+                                                            setFormData({ ...formData, sponsors: newSponsors });
+                                                        }}
+                                                        className="w-full px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-lg text-white text-sm"
+                                                        placeholder="Sponsor Name"
+                                                    />
+                                                </div>
+                                                <div className="w-32 space-y-2">
+                                                    <label className="text-xs text-zinc-400">Tier</label>
+                                                    <select
+                                                        value={sponsor.tier}
+                                                        onChange={(e) => {
+                                                            const newSponsors = [...formData.sponsors];
+                                                            newSponsors[index] = { ...sponsor, tier: e.target.value as 'gold' | 'silver' | 'bronze' };
+                                                            setFormData({ ...formData, sponsors: newSponsors });
+                                                        }}
+                                                        className="w-full px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-lg text-white text-sm"
+                                                    >
+                                                        <option value="gold">Gold</option>
+                                                        <option value="silver">Silver</option>
+                                                        <option value="bronze">Bronze</option>
+                                                    </select>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        const newSponsors = formData.sponsors.filter((_, i) => i !== index);
+                                                        setFormData({ ...formData, sponsors: newSponsors });
+                                                    }}
+                                                    className="mt-6 text-zinc-500 hover:text-red-400"
+                                                >
+                                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                    </svg>
+                                                </button>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <label className="text-xs text-zinc-400">Logo URL</label>
+                                                <input
+                                                    type="text"
+                                                    value={sponsor.logoUrl}
+                                                    onChange={(e) => {
+                                                        const newSponsors = [...formData.sponsors];
+                                                        newSponsors[index] = { ...sponsor, logoUrl: e.target.value };
+                                                        setFormData({ ...formData, sponsors: newSponsors });
+                                                    }}
+                                                    className="w-full px-3 py-2 bg-zinc-900 border border-zinc-700 rounded-lg text-white text-sm"
+                                                    placeholder="https://example.com/logo.png"
+                                                />
+                                            </div>
+                                            {sponsor.logoUrl && (
+                                                <div className="p-2 bg-white/5 rounded-lg inline-block">
+                                                    <img src={sponsor.logoUrl} alt="Logo preview" className="h-8 object-contain" />
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </>
+                    )}
+
                     {tab === 'media' && (
                         <>
                             <div><label className="block text-sm font-medium text-zinc-300 mb-1">Event Image URL</label><input type="url" value={formData.imageUrl} onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })} className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl text-white" placeholder="https://..." /></div>
@@ -2442,6 +2630,6 @@ function EventModal({ event, onSave, onClose }: { event: Event | null; onSave: (
                     <button onClick={handleSubmit} className="flex-1 px-4 py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 font-medium">{event ? 'Save Changes' : 'Create Event'}</button>
                 </div>
             </div>
-        </div>
+        </div >
     );
 }

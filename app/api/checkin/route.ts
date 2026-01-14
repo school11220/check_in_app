@@ -6,29 +6,30 @@ import { CheckInRequest, CheckInResponse } from '@/types';
 export async function POST(req: NextRequest) {
   try {
     const body: CheckInRequest = await req.json();
-    
+
     const { ticketId, token } = body;
 
     if (!ticketId || !token) {
       return NextResponse.json<CheckInResponse>(
-        { 
-          success: false, 
-          message: 'Ticket ID and token are required' 
+        {
+          success: false,
+          message: 'Ticket ID and token are required'
         },
         { status: 400 }
       );
     }
 
-    // Fetch ticket from database
+    // Fetch ticket from database with event details
     const ticket = await prisma.ticket.findUnique({
       where: { id: ticketId },
+      include: { event: true },
     });
 
     if (!ticket) {
       return NextResponse.json<CheckInResponse>(
-        { 
-          success: false, 
-          message: 'Ticket not found' 
+        {
+          success: false,
+          message: 'Ticket not found'
         },
         { status: 404 }
       );
@@ -37,9 +38,9 @@ export async function POST(req: NextRequest) {
     // Check if ticket is paid
     if (ticket.status !== 'paid') {
       return NextResponse.json<CheckInResponse>(
-        { 
-          success: false, 
-          message: `Ticket payment is ${ticket.status}` 
+        {
+          success: false,
+          message: `Ticket payment is ${ticket.status}`
         },
         { status: 400 }
       );
@@ -48,9 +49,9 @@ export async function POST(req: NextRequest) {
     // Verify token
     if (!ticket.token || !verifyTicketToken(ticketId, token)) {
       return NextResponse.json<CheckInResponse>(
-        { 
-          success: false, 
-          message: 'Invalid ticket token' 
+        {
+          success: false,
+          message: 'Invalid ticket token'
         },
         { status: 403 }
       );
@@ -59,8 +60,8 @@ export async function POST(req: NextRequest) {
     // Check if already checked in
     if (ticket.checkedIn) {
       return NextResponse.json<CheckInResponse>(
-        { 
-          success: false, 
+        {
+          success: false,
           message: 'Ticket already checked in',
           ticket: {
             id: ticket.id,
@@ -68,6 +69,9 @@ export async function POST(req: NextRequest) {
             email: ticket.email,
             eventId: ticket.eventId,
             checkedIn: ticket.checkedIn,
+            event: {
+              name: ticket.event.name
+            }
           }
         },
         { status: 400 }
@@ -78,6 +82,7 @@ export async function POST(req: NextRequest) {
     const updatedTicket = await prisma.ticket.update({
       where: { id: ticketId },
       data: { checkedIn: true },
+      include: { event: true },
     });
 
     return NextResponse.json<CheckInResponse>({
@@ -89,14 +94,17 @@ export async function POST(req: NextRequest) {
         email: updatedTicket.email,
         eventId: updatedTicket.eventId,
         checkedIn: updatedTicket.checkedIn,
+        event: {
+          name: updatedTicket.event.name
+        }
       },
     });
   } catch (error) {
     console.error('Check-in error:', error);
     return NextResponse.json<CheckInResponse>(
-      { 
-        success: false, 
-        message: 'Failed to process check-in' 
+      {
+        success: false,
+        message: 'Failed to process check-in'
       },
       { status: 500 }
     );

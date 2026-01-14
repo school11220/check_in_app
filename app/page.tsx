@@ -3,6 +3,7 @@
 import { useApp, CATEGORY_COLORS } from '@/lib/store';
 import { useState } from 'react';
 import TicketForm from '@/components/TicketForm';
+import { Calendar, MapPin, ScanLine, LayoutDashboard, LogIn, X, Menu, Ticket } from 'lucide-react';
 
 export default function Home() {
   const { events, isAdminLoggedIn, siteSettings } = useApp();
@@ -45,18 +46,18 @@ export default function Home() {
           {isAdminLoggedIn && (
             <>
               <a href="/checkin" className="flex items-center gap-3 px-4 py-3 text-zinc-300 hover:bg-zinc-800 whitespace-nowrap">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
+                <ScanLine className="w-5 h-5" />
                 Staff Check-In
               </a>
               <a href="/admin" className="flex items-center gap-3 px-4 py-3 text-zinc-300 hover:bg-zinc-800 whitespace-nowrap border-t border-zinc-800">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+                <LayoutDashboard className="w-5 h-5" />
                 Dashboard
               </a>
             </>
           )}
           {!isAdminLoggedIn && siteSettings.showAdminLink && (
             <a href="/admin" className="flex items-center gap-3 px-4 py-3 text-zinc-300 hover:bg-zinc-800 whitespace-nowrap">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+              <LogIn className="w-5 h-5" />
               Admin Login
             </a>
           )}
@@ -65,9 +66,11 @@ export default function Home() {
           onClick={() => setShowMenu(!showMenu)}
           className="w-14 h-14 bg-gradient-to-br from-red-600 to-red-800 rounded-full shadow-lg flex items-center justify-center hover:scale-105 transition-transform"
         >
-          <svg className={`w-6 h-6 text-white transition-transform ${showMenu ? 'rotate-45' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
+          {showMenu ? (
+            <X className="w-6 h-6 text-white" />
+          ) : (
+            <Menu className="w-6 h-6 text-white" />
+          )}
         </button>
       </div>
 
@@ -161,15 +164,11 @@ export default function Home() {
 
                         <div className="flex items-center gap-4 text-sm text-zinc-500">
                           <span className="flex items-center gap-1">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                            </svg>
+                            <Calendar className="w-4 h-4" />
                             {new Date(event.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
                           </span>
                           <span className="flex items-center gap-1">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                            </svg>
+                            <MapPin className="w-4 h-4" />
                             {event.venue.split(',')[0]}
                           </span>
                         </div>

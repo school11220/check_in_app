@@ -19,11 +19,20 @@ export function generateTicketToken(ticketId: string): string {
  * Verify HMAC signature
  */
 export function verifyTicketToken(ticketId: string, token: string): boolean {
-  const expectedToken = generateTicketToken(ticketId);
-  return crypto.timingSafeEqual(
-    Buffer.from(token, 'hex'),
-    Buffer.from(expectedToken, 'hex')
-  );
+  try {
+    const expectedToken = generateTicketToken(ticketId);
+    const tokenBuffer = Buffer.from(token, 'hex');
+    const expectedBuffer = Buffer.from(expectedToken, 'hex');
+
+    if (tokenBuffer.length !== expectedBuffer.length) {
+      return false;
+    }
+
+    return crypto.timingSafeEqual(tokenBuffer, expectedBuffer);
+  } catch (error) {
+    console.error('Token verification error:', error);
+    return false;
+  }
 }
 
 /**

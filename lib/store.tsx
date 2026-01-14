@@ -68,6 +68,8 @@ export interface Ticket {
     eventId: string;
     status: 'pending' | 'paid' | 'cancelled' | 'refunded';
     checkedIn: boolean;
+    checkedInAt?: string;
+    updatedAt?: string;
     createdAt: string;
     token?: string;
 }

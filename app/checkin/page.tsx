@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useApp } from '@/lib/store';
 import { useToast } from '@/components/Toaster';
 import QRScanner from '@/components/QRScanner';
+import { ScanLine, LogOut, Ticket, Lock, CheckCircle, XCircle } from 'lucide-react';
 
 export default function CheckinPage() {
   const { isAdminLoggedIn, loginAdmin, events, logoutAdmin } = useApp();
@@ -13,6 +14,7 @@ export default function CheckinPage() {
   const [scanResult, setScanResult] = useState<{ success: boolean; message: string; details?: any } | null>(null);
   const [manualCode, setManualCode] = useState('');
   const [recentCheckins, setRecentCheckins] = useState<any[]>([]);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,6 +27,9 @@ export default function CheckinPage() {
   };
 
   const handleScan = async (code: string) => {
+    if (isProcessing) return;
+    setIsProcessing(true);
+
     try {
       // Parse QR code - could be URL or JSON
       let ticketId, token;
@@ -69,7 +74,8 @@ export default function CheckinPage() {
           message: result.message || 'Check-in successful!',
           details: {
             name: result.ticket?.name,
-            event: event?.name || 'Event',
+            email: result.ticket?.email,
+            event: result.ticket?.event?.name || event?.name || 'Event',
             ticketId: result.ticket?.id,
           }
         });
@@ -77,7 +83,7 @@ export default function CheckinPage() {
         setRecentCheckins(prev => [{
           id: result.ticket?.id,
           name: result.ticket?.name,
-          event: event?.name || 'Event',
+          event: result.ticket?.event?.name || event?.name || 'Event',
           time: new Date().toLocaleTimeString()
         }, ...prev.slice(0, 4)]);
 
@@ -90,6 +96,8 @@ export default function CheckinPage() {
       console.error('Check-in error:', error);
       setScanResult({ success: false, message: 'Failed to verify ticket' });
       showToast('Failed to verify ticket', 'error');
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -108,9 +116,7 @@ export default function CheckinPage() {
         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-8 w-full max-w-md">
           <div className="text-center mb-8">
             <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-red-600 to-red-800 rounded-2xl mb-4">
-              <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-              </svg>
+              <Lock className="w-8 h-8 text-white" />
             </div>
             <h1 className="text-2xl font-bold text-white mb-2">Staff Check-In Portal</h1>
             <p className="text-zinc-400 text-sm">Admin login required</p>
@@ -142,19 +148,19 @@ export default function CheckinPage() {
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-gradient-to-br from-red-600 to-red-800 rounded-xl flex items-center justify-center">
-              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-              </svg>
+              <ScanLine className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-white">Check-In Portal</h1>
+              <h1 className="text-xl font-bold text-white">EventHub Check-In</h1>
               <p className="text-zinc-500 text-sm">Scan tickets to verify entry</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <a href="/admin" className="text-zinc-400 hover:text-white text-sm">Admin</a>
-            <button onClick={logoutAdmin} className="px-3 py-1.5 bg-zinc-800 text-zinc-300 rounded-lg hover:bg-zinc-700 text-sm">
-              Logout
+            <a href="/admin" className="text-zinc-400 hover:text-white text-sm flex items-center">
+              <Lock className="w-4 h-4 mr-1" /> Admin
+            </a>
+            <button onClick={logoutAdmin} className="flex items-center px-3 py-1.5 bg-zinc-800 text-zinc-300 rounded-lg hover:bg-zinc-700 text-sm">
+              Logout <LogOut className="w-4 h-4 ml-1" />
             </button>
           </div>
         </div>
@@ -189,13 +195,9 @@ export default function CheckinPage() {
               <div className={`p-6 rounded-2xl ${scanResult.success ? 'bg-green-900/30 border border-green-800' : 'bg-red-900/30 border border-red-800'}`}>
                 <div className="flex items-center gap-3 mb-3">
                   {scanResult.success ? (
-                    <svg className="w-8 h-8 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
+                    <CheckCircle className="w-8 h-8 text-green-400" />
                   ) : (
-                    <svg className="w-8 h-8 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
+                    <XCircle className="w-8 h-8 text-red-400" />
                   )}
                   <span className={`text-lg font-semibold ${scanResult.success ? 'text-green-400' : 'text-red-400'}`}>
                     {scanResult.message}
@@ -204,6 +206,9 @@ export default function CheckinPage() {
                 {scanResult.details && (
                   <div className="space-y-1 text-sm">
                     <p className="text-white"><span className="text-zinc-400">Name:</span> {scanResult.details.name}</p>
+                    {scanResult.details.email && (
+                      <p className="text-white"><span className="text-zinc-400">Email:</span> {scanResult.details.email}</p>
+                    )}
                     <p className="text-white"><span className="text-zinc-400">Event:</span> {scanResult.details.event}</p>
                   </div>
                 )}

@@ -1,10 +1,11 @@
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
-import { useApp, CATEGORY_COLORS } from '@/lib/store';
+import { useApp, CATEGORY_COLORS, type Event } from '@/lib/store';
 import { useToast } from '@/components/Toaster';
 import { useState, useEffect } from 'react';
 import EventPolls from '@/components/EventPolls';
+import { Calendar, MapPin, Share2, ArrowLeft, Clock, Users, Trophy, Map, ShieldCheck, Mail, Phone, ExternalLink, Ticket, Info } from 'lucide-react';
 
 // Countdown Timer Component
 function CountdownTimer({ targetDate }: { targetDate: string }) {
@@ -121,6 +122,49 @@ function FloatingParticles() {
     );
 }
 
+
+function SimilarEvents({ currentEvent }: { currentEvent: Event }) {
+    const { events } = useApp();
+    const router = useRouter();
+
+    const similarEvents = events
+        .filter(e => e.category === currentEvent.category && e.id !== currentEvent.id)
+        .slice(0, 3);
+
+    if (similarEvents.length === 0) return null;
+
+    return (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {similarEvents.map(event => (
+                <div key={event.id} onClick={() => router.push(`/event/${event.id}`)} className="cursor-pointer group">
+                    <div className="bg-zinc-900 rounded-xl overflow-hidden border border-zinc-800 hover:border-zinc-700 hover:transform hover:scale-[1.02] transition-all duration-300 h-full">
+                        <div className="h-40 relative">
+                            {event.imageUrl ? (
+                                <img src={event.imageUrl} alt={event.name} className="w-full h-full object-cover" />
+                            ) : (
+                                <div className="w-full h-full bg-zinc-800 flex items-center justify-center">
+                                    <span className="text-zinc-600">No Image</span>
+                                </div>
+                            )}
+                            <div className="absolute inset-0 bg-gradient-to-t from-zinc-900 to-transparent" />
+                            <div className="absolute top-3 right-3">
+                                <span className={`px-2 py-1 rounded-full text-xs font-medium backdrop-blur-md border ${CATEGORY_COLORS[event.category] || 'bg-zinc-800/80 border-zinc-700 text-zinc-300'}`}>
+                                    {event.category}
+                                </span>
+                            </div>
+                        </div>
+                        <div className="p-4">
+                            <h3 className="font-bold text-white mb-1 group-hover:text-red-500 transition-colors line-clamp-1">{event.name}</h3>
+                            <p className="text-sm text-zinc-400 mb-2">{new Date(event.date).toLocaleDateString()}</p>
+                            <p className="text-xs text-zinc-500 line-clamp-2">{event.description}</p>
+                        </div>
+                    </div>
+                </div>
+            ))}
+        </div>
+    );
+}
+
 export default function EventDetailsPage() {
     const params = useParams();
     const router = useRouter();
@@ -151,9 +195,7 @@ export default function EventDetailsPage() {
             <main className="min-h-screen bg-black flex items-center justify-center">
                 <div className="text-center glass rounded-2xl p-12">
                     <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-red-900/50 flex items-center justify-center">
-                        <svg className="w-10 h-10 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
+                        <Ticket className="w-10 h-10 text-red-500" />
                     </div>
                     <h1 className="text-2xl font-bold text-white mb-4">Event not found</h1>
                     <a href="/" className="inline-flex items-center gap-2 px-6 py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-colors">
@@ -229,26 +271,22 @@ export default function EventDetailsPage() {
         <main className="min-h-screen bg-black">
             {/* Floating Back Button */}
             <a href="/" className="fixed top-4 left-4 z-50 flex items-center gap-2 px-4 py-2 glass rounded-full text-zinc-300 hover:text-white transition-all hover-lift">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                </svg>
+                <ArrowLeft className="w-4 h-4" />
                 <span className="text-sm font-medium">Back</span>
             </a>
 
             {/* Floating Ticket CTA */}
             {mounted && (
-                <div className={`fixed bottom-6 right-6 z-50 transition-all duration-500 ${showFloatingCTA ? 'translate-y-0 opacity-100' : 'translate-y-20 opacity-0'}`}>
+                <div className={`fixed bottom-4 left-4 right-4 md:left-auto md:bottom-6 md:right-6 z-50 transition-all duration-500 ${showFloatingCTA ? 'translate-y-0 opacity-100' : 'translate-y-20 opacity-0'}`}>
                     <button
                         onClick={handleGetTickets}
                         disabled={isSoldOut}
-                        className={`flex items-center gap-3 px-6 py-4 rounded-2xl font-semibold shadow-2xl transition-all animate-float ${isSoldOut
+                        className={`w-full md:w-auto justify-center flex items-center gap-3 px-6 py-4 rounded-2xl font-semibold shadow-2xl transition-all animate-float ${isSoldOut
                             ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed'
                             : 'bg-gradient-to-r from-red-600 to-red-700 text-white glow-red hover:scale-105'
                             }`}
                     >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
-                        </svg>
+                        <Ticket className="w-5 h-5" />
                         {isSoldOut ? 'Sold Out' : `Get Tickets • ₹${(event.price / 100).toLocaleString()}`}
                     </button>
                 </div>
@@ -296,21 +334,15 @@ export default function EventDetailsPage() {
                         {/* Quick Info */}
                         <div className="flex flex-wrap items-center gap-4 md:gap-6 text-zinc-300 mb-8 animate-fade-in-up" style={{ opacity: 0, animationDelay: '0.3s' }}>
                             <span className="flex items-center gap-2 glass-light px-4 py-2 rounded-full">
-                                <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                </svg>
+                                <Calendar className="w-5 h-5 text-red-500" />
                                 {new Date(event.date).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}
                             </span>
                             <span className="flex items-center gap-2 glass-light px-4 py-2 rounded-full">
-                                <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
+                                <Clock className="w-5 h-5 text-red-500" />
                                 {event.startTime} - {event.endTime}
                             </span>
                             <span className="flex items-center gap-2 glass-light px-4 py-2 rounded-full">
-                                <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                                </svg>
+                                <MapPin className="w-5 h-5 text-red-500" />
                                 {event.venue}
                             </span>
                             {avgRating > 0 && (
@@ -325,7 +357,7 @@ export default function EventDetailsPage() {
                         {isUpcoming && (
                             <div className="animate-fade-in-up" style={{ opacity: 0, animationDelay: '0.4s' }}>
                                 <p className="text-zinc-400 text-sm mb-3 text-center md:text-left uppercase tracking-wider">Event Starts In</p>
-                                <CountdownTimer targetDate={`${event.date}T${event.startTime}`} />
+                                <CountdownTimer targetDate={`${typeof event.date === 'string' ? event.date.split('T')[0] : new Date(event.date).toISOString().split('T')[0]}T${event.startTime}`} />
                             </div>
                         )}
                     </div>
@@ -391,9 +423,7 @@ export default function EventDetailsPage() {
                                         {/* Date */}
                                         <div className="glass-light rounded-xl p-4 hover:bg-zinc-800/60 transition-colors">
                                             <div className="w-10 h-10 rounded-lg bg-red-600/20 flex items-center justify-center mb-2">
-                                                <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                                </svg>
+                                                <Calendar className="w-5 h-5 text-red-500" />
                                             </div>
                                             <p className="text-zinc-500 text-sm">Date</p>
                                             <p className="text-white font-medium">{new Date(event.date).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
@@ -402,9 +432,7 @@ export default function EventDetailsPage() {
                                         {/* Time */}
                                         <div className="glass-light rounded-xl p-4 hover:bg-zinc-800/60 transition-colors">
                                             <div className="w-10 h-10 rounded-lg bg-orange-600/20 flex items-center justify-center mb-2">
-                                                <svg className="w-5 h-5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                                </svg>
+                                                <Clock className="w-5 h-5 text-orange-500" />
                                             </div>
                                             <p className="text-zinc-500 text-sm">Time</p>
                                             <p className="text-white font-medium">{event.startTime} - {event.endTime}</p>
@@ -413,10 +441,7 @@ export default function EventDetailsPage() {
                                         {/* Venue */}
                                         <div className="glass-light rounded-xl p-4 hover:bg-zinc-800/60 transition-colors">
                                             <div className="w-10 h-10 rounded-lg bg-blue-600/20 flex items-center justify-center mb-2">
-                                                <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                                                </svg>
+                                                <MapPin className="w-5 h-5 text-blue-500" />
                                             </div>
                                             <p className="text-zinc-500 text-sm">Venue</p>
                                             <p className="text-white font-medium">{event.venue}</p>
@@ -425,9 +450,7 @@ export default function EventDetailsPage() {
                                         {/* Address */}
                                         <div className="glass-light rounded-xl p-4 hover:bg-zinc-800/60 transition-colors">
                                             <div className="w-10 h-10 rounded-lg bg-purple-600/20 flex items-center justify-center mb-2">
-                                                <svg className="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                                                </svg>
+                                                <Map className="w-5 h-5 text-purple-500" />
                                             </div>
                                             <p className="text-zinc-500 text-sm">Address</p>
                                             <p className="text-white font-medium">{event.address || 'To be announced'}</p>
@@ -437,9 +460,7 @@ export default function EventDetailsPage() {
                                         {event.organizer && (
                                             <div className="glass-light rounded-xl p-4 hover:bg-zinc-800/60 transition-colors">
                                                 <div className="w-10 h-10 rounded-lg bg-green-600/20 flex items-center justify-center mb-2">
-                                                    <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                                    </svg>
+                                                    <Users className="w-5 h-5 text-green-500" />
                                                 </div>
                                                 <p className="text-zinc-500 text-sm">Organizer</p>
                                                 <p className="text-white font-medium">{event.organizer}</p>
@@ -450,9 +471,7 @@ export default function EventDetailsPage() {
                                         {event.registrationDeadline && (
                                             <div className="glass-light rounded-xl p-4 hover:bg-zinc-800/60 transition-colors">
                                                 <div className="w-10 h-10 rounded-lg bg-yellow-600/20 flex items-center justify-center mb-2">
-                                                    <svg className="w-5 h-5 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                                    </svg>
+                                                    <Clock className="w-5 h-5 text-yellow-500" />
                                                 </div>
                                                 <p className="text-zinc-500 text-sm">Registration Deadline</p>
                                                 <p className="text-white font-medium">{new Date(event.registrationDeadline).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
@@ -467,9 +486,7 @@ export default function EventDetailsPage() {
                                         : 'bg-gradient-to-r from-yellow-900/40 to-orange-900/40 border border-yellow-700'
                                         }`}>
                                         <div className={`w-12 h-12 rounded-full flex items-center justify-center ${isSoldOut ? 'bg-red-600' : 'bg-yellow-600'}`}>
-                                            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                                            </svg>
+                                            <Ticket className="w-6 h-6 text-white" />
                                         </div>
                                         <div>
                                             <p className={`font-bold ${isSoldOut ? 'text-red-400' : 'text-yellow-400'}`}>
@@ -486,9 +503,7 @@ export default function EventDetailsPage() {
                                 <div className="grid sm:grid-cols-2 gap-4">
                                     <div className="glass rounded-2xl p-5 hover-lift">
                                         <h4 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
-                                            <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-                                            </svg>
+                                            <Share2 className="w-4 h-4 text-red-500" />
                                             Share Event
                                         </h4>
                                         <div className="flex gap-3">
@@ -508,9 +523,7 @@ export default function EventDetailsPage() {
                                                 </svg>
                                             </button>
                                             <button onClick={() => handleShare('copy')} className="flex-1 p-3 bg-zinc-700/50 rounded-xl hover:bg-zinc-600/50 transition-colors group">
-                                                <svg className="w-5 h-5 text-zinc-400 mx-auto group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                                                </svg>
+                                                <Share2 className="w-5 h-5 text-zinc-400 mx-auto group-hover:scale-110 transition-transform" />
                                             </button>
                                         </div>
                                     </div>
@@ -518,15 +531,62 @@ export default function EventDetailsPage() {
                                     {event.contactEmail && (
                                         <div className="glass rounded-2xl p-5 hover-lift">
                                             <h4 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
-                                                <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                                                </svg>
+                                                <Mail className="w-4 h-4 text-red-500" />
                                                 Contact Organizer
                                             </h4>
                                             <a href={`mailto:${event.contactEmail}`} className="text-red-400 hover:text-red-300 text-sm block truncate">{event.contactEmail}</a>
                                             {event.contactPhone && <p className="text-zinc-400 text-sm mt-1">{event.contactPhone}</p>}
                                         </div>
                                     )}
+                                </div>
+
+
+
+                                {/* Sponsors Showcase */}
+                                {event.sponsors && event.sponsors.length > 0 && (
+                                    <div className="mt-16 pt-10 border-t border-zinc-800/50">
+                                        <h2 className="text-xl font-bold text-white mb-8 text-center uppercase tracking-widest text-sm text-zinc-500">Supported By</h2>
+
+                                        {/* Gold Sponsors */}
+                                        {event.sponsors.some(s => s.tier === 'gold') && (
+                                            <div className="mb-8">
+                                                <div className="flex flex-wrap justify-center gap-6 items-center">
+                                                    {event.sponsors.filter(s => s.tier === 'gold').map(sponsor => (
+                                                        <a key={sponsor.id} href={sponsor.logoUrl || '#'} target="_blank" rel="noopener noreferrer" className="block transition-all hover:scale-110 hover:brightness-125">
+                                                            <div className="h-20 px-6 py-3 bg-gradient-to-br from-yellow-900/10 to-transparent rounded-xl border border-yellow-500/20 flex items-center justify-center min-w-[160px]">
+                                                                {sponsor.logoUrl ? (
+                                                                    <img src={sponsor.logoUrl} alt={sponsor.name} className="h-full max-h-12 object-contain filter drop-shadow-lg" />
+                                                                ) : (
+                                                                    <span className="text-yellow-500 font-bold text-lg tracking-wide">{sponsor.name}</span>
+                                                                )}
+                                                            </div>
+                                                        </a>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Silver & Bronze Sponsors */}
+                                        <div className="flex flex-wrap justify-center gap-4 items-center">
+                                            {event.sponsors.filter(s => s.tier !== 'gold').map(sponsor => (
+                                                <a key={sponsor.id} href={sponsor.logoUrl || '#'} target="_blank" rel="noopener noreferrer" className="block transition-all hover:scale-105">
+                                                    <div className={`h-14 px-5 py-2 rounded-lg border flex items-center justify-center min-w-[120px] ${sponsor.tier === 'silver' ? 'bg-zinc-800/30 border-zinc-400/20' : 'bg-orange-900/10 border-orange-700/20'}`}>
+                                                        {sponsor.logoUrl ? (
+                                                            <img src={sponsor.logoUrl} alt={sponsor.name} className="h-full max-h-8 object-contain opacity-70 hover:opacity-100 transition-opacity" />
+                                                        ) : (
+                                                            <span className={`font-medium text-sm ${sponsor.tier === 'silver' ? 'text-zinc-400' : 'text-orange-700'}`}>{sponsor.name}</span>
+                                                        )}
+                                                    </div>
+                                                </a>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* You Might Also Like */}
+                                <div className="mt-16 pt-10 border-t border-zinc-800">
+                                    <h2 className="text-xl font-bold text-white mb-6">You Might Also Like</h2>
+                                    <SimilarEvents currentEvent={event} />
                                 </div>
 
                                 {/* Add to Calendar */}
@@ -540,7 +600,17 @@ export default function EventDetailsPage() {
                                     <div className="grid grid-cols-2 gap-3">
                                         {/* Google Calendar */}
                                         <a
-                                            href={`https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(event.name)}&dates=${new Date(event.date + 'T' + event.startTime).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '')}/${new Date(event.date + 'T' + event.endTime).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '')}&details=${encodeURIComponent(event.description)}&location=${encodeURIComponent(event.venue + ', ' + (event.address || ''))}`}
+                                            href={`https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(event.name)}&dates=${(() => {
+                                                try {
+                                                    // Handle if event.date is full ISO string or YYYY-MM-DD
+                                                    const dateStr = typeof event.date === 'string' ? event.date.split('T')[0] : new Date(event.date).toISOString().split('T')[0];
+                                                    const start = new Date(`${dateStr}T${event.startTime}`).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+                                                    const end = new Date(`${dateStr}T${event.endTime}`).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+                                                    return `${start}/${end}`;
+                                                } catch (e) {
+                                                    return '';
+                                                }
+                                            })()}&details=${encodeURIComponent(event.description)}&location=${encodeURIComponent(event.venue + ', ' + (event.address || ''))}`}
                                             target="_blank"
                                             rel="noopener noreferrer"
                                             className="flex items-center gap-2 p-3 bg-zinc-800/50 rounded-xl hover:bg-zinc-700/50 transition-colors group"
@@ -554,8 +624,9 @@ export default function EventDetailsPage() {
                                         {/* Apple/iCal (.ics download) */}
                                         <button
                                             onClick={() => {
-                                                const startDate = new Date(event.date + 'T' + event.startTime);
-                                                const endDate = new Date(event.date + 'T' + event.endTime);
+                                                const dateStr = typeof event.date === 'string' ? event.date.split('T')[0] : new Date(event.date).toISOString().split('T')[0];
+                                                const startDate = new Date(`${dateStr}T${event.startTime}`);
+                                                const endDate = new Date(`${dateStr}T${event.endTime}`);
                                                 const formatICSDate = (date: Date) => date.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
 
                                                 const icsContent = `BEGIN:VCALENDAR
@@ -899,6 +970,37 @@ END:VCALENDAR`;
                                         <p className="text-zinc-500 text-xs">Join them at this event</p>
                                     </div>
                                 </div>
+                            </div>
+
+                            {/* Location Map (Sidebar) */}
+                            <div className="glass rounded-2xl p-5 mt-4">
+                                <h4 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
+                                    <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    </svg>
+                                    Location
+                                </h4>
+                                <div className="bg-zinc-900 rounded-xl overflow-hidden border border-zinc-800 h-[200px] relative group">
+                                    <iframe
+                                        width="100%"
+                                        height="100%"
+                                        frameBorder="0"
+                                        style={{ border: 0 }}
+                                        src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3889.5414704835985!2d77.57329667546749!3d12.8728655170345!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3bae6ab2ff6b8611%3A0x8417272c1b6f4d24!2sRV%20INSTITUTE%20OF%20TECHNOLOGY%20AND%20MANAGEMENT%20%C2%AE!5e0!3m2!1sen!2sin!4v1768385525008!5m2!1sen!2sin"
+                                        allowFullScreen
+                                        loading="lazy"
+                                        referrerPolicy="no-referrer-when-downgrade"
+                                        className="grayscale opacity-70 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-500"
+                                    />
+                                    <div className="absolute inset-0 pointer-events-none border-2 border-zinc-900/50 rounded-xl shadow-inner"></div>
+                                </div>
+                                <p className="mt-3 text-zinc-400 text-xs flex items-start gap-2">
+                                    <svg className="w-3 h-3 text-zinc-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                                    </svg>
+                                    <span>{event.venue}<br /><span className="text-zinc-500">{event.address}</span></span>
+                                </p>
                             </div>
                         </div>
                     </div>

@@ -10,8 +10,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Event Ticketing | Secure Check-In System",
-  description: "Secure event ticketing with QR code verification and instant check-in",
+  title: "EventHub | Secure Check-In System",
+  description: "Secure event ticketing with QR code verification and instant check-in. Powered by EventHub.",
   keywords: ["event", "ticketing", "check-in", "QR code", "tickets"],
   authors: [{ name: "Event Ticketing" }],
   openGraph: {

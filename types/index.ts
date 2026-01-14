@@ -32,5 +32,8 @@ export interface CheckInResponse {
     email: string | null;
     eventId: string;
     checkedIn: boolean;
+    event?: {
+      name: string;
+    };
   };
 }
