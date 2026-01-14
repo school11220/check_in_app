@@ -13,10 +13,19 @@ const FALLBACK_EVENTS: Record<string, { name: string; price: number }> = {
 // In-memory ticket storage
 const ticketOrders: Map<string, { ticketId: string; orderId: string; ticketIds?: string[] }> = new Map();
 
-const razorpay = new Razorpay({
-    key_id: process.env.RAZORPAY_KEY_ID || 'rzp_test_RgK3buVJzHnJJE',
-    key_secret: process.env.RAZORPAY_KEY_SECRET || 'jAg7lO4btIt6XeKd1YcRihtN',
-});
+// Validate Razorpay credentials on startup
+const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID;
+const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET;
+
+function getRazorpayInstance() {
+    if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
+        throw new Error('RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET must be set');
+    }
+    return new Razorpay({
+        key_id: RAZORPAY_KEY_ID,
+        key_secret: RAZORPAY_KEY_SECRET,
+    });
+}
 
 // Create a Razorpay order
 export async function POST(request: NextRequest) {
@@ -57,6 +66,7 @@ export async function POST(request: NextRequest) {
         console.log('Creating Razorpay order with amount:', orderAmount);
 
         // Create Razorpay order with the correct total amount
+        const razorpay = getRazorpayInstance();
         const order = await razorpay.orders.create({
             amount: orderAmount,
             currency: 'INR',
@@ -92,7 +102,7 @@ export async function POST(request: NextRequest) {
             orderId: order.id,
             amount: order.amount,
             currency: order.currency,
-            keyId: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || 'rzp_test_RgK3buVJzHnJJE',
+            keyId: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || RAZORPAY_KEY_ID,
             quantity: quantity || 1,
         });
     } catch (error) {

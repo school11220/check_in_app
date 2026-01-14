@@ -28,7 +28,11 @@ export async function POST(request: NextRequest) {
         console.log('Verifying payment for ticket:', ticketId);
 
         // Verify signature
-        const secret = process.env.RAZORPAY_KEY_SECRET || 'jAg7lO4btIt6XeKd1YcRihtN';
+        const secret = process.env.RAZORPAY_KEY_SECRET;
+        if (!secret) {
+            console.error('RAZORPAY_KEY_SECRET not configured');
+            return NextResponse.json({ error: 'Payment verification not configured' }, { status: 500 });
+        }
         const text = razorpay_order_id + '|' + razorpay_payment_id;
         const expectedSignature = crypto
             .createHmac('sha256', secret)
