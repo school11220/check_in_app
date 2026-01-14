@@ -6,7 +6,7 @@ import { useToast } from '@/components/Toaster';
 import QRScanner from '@/components/QRScanner';
 
 export default function CheckinPage() {
-  const { isAdminLoggedIn, loginAdmin, tickets, events, logoutAdmin } = useApp();
+  const { isAdminLoggedIn, loginAdmin, events, logoutAdmin } = useApp();
   const { showToast } = useToast();
 
   const [password, setPassword] = useState('');
@@ -26,64 +26,70 @@ export default function CheckinPage() {
 
   const handleScan = async (code: string) => {
     try {
-      // Parse QR code
+      // Parse QR code - could be URL or JSON
       let ticketId, token;
 
       try {
-        // Try JSON first
-        const data = JSON.parse(code);
-        ticketId = data.ticketId;
-        token = data.token;
+        // Check if it's a URL (e.g., http://localhost:3000/ticket/abc?token=xyz)
+        if (code.startsWith('http')) {
+          const url = new URL(code);
+          const pathParts = url.pathname.split('/');
+          ticketId = pathParts[pathParts.length - 1];
+          token = url.searchParams.get('token') || '';
+        } else {
+          // Try JSON first
+          const data = JSON.parse(code);
+          ticketId = data.ticketId;
+          token = data.token;
+        }
       } catch {
         // Fallback to legacy format: ticketId:token
         [ticketId, token] = code.split(':');
       }
 
-      if (!ticketId || !token) {
+      if (!ticketId) {
         setScanResult({ success: false, message: 'Invalid QR code format' });
+        showToast('Invalid QR code format', 'error');
         return;
       }
 
-      // Find ticket
-      const ticket = tickets.find(t => t.id === ticketId);
-
-      if (!ticket) {
-        setScanResult({ success: false, message: 'Ticket not found' });
-        return;
-      }
-
-      if (ticket.status !== 'paid') {
-        setScanResult({ success: false, message: 'Ticket not paid' });
-        return;
-      }
-
-      if (ticket.checkedIn) {
-        setScanResult({ success: false, message: 'Already checked in!' });
-        return;
-      }
-
-      // Success - in real app would update database
-      const event = events.find(e => e.id === ticket.eventId);
-      setScanResult({
-        success: true,
-        message: 'Check-in successful!',
-        details: {
-          name: ticket.name,
-          event: event?.name,
-          ticketId: ticket.id,
-        }
+      // Call the check-in API
+      const response = await fetch('/api/checkin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ticketId, token }),
       });
 
-      setRecentCheckins(prev => [{
-        id: ticket.id,
-        name: ticket.name,
-        event: event?.name,
-        time: new Date().toLocaleTimeString()
-      }, ...prev.slice(0, 4)]);
+      const result = await response.json();
 
-      showToast(`Welcome, ${ticket.name}!`, 'success');
+      if (result.success) {
+        const event = events.find(e => e.id === result.ticket?.eventId);
+        setScanResult({
+          success: true,
+          message: result.message || 'Check-in successful!',
+          details: {
+            name: result.ticket?.name,
+            event: event?.name || 'Event',
+            ticketId: result.ticket?.id,
+          }
+        });
+
+        setRecentCheckins(prev => [{
+          id: result.ticket?.id,
+          name: result.ticket?.name,
+          event: event?.name || 'Event',
+          time: new Date().toLocaleTimeString()
+        }, ...prev.slice(0, 4)]);
+
+        showToast(`Welcome, ${result.ticket?.name}!`, 'success');
+      } else {
+        setScanResult({ success: false, message: result.message || 'Check-in failed' });
+        showToast(result.message || 'Check-in failed', 'error');
+      }
     } catch (error) {
+      console.error('Check-in error:', error);
       setScanResult({ success: false, message: 'Failed to verify ticket' });
+      showToast('Failed to verify ticket', 'error');
     }
   };
 
