@@ -196,14 +196,12 @@ export default function QRScanner({
   };
 
   return (
-    <div className="space-y-4">
+    <div className="relative w-full h-full">
       {/* Video Preview */}
-      <div className={`relative bg-zinc-950 rounded-xl overflow-hidden shadow-2xl border-2 transition-colors duration-300 ${scanSuccess ? 'border-green-500' : 'border-zinc-800'
-        }`}>
+      <div className={`absolute inset-0 bg-zinc-950 transition-colors duration-300 ${scanSuccess ? 'ring-2 ring-inset ring-green-500' : ''}`}>
         <video
           ref={videoRef}
-          className="w-full h-80 object-cover"
-          style={{ maxWidth: '100%' }}
+          className="w-full h-full object-cover"
           playsInline
           muted
         />
@@ -236,27 +234,7 @@ export default function QRScanner({
           </div>
         )}
 
-        {/* Scanning Frame */}
-        {isScanning && !scanSuccess && (
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="relative w-64 h-64">
-              {/* Animated corner borders */}
-              <div className="absolute top-0 left-0 w-10 h-10 border-t-4 border-l-4 border-red-500 animate-pulse"></div>
-              <div className="absolute top-0 right-0 w-10 h-10 border-t-4 border-r-4 border-red-500 animate-pulse"></div>
-              <div className="absolute bottom-0 left-0 w-10 h-10 border-b-4 border-l-4 border-red-500 animate-pulse"></div>
-              <div className="absolute bottom-0 right-0 w-10 h-10 border-b-4 border-r-4 border-red-500 animate-pulse"></div>
-
-              {/* Scanning line animation */}
-              <div className="absolute top-0 left-4 right-4 h-0.5 bg-gradient-to-r from-transparent via-red-500 to-transparent animate-scan"></div>
-
-              {/* Center crosshair */}
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8">
-                <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-red-500/50"></div>
-                <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-red-500/50"></div>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Scanning Frame - Removed to avoid duplication with parent component */}
 
         {/* Success Overlay */}
         {scanSuccess && (
@@ -279,8 +257,8 @@ export default function QRScanner({
             <button
               onClick={toggleFlashlight}
               className={`p-3 rounded-full transition-colors shadow-lg ${flashlightOn
-                  ? 'bg-yellow-500 text-black'
-                  : 'bg-zinc-800/80 text-white hover:bg-zinc-700'
+                ? 'bg-yellow-500 text-black'
+                : 'bg-zinc-800/80 text-white hover:bg-zinc-700'
                 }`}
               title={flashlightOn ? 'Turn off flashlight' : 'Turn on flashlight'}
             >
@@ -321,15 +299,6 @@ export default function QRScanner({
         </div>
       )}
 
-      {/* Instructions */}
-      <div className="bg-zinc-800/50 border border-zinc-700 rounded-lg p-3">
-        <p className="text-sm text-zinc-400 text-center flex items-center justify-center gap-2">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          Position the QR code within the frame • Auto-scans when detected
-        </p>
-      </div>
     </div>
   );
 }

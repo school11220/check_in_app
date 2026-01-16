@@ -77,17 +77,17 @@ export default function Home() {
       <div className="flex-1">
         {/* Hero - Conditionally rendered based on siteSettings */}
         {siteSettings.showHero && (
-          <section className="relative py-20 px-4 overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-br from-red-900/20 via-transparent to-transparent" />
-            <div className="max-w-4xl mx-auto text-center relative">
-              <div className="inline-flex items-center gap-2 bg-red-900/30 text-red-400 px-4 py-2 rounded-full text-sm font-medium mb-6">
+          <section className="relative py-20 px-4 overflow-hidden animate-fade-in-up">
+            <div className="absolute inset-0 bg-gradient-to-br from-red-900/10 via-transparent to-transparent pointer-events-none" />
+            <div className="max-w-4xl mx-auto text-center relative z-10">
+              <div className="inline-flex items-center gap-2 bg-red-900/20 border border-red-900/30 text-red-400 px-4 py-2 rounded-full text-sm font-medium mb-6 backdrop-blur-sm">
                 <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
                 Live Events
               </div>
-              <h1 className="text-5xl md:text-7xl font-bold text-white mb-6 tracking-tight">
+              <h1 className="text-4xl md:text-7xl font-bold text-white mb-6 tracking-tight drop-shadow-lg">
                 {siteSettings.heroTitle}
               </h1>
-              <p className="text-xl text-zinc-400 max-w-2xl mx-auto">
+              <p className="text-lg md:text-xl text-zinc-400 max-w-2xl mx-auto leading-relaxed">
                 {siteSettings.heroSubtitle}
               </p>
             </div>
@@ -96,16 +96,16 @@ export default function Home() {
 
         {/* Category Filter - Conditionally rendered */}
         {siteSettings.showCategories && (
-          <section className="px-4 py-4">
+          <section className="px-4 py-6 sticky top-0 z-40 backdrop-blur-md bg-black/20 mask-image-b">
             <div className="max-w-7xl mx-auto">
-              <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+              <div className="flex gap-3 overflow-x-auto pb-4 pt-2 scrollbar-hide snap-x">
                 {categories.map(cat => (
                   <button
                     key={cat}
                     onClick={() => setSelectedCategory(cat)}
-                    className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${selectedCategory === cat
-                      ? 'bg-red-600 text-white'
-                      : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
+                    className={`px-6 py-2.5 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-300 snap-center border ${selectedCategory === cat
+                      ? 'bg-red-600/90 text-white border-red-500 shadow-[0_0_20px_rgba(220,38,38,0.4)]'
+                      : 'bg-zinc-900/50 text-zinc-400 border-zinc-800 hover:bg-zinc-800 hover:border-zinc-700'
                       }`}
                   >
                     {cat.charAt(0).toUpperCase() + cat.slice(1)}
@@ -118,10 +118,10 @@ export default function Home() {
 
         {/* Events Grid - Conditionally rendered */}
         {siteSettings.showEventsGrid && (
-          <section className="px-4 pb-12">
+          <section className="px-4 pb-24">
             <div className="max-w-7xl mx-auto">
-              <div className={`grid grid-cols-1 md:grid-cols-2 ${gridColsClass} gap-6`}>
-                {filteredEvents.slice(0, siteSettings.eventsPerPage || 12).map(event => {
+              <div className={`grid grid-cols-1 md:grid-cols-2 ${gridColsClass} gap-6 md:gap-8`}>
+                {filteredEvents.slice(0, siteSettings.eventsPerPage || 12).map((event, index) => {
                   const categoryStyle = CATEGORY_COLORS[event.category] || CATEGORY_COLORS.other;
                   const isSoldOut = event.soldCount >= event.capacity;
                   const capacityPercent = Math.round((event.soldCount / event.capacity) * 100);
@@ -130,7 +130,8 @@ export default function Home() {
                     <a
                       key={event.id}
                       href={`/event/${event.id}`}
-                      className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden hover:border-red-900/50 transition-all group"
+                      className="glass-card rounded-3xl overflow-hidden hover:border-red-500/30 transition-all duration-500 group relative hover:-translate-y-2"
+                      style={{ animationDelay: `${index * 100}ms` }}
                     >
                       <div className="relative h-48 overflow-hidden">
                         <img

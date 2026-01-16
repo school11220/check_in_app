@@ -15,6 +15,8 @@ interface Event {
   earlyBirdEnabled?: boolean;
   earlyBirdPrice?: number;
   earlyBirdDeadline?: string;
+  // Dynamic Pricing
+  currentPrice?: number;
 }
 
 declare global {
@@ -70,11 +72,19 @@ export default function TicketForm() {
   // Calculate total price
   const calculateTotalPrice = () => {
     if (!selectedEventData) return 0;
-    const pricePerTicket = (selectedEventData.earlyBirdEnabled &&
+
+    // Check Early Bird first (override dynamic)
+    if (selectedEventData.earlyBirdEnabled &&
       selectedEventData.earlyBirdDeadline &&
-      new Date(selectedEventData.earlyBirdDeadline) > new Date())
-      ? (selectedEventData.earlyBirdPrice || selectedEventData.price)
+      new Date(selectedEventData.earlyBirdDeadline) > new Date()) {
+      return (selectedEventData.earlyBirdPrice || selectedEventData.price) * quantity;
+    }
+
+    // Use Dynamic Price if available, else Base Price
+    const pricePerTicket = selectedEventData.currentPrice !== undefined
+      ? selectedEventData.currentPrice
       : selectedEventData.price;
+
     return pricePerTicket * quantity;
   };
 
@@ -165,15 +175,15 @@ export default function TicketForm() {
           quantity,
           attendees: attendees.map(a => ({
             name: a.name,
-            email: a.email || formData.email, // Use primary email as fallback
-            phone: a.phone || formData.phone, // Use primary phone as fallback
+            email: a.email || formData.email,
+            phone: a.phone || formData.phone,
           })),
-          // Primary purchaser info (first attendee)
           name: attendees[0].name,
           email: attendees[0].email || formData.email,
           phone: attendees[0].phone || formData.phone,
         }),
       });
+
 
       if (!ticketRes.ok) {
         const errorText = await ticketRes.text();
@@ -270,7 +280,13 @@ export default function TicketForm() {
       const razorpay = new window.Razorpay(options);
       razorpay.open();
     } catch (err: any) {
-      showToast(err.message || 'An error occurred', 'error');
+      console.error('Ticket purchase error:', err);
+      // Check for fetch/network errors
+      if (err.message && (err.message.includes('fetch') || err.message.includes('Network'))) {
+        showToast('Connection to server failed. Please try again.', 'error');
+      } else {
+        showToast(err.message || 'An error occurred', 'error');
+      }
     } finally {
       setLoading(false);
     }
@@ -278,9 +294,9 @@ export default function TicketForm() {
 
   return (
     <div className="w-full max-w-2xl mx-auto">
-      <div className="bg-zinc-900 rounded-2xl shadow-2xl overflow-hidden border border-zinc-800">
+      <div className="glass-card rounded-2xl shadow-2xl overflow-hidden border border-zinc-800/50">
         {/* Card Header */}
-        <div className="bg-gradient-to-r from-red-700 to-red-900 px-8 py-6">
+        <div className="bg-gradient-to-r from-red-600/80 to-red-900/80 px-8 py-6 backdrop-blur-sm">
           <h2 className="text-2xl font-bold text-white">Event Registration</h2>
           <p className="text-red-200 text-sm mt-1">Select your event and complete registration</p>
         </div>

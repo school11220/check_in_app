@@ -2,13 +2,25 @@ import nodemailer from 'nodemailer';
 
 // Create Brevo SMTP transporter
 // Your API key format (xsmtpsib-...) is an SMTP key, so we use nodemailer
-function createBrevoTransporter() {
+// Create SMTP transporter (Supports Gmail & Brevo)
+function createTransporter() {
+    // If using Gmail, we can use the 'gmail' service which automatically configures host/port
+    if (process.env.SMTP_SERVICE === 'gmail' || process.env.BREVO_SMTP_LOGIN?.includes('gmail')) {
+        return nodemailer.createTransport({
+            service: 'gmail',
+            auth: {
+                user: process.env.BREVO_SMTP_LOGIN, // Your Gmail address
+                pass: process.env.BREVO_API_KEY,    // Your Gmail App Password
+            },
+        });
+    }
+
+    // Default to Brevo/Standard SMTP
     return nodemailer.createTransport({
-        host: 'smtp-relay.brevo.com',
-        port: 587,
+        host: process.env.SMTP_HOST || 'smtp-relay.brevo.com',
+        port: Number(process.env.SMTP_PORT) || 587,
         secure: false, // true for 465, false for other ports
         auth: {
-            // Brevo SMTP requires their SMTP login email, not the sender email
             user: process.env.BREVO_SMTP_LOGIN || '',
             pass: process.env.BREVO_API_KEY || '',
         },
@@ -37,7 +49,7 @@ export interface SendEmailOptions {
 export async function sendTransactionalEmail(
     options: SendEmailOptions
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
-    const transporter = createBrevoTransporter();
+    const transporter = createTransporter();
 
     const senderEmail = process.env.BREVO_SENDER_EMAIL || 'noreply@eventhub.com';
     const senderName = process.env.BREVO_SENDER_NAME || 'EventHub';

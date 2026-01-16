@@ -137,7 +137,7 @@ function SimilarEvents({ currentEvent }: { currentEvent: Event }) {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {similarEvents.map(event => (
                 <div key={event.id} onClick={() => router.push(`/event/${event.id}`)} className="cursor-pointer group">
-                    <div className="bg-zinc-900 rounded-xl overflow-hidden border border-zinc-800 hover:border-zinc-700 hover:transform hover:scale-[1.02] transition-all duration-300 h-full">
+                    <div className="glass-card rounded-xl overflow-hidden hover:border-red-500/30 hover:transform hover:scale-[1.02] transition-all duration-300 h-full">
                         <div className="h-40 relative">
                             {event.imageUrl ? (
                                 <img src={event.imageUrl} alt={event.name} className="w-full h-full object-cover" />

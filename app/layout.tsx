@@ -28,7 +28,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark">
-      <body className={`${inter.variable} antialiased bg-black`}>
+      <body className={`${inter.variable} antialiased bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-zinc-900 via-[#050505] to-black min-h-screen selection:bg-red-500/30`}>
         <AppProvider>
           <ToastProvider>
             {children}

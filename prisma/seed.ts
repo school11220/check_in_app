@@ -1,77 +1,63 @@
+
 import { PrismaClient } from '@prisma/client';
+import * as bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
 async function main() {
-    console.log('Seeding events...');
+    console.log('Seeding database...');
 
-    // Create sample events
-    const events = await Promise.all([
-        prisma.event.upsert({
-            where: { id: 'event-1' },
-            update: {},
-            create: {
-                id: 'event-1',
-                name: 'Tech Conference 2025',
-                description: 'Annual technology conference featuring industry leaders and innovative workshops',
-                date: new Date('2025-02-15T09:00:00Z'),
-                venue: 'Convention Center, Bangalore',
-                price: 50000, // ₹500
-                isActive: true,
-            },
-        }),
-        prisma.event.upsert({
-            where: { id: 'event-2' },
-            update: {},
-            create: {
-                id: 'event-2',
-                name: 'Music Festival Night',
-                description: 'Live performances by top artists with food and entertainment',
-                date: new Date('2025-01-25T18:00:00Z'),
-                venue: 'Stadium Ground, Mumbai',
-                price: 200000, // ₹2000
-                isActive: true,
-            },
-        }),
-        prisma.event.upsert({
-            where: { id: 'event-3' },
-            update: {},
-            create: {
-                id: 'event-3',
-                name: 'Startup Meetup',
-                description: 'Network with founders and investors in the startup ecosystem',
-                date: new Date('2025-01-20T16:00:00Z'),
-                venue: 'WeWork, Delhi',
-                price: 20000, // ₹200
-                isActive: true,
-            },
-        }),
-        prisma.event.upsert({
-            where: { id: 'event-4' },
-            update: {},
-            create: {
-                id: 'event-4',
-                name: 'Art Exhibition Opening',
-                description: 'Exclusive preview of contemporary art collection',
-                date: new Date('2025-02-01T17:00:00Z'),
-                venue: 'Art Gallery, Chennai',
-                price: 30000, // ₹300
-                isActive: true,
-            },
-        }),
-    ]);
-
-    console.log(`Created ${events.length} events:`);
-    events.forEach((event) => {
-        console.log(`  - ${event.name} (₹${event.price / 100})`);
+    // Create or update Demo Admin
+    const adminPassword = await bcrypt.hash('demo123', 10);
+    const admin = await prisma.user.upsert({
+        where: { email: 'demo@eventhub.com' },
+        update: { password: adminPassword, role: 'ADMIN' },
+        create: {
+            email: 'demo@eventhub.com',
+            name: 'Demo Admin',
+            password: adminPassword,
+            role: 'ADMIN',
+        },
     });
+    console.log({ admin });
+
+    // Create default events if none exist
+    const existingEvents = await prisma.event.count();
+    if (existingEvents === 0) {
+        await prisma.event.create({
+            data: {
+                name: "Tech Conference 2025",
+                description: "The biggest tech conference of the year.",
+                date: new Date('2025-06-15'),
+                venue: "Convention Center, Tech City",
+                price: 50000,
+                category: "tech",
+                capacity: 500,
+                soldCount: 0,
+                isActive: true,
+                isFeatured: true,
+                imageUrl: "https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&q=80",
+                organizer: "TechHub",
+                contactEmail: "info@techhub.com",
+                contactPhone: "+1234567890",
+                termsAndConditions: "No refunds.",
+                registrationDeadline: new Date('2025-06-14').toISOString(),
+                earlyBirdEnabled: true,
+                earlyBirdPrice: 40000,
+                earlyBirdDeadline: new Date('2025-05-01').toISOString(),
+                sendReminders: true,
+            }
+        });
+        console.log('Seeded default event.');
+    }
 }
 
 main()
-    .catch((e) => {
-        console.error(e);
-        process.exit(1);
-    })
-    .finally(async () => {
+    .then(async () => {
         await prisma.$disconnect();
+    })
+    .catch(async (e) => {
+        console.error(e);
+        await prisma.$disconnect();
+        process.exit(1);
     });

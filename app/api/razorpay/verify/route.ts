@@ -48,23 +48,64 @@ export async function POST(request: NextRequest) {
         const token = generateToken(ticketId);
         console.log('Generated token for ticket:', ticketId);
 
-        // Try to update in database
+        // Try to update or create in database
         let amountPaid = 0;
+        let ticketData = null;
         try {
-            const updatedTicket = await prisma.ticket.update({
+            // First try to find the ticket
+            const existingTicket = await prisma.ticket.findUnique({
                 where: { id: ticketId },
-                data: {
-                    status: 'paid',
-                    razorpayPaymentId: razorpay_payment_id,
-                    razorpayOrderId: razorpay_order_id,
-                    token: token,
-                },
                 include: { event: true },
             });
-            amountPaid = updatedTicket.event?.price || 0;
-            console.log('Ticket updated in database:', ticketId);
+
+            if (existingTicket) {
+                // Update existing ticket
+                ticketData = await prisma.ticket.update({
+                    where: { id: ticketId },
+                    data: {
+                        status: 'paid',
+                        razorpayPaymentId: razorpay_payment_id,
+                        razorpayOrderId: razorpay_order_id,
+                        token: token,
+                    },
+                    include: { event: true },
+                });
+                amountPaid = ticketData.event?.price || 0;
+                console.log('Ticket updated in database:', ticketId);
+            } else {
+                // Ticket doesn't exist in DB - check in-memory and create in DB
+                const memoryTicket = ticketStorage.get(ticketId);
+                if (memoryTicket) {
+                    // Get event from database
+                    const event = await prisma.event.findUnique({
+                        where: { id: memoryTicket.eventId },
+                    });
+
+                    // Create the ticket in database
+                    ticketData = await prisma.ticket.create({
+                        data: {
+                            id: ticketId,
+                            name: memoryTicket.name || name || 'Guest',
+                            email: memoryTicket.email || email,
+                            phone: memoryTicket.phone || null,
+                            eventId: memoryTicket.eventId,
+                            status: 'paid',
+                            razorpayPaymentId: razorpay_payment_id,
+                            razorpayOrderId: razorpay_order_id,
+                            token: token,
+                        },
+                        include: { event: true },
+                    });
+                    amountPaid = ticketData.event?.price || 0;
+                    console.log('Ticket created in database from memory:', ticketId);
+                    // Clean up memory storage
+                    ticketStorage.delete(ticketId);
+                } else {
+                    console.error('Ticket not found anywhere:', ticketId);
+                }
+            }
         } catch (e) {
-            console.log('Database not available, updating in-memory storage');
+            console.log('Database operation failed, updating in-memory storage:', e);
             // Update in shared memory storage
             const existingTicket = ticketStorage.get(ticketId);
             if (existingTicket) {

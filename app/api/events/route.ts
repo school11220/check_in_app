@@ -1,15 +1,21 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { calculateDynamicPrice } from '@/lib/pricing';
 
 export async function GET() {
     try {
         const events = await prisma.event.findMany({
+            include: { pricingRules: true },
             orderBy: { date: 'asc' },
         });
 
-        // Parse JSON fields before returning since they come as objects/arrays from Prisma but we want to ensure type safety if needed?
-        // Actually next/server json response handles generic JSON objects fine.
-        return NextResponse.json(events);
+        // Calculate dynamic price for each event
+        const eventsWithPrice = events.map(event => ({
+            ...event,
+            currentPrice: calculateDynamicPrice(event as any)
+        }));
+
+        return NextResponse.json(eventsWithPrice);
     } catch (error) {
         console.error('Failed to fetch events:', error);
         return NextResponse.json({ error: 'Failed to fetch events' }, { status: 500 });
@@ -18,13 +24,28 @@ export async function GET() {
 
 export async function POST(request: Request) {
     try {
-        const body = await request.json();
+        // Remove ID if present to ensure DB generates it
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { id, ...rest } = await request.json();
+
+        // Validate required fields
+        if (!rest.name || !rest.date) {
+            return NextResponse.json({ error: 'Name and date are required' }, { status: 400 });
+        }
+
         const event = await prisma.event.create({
             data: {
-                ...body,
-                date: new Date(body.date),
+                ...rest,
+                date: new Date(rest.date),
             },
         });
+
+        // Validate that event was created with an ID
+        if (!event || !event.id) {
+            console.error('Event creation returned invalid data:', event);
+            return NextResponse.json({ error: 'Failed to create event - invalid response' }, { status: 500 });
+        }
+
         return NextResponse.json(event);
     } catch (error) {
         console.error('Failed to create event:', error);

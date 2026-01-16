@@ -61,40 +61,22 @@ export async function POST(req: NextRequest) {
     // Create tickets for all attendees
     const ticketIds: string[] = [];
 
+    // Transactional creation (or simple loop with error bubbling)
     for (let i = 0; i < attendees.length; i++) {
       const attendee = attendees[i];
-      let ticketId: string;
 
-      try {
-        const ticket = await prisma.ticket.create({
-          data: {
-            name: attendee.name,
-            email: attendee.email || body.email || null,
-            phone: attendee.phone || body.phone || null,
-            eventId: body.eventId,
-            status: 'pending',
-          },
-        });
-        ticketId = ticket.id;
-        console.log(`Ticket ${i + 1}/${attendees.length} created in database:`, ticketId);
-      } catch (e) {
-        // Fallback to in-memory storage
-        ticketId = `ticket-${Date.now()}-${i}-${Math.random().toString(36).substring(7)}`;
-        ticketStorage.set(ticketId, {
-          id: ticketId,
+      const ticket = await prisma.ticket.create({
+        data: {
           name: attendee.name,
           email: attendee.email || body.email || null,
           phone: attendee.phone || body.phone || null,
           eventId: body.eventId,
           status: 'pending',
-          token: null,
-          checkedIn: false,
-          createdAt: new Date(),
-        });
-        console.log(`Ticket ${i + 1}/${attendees.length} created in memory:`, ticketId);
-      }
+        },
+      });
 
-      ticketIds.push(ticketId);
+      console.log(`Ticket ${i + 1}/${attendees.length} created in database:`, ticket.id);
+      ticketIds.push(ticket.id);
     }
 
     return NextResponse.json({

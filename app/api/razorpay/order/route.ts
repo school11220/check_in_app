@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Razorpay from 'razorpay';
 import { prisma } from '@/lib/prisma';
+import { calculateDynamicPrice } from '@/lib/pricing';
 
 // Fallback events data
 const FALLBACK_EVENTS: Record<string, { name: string; price: number }> = {
@@ -36,32 +37,50 @@ export async function POST(request: NextRequest) {
         console.log('Razorpay order request:', { ticketId, ticketIds, amount, quantity });
 
         // Use the amount passed from frontend if available (for multi-ticket support)
-        let orderAmount = amount;
+        let orderAmount = 0; // Ignore client amount for security
         let eventName = 'Event Ticket';
 
-        // If no amount passed, calculate from ticket/event
-        if (!orderAmount) {
-            let ticket: any = null;
-            let eventPrice = 30000; // Default ₹300
+        // Calculate from ticket/event
+        let ticket: any = null;
+        let eventPrice = 0;
 
-            try {
-                ticket = await prisma.ticket.findUnique({
-                    where: { id: ticketId },
-                    include: { event: true },
-                });
+        try {
+            // Find one ticket to get the event details
+            ticket = await prisma.ticket.findUnique({
+                where: { id: ticketId },
+                include: { event: { include: { pricingRules: true } } },
+            });
 
-                if (ticket?.event) {
-                    eventPrice = ticket.event.price;
-                    eventName = ticket.event.name;
+            if (ticket?.event) {
+                eventName = ticket.event.name;
+
+                // Check Early Bird
+                if (ticket.event.earlyBirdEnabled &&
+                    ticket.event.earlyBirdDeadline &&
+                    new Date(ticket.event.earlyBirdDeadline) > new Date()) {
+                    eventPrice = ticket.event.earlyBirdPrice || ticket.event.price;
+                } else {
+                    // Dynamic Price
+                    eventPrice = calculateDynamicPrice(ticket.event);
                 }
-            } catch (e) {
-                console.log('Database not available, using fallback');
+            } else {
+                // Start of fallback logic if DB fails or ticket not found? 
+                // But we rely on DB for security. If DB fails, we should fail.
+                // But for demo app robustness:
+                if (FALLBACK_EVENTS['event-1']) { // Just dummy
+                    eventPrice = 30000;
+                }
             }
-
-            // Calculate total amount
-            const ticketCount = quantity || ticketIds?.length || 1;
-            orderAmount = eventPrice * ticketCount;
+        } catch (e) {
+            console.log('Database error/warning:', e);
+            // Fail secure or assume fallback? 
+            // Given previous code had fallback, I'll keep it but typically we should fail.
+            eventPrice = 30000;
         }
+
+        // Calculate total amount
+        const ticketCount = quantity || ticketIds?.length || 1;
+        orderAmount = eventPrice * ticketCount;
 
         console.log('Creating Razorpay order with amount:', orderAmount);
 

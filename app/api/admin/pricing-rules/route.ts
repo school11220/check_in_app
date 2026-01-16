@@ -1,0 +1,44 @@
+import { NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
+import { getSession } from '@/lib/auth';
+
+export async function GET() {
+    const session = await getSession();
+    if (!session || (session.user.role !== 'ADMIN' && session.user.role !== 'ORGANIZER')) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const rules = await prisma.pricingRule.findMany({
+        include: { event: { select: { name: true } } },
+        orderBy: { createdAt: 'desc' },
+    });
+
+    return NextResponse.json(rules);
+}
+
+export async function POST(request: Request) {
+    const session = await getSession();
+    if (!session || (session.user.role !== 'ADMIN' && session.user.role !== 'ORGANIZER')) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    try {
+        const body = await request.json();
+        const { eventId, triggerType, triggerValue, adjustmentType, adjustmentValue } = body;
+
+        const rule = await prisma.pricingRule.create({
+            data: {
+                eventId,
+                triggerType, // TIME_BASED, DEMAND_BASED
+                triggerValue: Number(triggerValue),
+                adjustmentType, // PERCENTAGE, FIXED
+                adjustmentValue: Number(adjustmentValue),
+                active: true,
+            },
+        });
+
+        return NextResponse.json(rule);
+    } catch (error) {
+        return NextResponse.json({ error: 'Failed to create rule' }, { status: 500 });
+    }
+}

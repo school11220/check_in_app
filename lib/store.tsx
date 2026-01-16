@@ -58,6 +58,8 @@ export interface Event {
     earlyBirdDeadline: string;
     // Event Reminders
     sendReminders: boolean;
+    // Dynamic Pricing
+    currentPrice?: number;
 }
 
 export interface Ticket {
@@ -421,7 +423,7 @@ interface AppContextType {
     waitlist: WaitlistEntry[];
     isAdminLoggedIn: boolean;
     setEvents: (events: Event[]) => void;
-    addEvent: (event: Event) => void;
+    addEvent: (event: Event) => Promise<boolean>;
     updateEvent: (id: string, data: Partial<Event>) => void;
     deleteEvent: (id: string) => void;
     duplicateEvent: (id: string) => void;
@@ -561,7 +563,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         fetchReviews();
     }, []);
 
-    const addEvent = async (event: Event) => {
+    const addEvent = async (event: Event): Promise<boolean> => {
         try {
             const res = await fetch('/api/events', {
                 method: 'POST',
@@ -571,9 +573,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
             if (res.ok) {
                 const newEvent = await res.json();
                 setEvents(prev => [newEvent, ...prev]);
+                return true;
+            } else {
+                const errorData = await res.json().catch(() => ({}));
+                console.error('Failed to add event:', errorData);
+                return false;
             }
         } catch (error) {
             console.error('Failed to add event', error);
+            return false;
         }
     };
 

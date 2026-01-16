@@ -4,52 +4,44 @@ declare global {
   var prisma: PrismaClient | undefined;
 }
 
-// Create a mock prisma client for when database is not connected
-const createMockPrismaClient = (): any => {
-  const mockEvent = {
-    findMany: async () => [],
-    findUnique: async () => null,
-    create: async () => null,
-    update: async () => null,
-    upsert: async () => null,
-  };
+// Lazy initialization - Prisma client is only created when first accessed
+// This prevents errors during Next.js build when env vars might not be available
+const prismaClientSingleton = () => {
+  const url = process.env.POSTGRES_PRISMA_URL || process.env.DATABASE_URL;
 
-  const mockTicket = {
-    findMany: async () => [],
-    findUnique: async () => null,
-    create: async (args: any) => ({
-      id: `ticket-${Date.now()}`,
-      ...args.data,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    }),
-    update: async (args: any) => args.data,
-  };
+  if (!url) {
+    console.error('WARNING: No database URL found. Database operations will fail.');
+    // Return a PrismaClient anyway - it will fail on actual queries
+    // This allows the build to succeed but runtime queries will error
+  }
 
-  return {
-    event: mockEvent,
-    ticket: mockTicket,
-    $connect: async () => { },
-    $disconnect: async () => { },
-  };
+  return new PrismaClient({
+    log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
+  });
 };
 
-// Try to create real PrismaClient, fall back to mock if DB not available
-let prismaInstance: PrismaClient | ReturnType<typeof createMockPrismaClient>;
+// Use global in development to prevent multiple instances due to hot reload
+// In production, create a new instance
+let prismaInstance: PrismaClient | undefined;
 
-try {
-  if (!process.env.POSTGRES_PRISMA_URL) {
-    console.warn('POSTGRES_PRISMA_URL not set, using mock database');
-    prismaInstance = createMockPrismaClient();
-  } else {
-    prismaInstance = globalThis.prisma ?? new PrismaClient();
-    if (process.env.NODE_ENV !== 'production') {
-      globalThis.prisma = prismaInstance as PrismaClient;
+const getPrismaClient = (): PrismaClient => {
+  if (process.env.NODE_ENV === 'production') {
+    if (!prismaInstance) {
+      prismaInstance = prismaClientSingleton();
     }
+    return prismaInstance;
+  } else {
+    if (!globalThis.prisma) {
+      globalThis.prisma = prismaClientSingleton();
+    }
+    return globalThis.prisma;
   }
-} catch (error) {
-  console.warn('Failed to initialize Prisma, using mock database:', error);
-  prismaInstance = createMockPrismaClient();
-}
+};
 
-export const prisma = prismaInstance;
+// Export a getter that lazily initializes
+export const prisma = new Proxy({} as PrismaClient, {
+  get(target, prop) {
+    const client = getPrismaClient();
+    return (client as any)[prop];
+  },
+});

@@ -8,6 +8,46 @@ generator client {
 }
 
 
+
+enum Role {
+  ADMIN
+  ORGANIZER
+  SCANNER
+  USER
+}
+
+model User {
+  id               String   @id @default(uuid())
+  email            String   @unique
+  password         String
+  name             String?
+  role             Role     @default(USER)
+  assignedEventIds String[] @default([]) // For Organizers/Scanners to restrict access
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PricingRule {
+  id              String   @id @default(uuid())
+  eventId         String
+  event           Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  
+  triggerType     String   // TIME_BASED (hours before), DEMAND_BASED (% sold)
+  triggerValue    Int      // e.g. 24 (hours) or 80 (%)
+  
+  adjustmentType  String   // PERCENTAGE, FIXED
+  adjustmentValue Int      // e.g. 10 (%) or 500 (rupees)
+  
+  active          Boolean  @default(true)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@index([eventId])
+  @@index([active])
+}
+
 model Event {
   id          String   @id @default(uuid())
   name        String
@@ -48,6 +88,7 @@ model Event {
   polls       Question[]
   photos      Photo[]
   reviews     Review[]
+  pricingRules PricingRule[]
   
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -55,6 +96,7 @@ model Event {
   @@index([isActive])
   @@index([category])
 }
+
 
 model Ticket {
   id              String    @id @default(uuid())

@@ -6,13 +6,15 @@ export async function GET(request: NextRequest) {
     const eventId = url.searchParams.get('eventId');
 
     try {
+        const whereClause = eventId ? { eventId } : {};
         const reviews = await prisma.review.findMany({
-            where: eventId ? { eventId } : {},
+            where: whereClause,
             orderBy: { createdAt: 'desc' },
         });
         return NextResponse.json(reviews);
-    } catch {
-        return NextResponse.json({ error: 'Failed' }, { status: 500 });
+    } catch (error) {
+        console.error('Failed to fetch reviews:', error);
+        return NextResponse.json([], { status: 200 }); // Return empty array instead of 500 to prevent app crash
     }
 }
 

@@ -6,38 +6,34 @@ import { useToast } from '@/components/Toaster';
 import { useRouter } from 'next/navigation';
 import AttendeeInsights from '@/components/AttendeeInsights';
 import AdminPollManager from '@/components/AdminPollManager';
+import PricingRules from '@/components/admin/PricingRules';
+import UserManagement from '@/components/admin/UserManagement';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
     PieChart, Pie, Cell, AreaChart, Area,
 } from 'recharts';
-import { LogOut, Home, CheckCircle, Search, Trash2, Edit, Copy, Plus, Users, Calendar, BarChart as BarChartIcon } from 'lucide-react';
+import { LogOut, Home, CheckCircle, Search, Trash2, Edit, Copy, Plus, Users, Calendar, BarChart as BarChartIcon, TrendingUp } from 'lucide-react';
 
 export default function AdminPage() {
     const router = useRouter();
-    const { events, tickets, teamMembers, siteSettings, festivals, emailTemplates, surveys, promoCodes, waitlist, isAdminLoggedIn, loginAdmin, logoutAdmin, addEvent, updateEvent, deleteEvent, duplicateEvent, addTicket, updateTicket, deleteTicket, addTeamMember, updateTeamMember, removeTeamMember, updateSiteSettings, addFestival, updateFestival, deleteFestival, updateEmailTemplate, addSurvey, updateSurvey, deleteSurvey, addPromoCode, updatePromoCode, deletePromoCode, addToWaitlist, removeFromWaitlist, notifyWaitlist } = useApp();
+    const { events, tickets, teamMembers, siteSettings, festivals, emailTemplates, surveys, promoCodes, waitlist, addEvent, updateEvent, deleteEvent, duplicateEvent, addTicket, updateTicket, deleteTicket, addTeamMember, updateTeamMember, removeTeamMember, updateSiteSettings, addFestival, updateFestival, deleteFestival, updateEmailTemplate, addSurvey, updateSurvey, deleteSurvey, addPromoCode, updatePromoCode, deletePromoCode, addToWaitlist, removeFromWaitlist, notifyWaitlist } = useApp();
     const { showToast } = useToast();
 
-    const [activeTab, setActiveTab] = useState<'overview' | 'events' | 'attendees' | 'team' | 'festivals' | 'emails' | 'surveys' | 'settings' | 'layout' | 'promo' | 'analytics' | 'polls' | 'history'>('overview');
+    const [activeTab, setActiveTab] = useState<'overview' | 'events' | 'attendees' | 'team' | 'festivals' | 'emails' | 'surveys' | 'settings' | 'layout' | 'promo' | 'analytics' | 'polls' | 'history' | 'pricing'>('overview');
     const [password, setPassword] = useState('');
     const [showEventModal, setShowEventModal] = useState(false);
     const [editingEvent, setEditingEvent] = useState<Event | null>(null);
     const [selectedEvent, setSelectedEvent] = useState<string>('all');
     const [attendeeSearch, setAttendeeSearch] = useState('');
     const [checkInFilter, setCheckInFilter] = useState<'all' | 'checked' | 'unchecked'>('all');
-    const [liveStats, setLiveStats] = useState({ online: 127, checkinsToday: 23 });
+    // Calculate daily metrics
+    const today = new Date().toDateString();
+    const dailyCheckIns = tickets.filter(t => t.checkedIn && t.checkedInAt && new Date(t.checkedInAt).toDateString() === today).length;
 
-    useEffect(() => {
-        const interval = setInterval(() => {
-            setLiveStats({ online: Math.floor(100 + Math.random() * 50), checkinsToday: Math.floor(20 + Math.random() * 10) });
-        }, 5000);
-        return () => clearInterval(interval);
-    }, []);
 
-    const handleLogin = (e: React.FormEvent) => {
-        e.preventDefault();
-        if (loginAdmin(password)) showToast('Login successful!', 'success');
-        else showToast('Invalid password', 'error');
-        setPassword('');
+    const handleLogout = async () => {
+        await fetch('/api/auth/logout', { method: 'POST' });
+        router.push('/login');
     };
 
     const filteredTickets = tickets.filter(t => {
@@ -67,13 +63,13 @@ export default function AdminPage() {
 
     const checkInData = [{ name: 'Checked In', value: checkedIn }, { name: 'Pending', value: paidTickets - checkedIn }];
 
-    const handleSaveEvent = (eventData: Partial<Event>) => {
+    const handleSaveEvent = async (eventData: Partial<Event>) => {
         if (editingEvent) {
             updateEvent(editingEvent.id, eventData);
             showToast('Event updated!', 'success');
         } else {
             const newEvent: Event = {
-                id: `event-${Date.now()}`,
+                id: '', // Server will generate ID
                 name: eventData.name || '',
                 description: eventData.description || '',
                 date: eventData.date || '',
@@ -99,15 +95,18 @@ export default function AdminPage() {
                 contactPhone: eventData.contactPhone || '',
                 termsAndConditions: eventData.termsAndConditions || '',
                 registrationDeadline: eventData.registrationDeadline || '',
-                // Early Bird Pricing
                 earlyBirdEnabled: eventData.earlyBirdEnabled || false,
                 earlyBirdPrice: eventData.earlyBirdPrice || 0,
                 earlyBirdDeadline: eventData.earlyBirdDeadline || '',
-                // Event Reminders
                 sendReminders: eventData.sendReminders ?? true,
             };
-            addEvent(newEvent);
-            showToast('Event created!', 'success');
+            const success = await addEvent(newEvent);
+            if (success) {
+                showToast('Event created!', 'success');
+            } else {
+                showToast('Failed to create event. Please try again.', 'error');
+                return; // Don't close modal on failure
+            }
         }
         setShowEventModal(false);
         setEditingEvent(null);
@@ -141,29 +140,12 @@ export default function AdminPage() {
         showToast('CSV exported!', 'success');
     };
 
-    if (!isAdminLoggedIn) {
-        return (
-            <main className="min-h-screen bg-black flex items-center justify-center p-4">
-                <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-8 w-full max-w-md">
-                    <div className="text-center mb-8">
-                        <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-red-600 to-red-800 rounded-2xl mb-4">
-                            <Users className="w-8 h-8 text-white" />
-                        </div>
-                        <h1 className="text-2xl font-bold text-white mb-2">EventHub Admin</h1>
-                    </div>
-                    <form onSubmit={handleLogin} className="space-y-4">
-                        <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter password" className="w-full px-4 py-4 bg-zinc-800 border border-zinc-700 rounded-xl text-white text-center text-lg tracking-widest" autoFocus />
-                        <button type="submit" className="w-full py-4 bg-red-600 text-white rounded-xl hover:bg-red-700 font-semibold">Login</button>
-                    </form>
-                    <p className="text-center text-zinc-500 text-xs mt-6">Password: admin123</p>
-                    <a href="/" className="block text-center text-zinc-400 hover:text-white mt-4 text-sm">← Back</a>
-                </div>
-            </main>
-        );
-    }
+    // Middleware protects this route
+    // if (!isAdminLoggedIn) ... logic removed
+
 
     return (
-        <main className="min-h-screen bg-black py-6 px-4">
+        <main className="min-h-screen py-6 px-4 pb-20">
             <div className="max-w-7xl mx-auto">
                 {/* Header */}
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
@@ -174,8 +156,8 @@ export default function AdminPage() {
                         <div>
                             <h1 className="text-2xl font-bold text-white">EventHub Dashboard</h1>
                             <div className="flex items-center gap-4 text-sm">
-                                <span className="flex items-center gap-1 text-green-400"><span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>{liveStats.online} online</span>
-                                <span className="text-zinc-500">{liveStats.checkinsToday} check-ins today</span>
+                                <span className="flex items-center gap-1 text-green-400"><span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>{events.filter(e => e.isActive).length} active events</span>
+                                <span className="text-zinc-500">{dailyCheckIns} check-ins today</span>
                             </div>
                         </div>
                     </div>
@@ -186,7 +168,7 @@ export default function AdminPage() {
                         <a href="/checkin" className="flex items-center text-zinc-400 hover:text-white text-sm">
                             <CheckCircle className="w-4 h-4 mr-1" /> Check-In
                         </a>
-                        <button onClick={logoutAdmin} className="flex items-center px-4 py-2 bg-zinc-800 text-zinc-300 rounded-lg hover:bg-zinc-700 text-sm">
+                        <button onClick={handleLogout} className="flex items-center px-4 py-2 bg-zinc-800 text-zinc-300 rounded-lg hover:bg-zinc-700 text-sm">
                             Logout <LogOut className="w-4 h-4 ml-2" />
                         </button>
                     </div>
@@ -199,7 +181,15 @@ export default function AdminPage() {
                             {tab === 'promo' ? 'Promo Codes' : tab === 'polls' ? 'Polls & Q&A' : tab.charAt(0).toUpperCase() + tab.slice(1)}
                         </button>
                     ))}
+                    <button onClick={() => setActiveTab('pricing')} className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-colors flex items-center gap-2 ${activeTab === 'pricing' ? 'bg-red-600 text-white' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`}>
+                        <TrendingUp className="w-4 h-4" /> Pricing Rules
+                    </button>
                 </div>
+
+                {/* Pricing Rules Tab */}
+                {activeTab === 'pricing' && (
+                    <PricingRules events={events} />
+                )}
 
                 {/* Overview */}
                 {activeTab === 'overview' && (
@@ -232,27 +222,38 @@ export default function AdminPage() {
                             </button>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {events.map(event => {
+                            {events.filter(e => e && e.id).length === 0 && events.length > 0 && (
+                                <div className="col-span-full text-center py-8 text-zinc-500">
+                                    Unable to display events. Data may be corrupted.
+                                </div>
+                            )}
+                            {events.filter(e => e && e.id).map(event => {
                                 const categoryStyle = CATEGORY_COLORS[event.category] || CATEGORY_COLORS.other;
-                                const capacityPercent = Math.round((event.soldCount / event.capacity) * 100);
+                                const capacity = event.capacity || 1; // Prevent division by zero
+                                const soldCount = event.soldCount || 0;
+                                const capacityPercent = Math.min(Math.round((soldCount / capacity) * 100), 100);
+                                const eventDate = event.date ? new Date(event.date) : null;
+                                const dateStr = eventDate && !isNaN(eventDate.getTime())
+                                    ? eventDate.toLocaleDateString()
+                                    : 'Date TBD';
                                 return (
                                     <div key={event.id} className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
                                         <div className="h-32 relative">
-                                            <img src={event.imageUrl} alt={event.name} className="w-full h-full object-cover" />
-                                            <span className={`absolute top-2 left-2 px-2 py-0.5 rounded-full text-xs font-medium ${categoryStyle.bg} ${categoryStyle.text}`}>{event.category}</span>
+                                            <img src={event.imageUrl || 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800'} alt={event.name || 'Event'} className="w-full h-full object-cover" />
+                                            <span className={`absolute top-2 left-2 px-2 py-0.5 rounded-full text-xs font-medium ${categoryStyle.bg} ${categoryStyle.text}`}>{event.category || 'other'}</span>
                                             {event.isFeatured && <span className="absolute top-2 right-2 px-2 py-0.5 bg-yellow-600 text-white rounded-full text-xs font-bold">FEATURED</span>}
-                                            {event.prizePool > 0 && <span className="absolute bottom-2 right-2 px-2 py-0.5 bg-green-600 text-white rounded-full text-xs font-bold">₹{(event.prizePool / 100).toLocaleString()} Prize</span>}
+                                            {(event.prizePool || 0) > 0 && <span className="absolute bottom-2 right-2 px-2 py-0.5 bg-green-600 text-white rounded-full text-xs font-bold">₹{((event.prizePool || 0) / 100).toLocaleString()} Prize</span>}
                                         </div>
                                         <div className="p-4">
-                                            <h3 className="font-semibold text-white mb-1 truncate">{event.name}</h3>
+                                            <h3 className="font-semibold text-white mb-1 truncate">{event.name || 'Untitled Event'}</h3>
                                             <div className="flex justify-between text-xs text-zinc-400 mb-2">
-                                                <span>{new Date(event.date).toLocaleDateString()} • {event.startTime}</span>
-                                                <span>₹{(event.price / 100).toLocaleString()}</span>
+                                                <span>{dateStr} • {event.startTime || '09:00'}</span>
+                                                <span>₹{((event.price || 0) / 100).toLocaleString()}</span>
                                             </div>
                                             <div className="mb-3">
                                                 <div className="flex justify-between text-xs mb-1">
                                                     <span className="text-zinc-500">Sold</span>
-                                                    <span className={capacityPercent >= 90 ? 'text-red-400' : 'text-zinc-300'}>{event.soldCount}/{event.capacity}</span>
+                                                    <span className={capacityPercent >= 90 ? 'text-red-400' : 'text-zinc-300'}>{soldCount}/{capacity}</span>
                                                 </div>
                                                 <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
                                                     <div className={`h-full ${capacityPercent >= 90 ? 'bg-red-500' : capacityPercent >= 70 ? 'bg-yellow-500' : 'bg-green-500'}`} style={{ width: `${capacityPercent}%` }} />
@@ -382,187 +383,89 @@ export default function AdminPage() {
                         </p>
 
                         {/* Attendee Table */}
-                        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
-                            {filteredTickets.length === 0 ? (
-                                <div className="p-12 text-center">
-                                    <svg className="w-16 h-16 text-zinc-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                                    </svg>
-                                    <p className="text-zinc-400">No attendees found</p>
-                                    <p className="text-zinc-500 text-sm mt-1">Try adjusting your search or filters</p>
-                                </div>
-                            ) : (
-                                <table className="w-full">
-                                    <thead className="bg-zinc-800">
-                                        <tr>
-                                            <th className="text-left text-zinc-400 text-sm font-medium px-6 py-4">Attendee</th>
-                                            <th className="text-left text-zinc-400 text-sm font-medium px-6 py-4">Ticket ID</th>
-                                            <th className="text-left text-zinc-400 text-sm font-medium px-6 py-4">Event</th>
-                                            <th className="text-left text-zinc-400 text-sm font-medium px-6 py-4">Status</th>
-                                            <th className="text-left text-zinc-400 text-sm font-medium px-6 py-4">Check-In</th>
-                                            <th className="text-left text-zinc-400 text-sm font-medium px-6 py-4">Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-zinc-800">
-                                        {filteredTickets.map(ticket => {
-                                            const event = events.find(e => e.id === ticket.eventId);
-                                            return (
-                                                <tr key={ticket.id} className="hover:bg-zinc-800/50">
-                                                    <td className="px-6 py-4">
-                                                        <p className="text-white font-medium">{ticket.name}</p>
-                                                        <p className="text-zinc-500 text-sm">{ticket.email}</p>
-                                                        <p className="text-zinc-600 text-xs">{ticket.phone}</p>
-                                                    </td>
-                                                    <td className="px-6 py-4">
-                                                        <code className="text-xs bg-zinc-800 px-2 py-1 rounded text-zinc-400">{ticket.id}</code>
-                                                    </td>
-                                                    <td className="px-6 py-4">
-                                                        <p className="text-zinc-300">{event?.name}</p>
-                                                        <p className="text-xs text-zinc-500">₹{((event?.price || 0) / 100).toLocaleString()}</p>
-                                                    </td>
-                                                    <td className="px-6 py-4">
-                                                        <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${ticket.status === 'paid' ? 'bg-green-900/50 text-green-400' : 'bg-yellow-900/50 text-yellow-400'}`}>
-                                                            {ticket.status.toUpperCase()}
-                                                        </span>
-                                                    </td>
-                                                    <td className="px-6 py-4">
-                                                        {ticket.checkedIn ? (
-                                                            <span className="flex items-center gap-1 text-green-400 text-sm">
-                                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                                                </svg>
-                                                                Checked In
+                        <div className="glass-card rounded-2xl overflow-hidden">
+                            <div className="overflow-x-auto">
+                                {filteredTickets.length === 0 ? (
+                                    <div className="p-12 text-center">
+                                        <svg className="w-16 h-16 text-zinc-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                                        </svg>
+                                        <p className="text-zinc-400">No attendees found</p>
+                                        <p className="text-zinc-500 text-sm mt-1">Try adjusting your search or filters</p>
+                                    </div>
+                                ) : (
+                                    <table className="w-full">
+                                        <thead className="bg-zinc-800">
+                                            <tr>
+                                                <th className="text-left text-zinc-400 text-sm font-medium px-6 py-4">Attendee</th>
+                                                <th className="text-left text-zinc-400 text-sm font-medium px-6 py-4">Ticket ID</th>
+                                                <th className="text-left text-zinc-400 text-sm font-medium px-6 py-4">Event</th>
+                                                <th className="text-left text-zinc-400 text-sm font-medium px-6 py-4">Status</th>
+                                                <th className="text-left text-zinc-400 text-sm font-medium px-6 py-4">Check-In</th>
+                                                <th className="text-left text-zinc-400 text-sm font-medium px-6 py-4">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-zinc-800">
+                                            {filteredTickets.map(ticket => {
+                                                const event = events.find(e => e.id === ticket.eventId);
+                                                return (
+                                                    <tr key={ticket.id} className="hover:bg-zinc-800/50">
+                                                        <td className="px-6 py-4">
+                                                            <p className="text-white font-medium">{ticket.name}</p>
+                                                            <p className="text-zinc-500 text-sm">{ticket.email}</p>
+                                                            <p className="text-zinc-600 text-xs">{ticket.phone}</p>
+                                                        </td>
+                                                        <td className="px-6 py-4">
+                                                            <code className="text-xs bg-zinc-800 px-2 py-1 rounded text-zinc-400">{ticket.id}</code>
+                                                        </td>
+                                                        <td className="px-6 py-4">
+                                                            <p className="text-zinc-300">{event?.name}</p>
+                                                            <p className="text-xs text-zinc-500">₹{((event?.price || 0) / 100).toLocaleString()}</p>
+                                                        </td>
+                                                        <td className="px-6 py-4">
+                                                            <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${ticket.status === 'paid' ? 'bg-green-900/50 text-green-400' : 'bg-yellow-900/50 text-yellow-400'}`}>
+                                                                {ticket.status.toUpperCase()}
                                                             </span>
-                                                        ) : (
-                                                            <span className="flex items-center gap-1 text-zinc-500 text-sm">
-                                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                                                </svg>
-                                                                Pending
-                                                            </span>
-                                                        )}
-                                                    </td>
-                                                    <td className="px-6 py-4">
-                                                        <button
-                                                            onClick={() => router.push(`/ticket/${ticket.id}`)}
-                                                            className="text-red-400 hover:text-red-300 text-sm"
-                                                        >
-                                                            View Ticket
-                                                        </button>
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })}
-                                    </tbody>
-                                </table>
-                            )}
+                                                        </td>
+                                                        <td className="px-6 py-4">
+                                                            {ticket.checkedIn ? (
+                                                                <span className="flex items-center gap-1 text-green-400 text-sm">
+                                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                                    </svg>
+                                                                    Checked In
+                                                                </span>
+                                                            ) : (
+                                                                <span className="flex items-center gap-1 text-zinc-500 text-sm">
+                                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                                    </svg>
+                                                                    Pending
+                                                                </span>
+                                                            )}
+                                                        </td>
+                                                        <td className="px-6 py-4">
+                                                            <button
+                                                                onClick={() => router.push(`/ticket/${ticket.id}`)}
+                                                                className="text-red-400 hover:text-red-300 text-sm"
+                                                            >
+                                                                View Ticket
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                )}
+                            </div>
                         </div>
                     </div>
                 )}
 
                 {/* Team */}
                 {activeTab === 'team' && (
-                    <div className="space-y-6">
-                        <div className="flex justify-between items-center">
-                            <div>
-                                <h2 className="text-xl font-semibold text-white">Team Management</h2>
-                                <p className="text-zinc-400 text-sm">Manage team roles and permissions</p>
-                            </div>
-                            <button
-                                onClick={() => {
-                                    addTeamMember({
-                                        id: `team-${Date.now()}`,
-                                        name: 'New Member',
-                                        email: 'member@events.com',
-                                        role: 'staff',
-                                        eventIds: [],
-                                        createdAt: new Date().toISOString(),
-                                    });
-                                    showToast('Team member added!', 'success');
-                                }}
-                                className="px-4 py-2 bg-red-600 text-white rounded-xl hover:bg-red-700 flex items-center gap-2"
-                            >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-                                </svg>
-                                Add Member
-                            </button>
-                        </div>
-
-                        {/* Role Legend */}
-                        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
-                            <h3 className="text-sm font-medium text-zinc-400 mb-3">Permission Levels</h3>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                {Object.entries(ROLE_PERMISSIONS).map(([key, role]) => (
-                                    <div key={key} className="flex items-start gap-2">
-                                        <svg className={`w-5 h-5 ${role.color} flex-shrink-0 mt-0.5`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                                        </svg>
-                                        <div>
-                                            <p className={`font-medium ${role.color}`}>{role.label}</p>
-                                            <p className="text-xs text-zinc-500">{role.description}</p>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* Team Members */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {teamMembers.map(member => (
-                                <div key={member.id} className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 hover:border-zinc-700 transition-colors">
-                                    <div className="flex items-start justify-between mb-3">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-red-600 to-red-800 flex items-center justify-center text-white font-bold">
-                                                {member.name.charAt(0).toUpperCase()}
-                                            </div>
-                                            <div>
-                                                <h4 className="font-medium text-white">{member.name}</h4>
-                                                <p className="text-sm text-zinc-500">{member.email}</p>
-                                            </div>
-                                        </div>
-                                        {member.role !== 'admin' && (
-                                            <button
-                                                onClick={() => {
-                                                    if (confirm('Remove this team member?')) {
-                                                        removeTeamMember(member.id);
-                                                        showToast('Member removed', 'success');
-                                                    }
-                                                }}
-                                                className="text-zinc-500 hover:text-red-500"
-                                            >
-                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                </svg>
-                                            </button>
-                                        )}
-                                    </div>
-                                    <div className="flex items-center justify-between">
-                                        <span className={`px-2 py-1 rounded-lg text-xs font-medium ${ROLE_PERMISSIONS[member.role].color} bg-zinc-800`}>
-                                            {ROLE_PERMISSIONS[member.role].label}
-                                        </span>
-                                        <select
-                                            value={member.role}
-                                            onChange={(e) => {
-                                                updateTeamMember(member.id, { role: e.target.value as TeamRole });
-                                                showToast('Role updated!', 'success');
-                                            }}
-                                            disabled={member.role === 'admin'}
-                                            className="text-xs bg-zinc-800 border border-zinc-700 rounded-lg px-2 py-1 text-zinc-300 disabled:opacity-50"
-                                        >
-                                            <option value="admin">Admin</option>
-                                            <option value="manager">Manager</option>
-                                            <option value="staff">Staff</option>
-                                            <option value="scanner">Scanner</option>
-                                        </select>
-                                    </div>
-                                    <p className="text-xs text-zinc-600 mt-2">
-                                        Added {new Date(member.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
-                                    </p>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
+                    <UserManagement events={events} />
                 )}
 
                 {/* Festivals */}
@@ -1997,7 +1900,7 @@ export default function AdminPage() {
                                     </div>
                                     <span className="text-blue-300 text-sm">Tickets Sold</span>
                                 </div>
-                                <p className="text-3xl font-bold text-white">{events.reduce((sum, e) => sum + e.soldCount, 0)}</p>
+                                <p className="text-3xl font-bold text-white">{events.filter(e => e).reduce((sum, e) => sum + e.soldCount, 0)}</p>
                                 <p className="text-blue-400 text-sm mt-1">Across {events.length} events</p>
                             </div>
 
@@ -2010,7 +1913,7 @@ export default function AdminPage() {
                                     </div>
                                     <span className="text-purple-300 text-sm">Avg. Ticket Price</span>
                                 </div>
-                                <p className="text-3xl font-bold text-white">₹{Math.round(events.reduce((s, e) => s + e.price, 0) / events.length / 100).toLocaleString()}</p>
+                                <p className="text-3xl font-bold text-white">₹{Math.round(events.filter(e => e).reduce((s, e) => s + e.price, 0) / events.length / 100).toLocaleString()}</p>
                                 <p className="text-purple-400 text-sm mt-1">Per ticket</p>
                             </div>
 
@@ -2023,7 +1926,7 @@ export default function AdminPage() {
                                     </div>
                                     <span className="text-orange-300 text-sm">Sell-Through Rate</span>
                                 </div>
-                                <p className="text-3xl font-bold text-white">{Math.round((events.reduce((s, e) => s + e.soldCount, 0) / events.reduce((s, e) => s + e.capacity, 0)) * 100)}%</p>
+                                <p className="text-3xl font-bold text-white">{Math.round((events.filter(e => e).reduce((s, e) => s + e.soldCount, 0) / events.filter(e => e).reduce((s, e) => s + e.capacity, 0)) * 100)}%</p>
                                 <p className="text-orange-400 text-sm mt-1">Capacity utilization</p>
                             </div>
                         </div>
@@ -2032,7 +1935,7 @@ export default function AdminPage() {
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                             {/* Revenue by Event */}
                             <ChartCard title="Revenue by Event">
-                                <BarChart data={events.slice(0, 5).map(e => ({ name: e.name.slice(0, 15) + '...', revenue: Math.round((e.soldCount * e.price) / 100) }))}>
+                                <BarChart data={events.filter(e => e).slice(0, 5).map(e => ({ name: e.name.slice(0, 15) + '...', revenue: Math.round((e.soldCount * e.price) / 100) }))}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                                     <XAxis dataKey="name" tick={{ fill: '#9ca3af', fontSize: 12 }} />
                                     <YAxis tick={{ fill: '#9ca3af' }} />
@@ -2047,7 +1950,7 @@ export default function AdminPage() {
                                     <Pie
                                         data={Object.keys(CATEGORY_COLORS).filter(c => c !== 'other').map(cat => ({
                                             name: cat.charAt(0).toUpperCase() + cat.slice(1),
-                                            value: events.filter(e => e.category === cat).reduce((s, e) => s + e.soldCount, 0)
+                                            value: events.filter(e => e && e.category === cat).reduce((s, e) => s + e.soldCount, 0)
                                         })).filter(c => c.value > 0)}
                                         cx="50%" cy="50%" outerRadius={80} dataKey="value" label
                                     >
@@ -2076,7 +1979,7 @@ export default function AdminPage() {
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-zinc-800">
-                                        {events.map(event => (
+                                        {events.filter(e => e).map(event => (
                                             <tr key={event.id} className="hover:bg-zinc-800/30">
                                                 <td className="px-4 py-3 text-sm text-white">{event.name}</td>
                                                 <td className="px-4 py-3 text-sm text-zinc-300">₹{(event.price / 100).toLocaleString()}</td>
@@ -2108,7 +2011,7 @@ export default function AdminPage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in-up">
                         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6">
                             <h3 className="text-lg font-bold text-white mb-6">Sales by Event</h3>
-                            <div className="h-80">
+                            <div className="h-80 w-full">
                                 <ResponsiveContainer width="100%" height="100%">
                                     <BarChart data={salesByEvent}>
                                         <CartesianGrid strokeDasharray="3 3" stroke="#333" />
@@ -2123,7 +2026,7 @@ export default function AdminPage() {
 
                         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6">
                             <h3 className="text-lg font-bold text-white mb-6">Revenue by Event</h3>
-                            <div className="h-80">
+                            <div className="h-80 w-full">
                                 <ResponsiveContainer width="100%" height="100%">
                                     <BarChart data={salesByEvent}>
                                         <CartesianGrid strokeDasharray="3 3" stroke="#333" />
@@ -2161,7 +2064,7 @@ export default function AdminPage() {
                                     <tbody className="divide-y divide-zinc-800">
                                         {tickets
                                             .filter(t => t.checkedIn)
-                                            .sort((a, b) => new Date(b.checkedInAt || b.updatedAt).getTime() - new Date(a.checkedInAt || a.updatedAt).getTime())
+                                            .sort((a, b) => new Date(b.checkedInAt || b.updatedAt || new Date()).getTime() - new Date(a.checkedInAt || a.updatedAt || new Date()).getTime())
                                             .slice(0, 50)
                                             .map(ticket => (
                                                 <tr key={ticket.id} className="hover:bg-zinc-800/30">
@@ -2173,7 +2076,7 @@ export default function AdminPage() {
                                                         {events.find(e => e.id === ticket.eventId)?.name || 'Unknown Event'}
                                                     </td>
                                                     <td className="px-6 py-4 text-zinc-300">
-                                                        {new Date(ticket.checkedInAt || ticket.updatedAt).toLocaleString()}
+                                                        {new Date(ticket.checkedInAt || ticket.updatedAt || new Date()).toLocaleString()}
                                                     </td>
                                                     <td className="px-6 py-4">
                                                         <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-900/30 text-green-400 border border-green-900/50">
