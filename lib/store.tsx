@@ -194,7 +194,6 @@ export interface SiteSettings {
     showSchedule?: boolean;
     showSponsors?: boolean;
     showFaq?: boolean;
-    showTicketForm: boolean;
     showCategories: boolean;
     enabledCategories: string[];
     eventsGridColumns: 2 | 3 | 4;
@@ -270,7 +269,6 @@ export const DEFAULT_SITE_SETTINGS: SiteSettings = {
     showSchedule: true,
     showSponsors: true,
     showFaq: true,
-    showTicketForm: true,
     showCategories: true,
     enabledCategories: ['all', 'music', 'tech', 'art', 'sports', 'food', 'gaming', 'business'],
     eventsGridColumns: 3,

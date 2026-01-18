@@ -234,7 +234,7 @@ export default function EventDetailsPage() {
 
     const handleGetTickets = () => {
         localStorage.setItem('selectedEventId', event.id);
-        router.push('/#buy');
+        router.push('/register');
     };
 
     const submitReview = () => {
@@ -1021,10 +1021,82 @@ END:VCALENDAR`;
                                     <span>{event.venue}<br /><span className="text-zinc-500">{event.address}</span></span>
                                 </p>
                             </div>
+                            {/* Organizer Profile */}
+                            {(event.organizer || event.contactEmail || event.contactPhone) && (
+                                <div className="glass rounded-2xl p-5 mt-4">
+                                    <h4 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
+                                        <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                        </svg>
+                                        Organizer
+                                    </h4>
+                                    <div className="space-y-3">
+                                        {event.organizer && (
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-red-600 to-red-800 flex items-center justify-center text-white font-bold">
+                                                    {event.organizer.charAt(0).toUpperCase()}
+                                                </div>
+                                                <div>
+                                                    <p className="text-white font-medium">{event.organizer}</p>
+                                                    <p className="text-xs text-zinc-500">Event Organizer</p>
+                                                </div>
+                                            </div>
+                                        )}
+                                        {event.contactEmail && (
+                                            <a href={`mailto:${event.contactEmail}`} className="flex items-center gap-2 text-sm text-zinc-400 hover:text-white transition-colors">
+                                                <Mail className="w-4 h-4 text-red-500/70" />
+                                                {event.contactEmail}
+                                            </a>
+                                        )}
+                                        {event.contactPhone && (
+                                            <a href={`tel:${event.contactPhone}`} className="flex items-center gap-2 text-sm text-zinc-400 hover:text-white transition-colors">
+                                                <Phone className="w-4 h-4 text-red-500/70" />
+                                                {event.contactPhone}
+                                            </a>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
-            </div >
+
+                {/* Related Events Section */}
+                {(() => {
+                    const relatedEvents = events.filter(e => e.category === event.category && e.id !== event.id && e.isActive).slice(0, 4);
+                    if (relatedEvents.length === 0) return null;
+                    return (
+                        <div className="max-w-6xl mx-auto px-4 py-12">
+                            <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
+                                <span className="w-1 h-6 bg-red-600 rounded-full"></span>
+                                Related Events
+                            </h2>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                                {relatedEvents.map((relEvent) => (
+                                    <a
+                                        key={relEvent.id}
+                                        href={`/event/${relEvent.id}`}
+                                        className="glass rounded-2xl overflow-hidden border border-zinc-800 hover:border-red-500/30 transition-all group hover:-translate-y-1"
+                                    >
+                                        <div className="aspect-video relative overflow-hidden">
+                                            <img
+                                                src={relEvent.imageUrl}
+                                                alt={relEvent.name}
+                                                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                                            />
+                                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
+                                            <div className="absolute bottom-3 left-3 right-3">
+                                                <p className="text-white font-bold line-clamp-1">{relEvent.name}</p>
+                                                <p className="text-xs text-zinc-400">{new Date(relEvent.date).toLocaleDateString()}</p>
+                                            </div>
+                                        </div>
+                                    </a>
+                                ))}
+                            </div>
+                        </div>
+                    );
+                })()}
+            </div>
         </main >
     );
 }

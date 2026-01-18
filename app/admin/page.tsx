@@ -1948,19 +1948,7 @@ export default function AdminPage() {
                                     </button>
                                 </div>
 
-                                {/* Ticket Form Toggle */}
-                                <div className="flex items-center justify-between p-4 bg-zinc-800/50 rounded-xl">
-                                    <div>
-                                        <p className="font-medium text-white">Ticket Purchase Form</p>
-                                        <p className="text-sm text-zinc-500">Show ticket purchase section on home page</p>
-                                    </div>
-                                    <button
-                                        onClick={() => updateSiteSettings({ showTicketForm: !siteSettings.showTicketForm })}
-                                        className={`w-12 h-6 rounded-full transition-colors relative ${siteSettings.showTicketForm ? 'bg-red-600' : 'bg-zinc-700'}`}
-                                    >
-                                        <span className={`absolute w-5 h-5 bg-white rounded-full top-0.5 transition-all ${siteSettings.showTicketForm ? 'left-6' : 'left-0.5'}`} />
-                                    </button>
-                                </div>
+
 
                                 {/* Categories Toggle */}
                                 <div className="flex items-center justify-between p-4 bg-zinc-800/50 rounded-xl">

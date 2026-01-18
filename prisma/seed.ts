@@ -7,21 +7,33 @@ const prisma = new PrismaClient();
 async function main() {
     console.log('Seeding database...');
 
-    // Create or update Demo Admin
-    const adminPassword = await bcrypt.hash('demo123', 10);
-    const admin = await prisma.user.upsert({
+    // 1. Demo Admin
+    const demoPassword = await bcrypt.hash('demo123', 10);
+    await prisma.user.upsert({
         where: { email: 'demo@eventhub.com' },
-        update: { password: adminPassword, role: 'ADMIN' },
+        update: { password: demoPassword, role: 'ADMIN' },
         create: {
             email: 'demo@eventhub.com',
             name: 'Demo Admin',
+            password: demoPassword,
+            role: 'ADMIN',
+        },
+    });
+
+    // 2. User Requested Admin
+    const adminPassword = await bcrypt.hash('admin123', 10);
+    await prisma.user.upsert({
+        where: { email: 'admin@gmail.com' },
+        update: { password: adminPassword, role: 'ADMIN' },
+        create: {
+            email: 'admin@gmail.com',
+            name: 'Main Admin',
             password: adminPassword,
             role: 'ADMIN',
         },
     });
-    console.log({ admin });
 
-    // Create default events if none exist
+    // 3. Default Events
     const existingEvents = await prisma.event.count();
     if (existingEvents === 0) {
         await prisma.event.create({
@@ -51,13 +63,11 @@ async function main() {
         console.log('Seeded default event.');
     }
 
-
-    // Create or update Demo Organizer
-    // Find an event to assign
+    // 4. Demo Organizer
     const event = await prisma.event.findFirst();
     if (event) {
         const organizerPassword = await bcrypt.hash('organizer123', 10);
-        const organizer = await prisma.user.upsert({
+        await prisma.user.upsert({
             where: { email: 'organizer@eventhub.com' },
             update: {
                 password: organizerPassword,
@@ -72,8 +82,9 @@ async function main() {
                 assignedEventIds: [event.id]
             },
         });
-        console.log({ organizer });
     }
+
+    console.log('Seed completed successfully.');
 }
 
 main()

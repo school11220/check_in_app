@@ -2,7 +2,6 @@
 
 import { useApp, CATEGORY_COLORS } from '@/lib/store';
 import { useState } from 'react';
-import TicketForm from '@/components/TicketForm';
 import { Calendar, MapPin, ScanLine, LayoutDashboard, LogIn, X, Menu, Ticket } from 'lucide-react';
 
 export default function Home() {
@@ -288,25 +287,58 @@ export default function Home() {
           </section>
         )}
 
-        {/* Ticket Purchase Section */}
-        {siteSettings.showTicketForm && (
-          <section id="buy" className="py-20 px-4 relative">
-            {/* Background Gradient */}
-            <div className="absolute inset-0 bg-gradient-to-b from-[#0B0B0B] via-[#0F0F0F] to-[#0B0B0B] pointer-events-none" />
-
-            <div className="max-w-3xl mx-auto relative z-10">
-              <div className="text-center mb-10">
-                <h2 className="font-heading text-3xl md:text-4xl font-bold text-white mb-4">
-                  Get Your Tickets
-                </h2>
-                <p className="text-[#B3B3B3] text-lg">
-                  Select an event and complete your registration
-                </p>
-              </div>
-              <TicketForm />
+        {/* FAQ Section */}
+        <section className="py-20 px-4 bg-[#0A0A0A]">
+          <div className="max-w-4xl mx-auto">
+            <div className="text-center mb-12">
+              <h2 className="font-heading text-3xl md:text-4xl font-bold text-white mb-4">Frequently Asked Questions</h2>
+              <p className="text-[#B3B3B3]">Everything you need to know about ticketing</p>
             </div>
-          </section>
-        )}
+            <div className="space-y-4">
+              {[
+                { q: 'How do I purchase tickets?', a: 'Click on any event to view details, then click "Get Tickets" to proceed to registration. You can pay securely using UPI, cards, or net banking.' },
+                { q: 'Can I get a refund?', a: 'Refund policies vary by event. Please check the event details page for specific terms. Most events allow cancellations up to 48 hours before the event.' },
+                { q: 'How do I access my ticket?', a: 'After purchase, you\'ll receive your ticket via email with a QR code. You can also access it anytime by visiting the ticket link sent to you.' },
+                { q: 'What if I lose my ticket?', a: 'Don\'t worry! Your ticket is linked to your email. Contact our support team and we\'ll resend it to you.' },
+                { q: 'Can I transfer my ticket to someone else?', a: 'Yes, most events allow ticket transfers. Check the event details or contact the organizer for transfer options.' },
+              ].map((faq, i) => (
+                <details key={i} className="group bg-[#141414] rounded-2xl border border-[#1F1F1F] hover:border-[#E11D2E]/30 transition-colors">
+                  <summary className="flex items-center justify-between p-6 cursor-pointer list-none">
+                    <span className="text-white font-medium pr-4">{faq.q}</span>
+                    <span className="text-[#E11D2E] group-open:rotate-45 transition-transform">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                      </svg>
+                    </span>
+                  </summary>
+                  <div className="px-6 pb-6 text-[#B3B3B3] leading-relaxed">
+                    {faq.a}
+                  </div>
+                </details>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Register CTA */}
+        <section id="buy" className="py-20 px-4 relative">
+          <div className="absolute inset-0 bg-gradient-to-b from-[#0B0B0B] via-[#0F0F0F] to-[#0B0B0B] pointer-events-none" />
+          <div className="max-w-3xl mx-auto relative z-10 text-center">
+            <h2 className="font-heading text-3xl md:text-4xl font-bold text-white mb-4">
+              Ready to Join?
+            </h2>
+            <p className="text-[#B3B3B3] text-lg mb-8">
+              Get your tickets now and be part of something amazing
+            </p>
+            <a
+              href="/register"
+              className="inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-[#E11D2E] to-[#B91C1C] text-white font-semibold rounded-xl hover:scale-105 transition-transform shadow-lg shadow-red-900/30 glow-hover"
+            >
+              <Ticket className="w-5 h-5" />
+              Register Now
+            </a>
+          </div>
+        </section>
       </div>
 
       {/* Footer */}
