@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useApp } from '@/lib/store';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -18,122 +18,45 @@ export default function AttendeeInsights({ eventId }: AttendeeInsightsProps) {
     const { tickets, events } = useApp();
     const [timeRange, setTimeRange] = useState<'7d' | '30d' | '90d' | 'all'>('30d');
 
-    // Filter tickets by event and time range
-    const filteredTickets = useMemo(() => {
-        let filtered = tickets.filter(t => t.status === 'paid');
+    const [analytics, setAnalytics] = useState<any>({
+        totalTickets: 0,
+        checkedInTickets: 0,
+        checkInRate: '0',
+        repeatAttendees: 0,
+        uniqueAttendees: 0,
+        salesByEventData: [],
+        salesTrendData: [],
+        peakHoursData: [],
+        checkInData: []
+    });
+    const [loading, setLoading] = useState(false);
 
-        if (eventId) {
-            filtered = filtered.filter(t => t.eventId === eventId);
-        }
+    useEffect(() => {
+        const fetchAnalytics = async () => {
+            setLoading(true);
+            try {
+                const query = new URLSearchParams({ timeRange });
+                if (eventId) query.append('eventId', eventId);
 
-        // Apply time range filter
-        const now = new Date();
-        const ranges: Record<string, number> = {
-            '7d': 7,
-            '30d': 30,
-            '90d': 90,
-        };
-
-        if (timeRange !== 'all' && ranges[timeRange]) {
-            const cutoff = new Date(now.getTime() - ranges[timeRange] * 24 * 60 * 60 * 1000);
-            filtered = filtered.filter(t => new Date(t.createdAt) >= cutoff);
-        }
-
-        return filtered;
-    }, [tickets, eventId, timeRange]);
-
-    // Analytics calculations
-    const analytics = useMemo(() => {
-        const totalTickets = filteredTickets.length;
-        const checkedInTickets = filteredTickets.filter(t => t.checkedIn).length;
-        const checkInRate = totalTickets > 0 ? (checkedInTickets / totalTickets * 100).toFixed(1) : '0';
-
-        // Repeat attendees (by email)
-        const emailCounts: Record<string, number> = {};
-        filteredTickets.forEach(t => {
-            if (t.email) {
-                emailCounts[t.email] = (emailCounts[t.email] || 0) + 1;
+                const res = await fetch(`/api/analytics?${query.toString()}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    setAnalytics(data);
+                }
+            } catch (error) {
+                console.error('Failed to load analytics', error);
+            } finally {
+                setLoading(false);
             }
-        });
-        const repeatAttendees = Object.values(emailCounts).filter(c => c > 1).length;
-        const uniqueAttendees = Object.keys(emailCounts).length;
-
-        // Sales by event
-        const salesByEvent: Record<string, number> = {};
-        filteredTickets.forEach(t => {
-            const event = events.find(e => e.id === t.eventId);
-            const eventName = event?.name || 'Unknown Event';
-            salesByEvent[eventName] = (salesByEvent[eventName] || 0) + 1;
-        });
-        const salesByEventData = Object.entries(salesByEvent)
-            .map(([name, count]) => ({ name: name.length > 20 ? name.slice(0, 20) + '...' : name, count }))
-            .sort((a, b) => b.count - a.count)
-            .slice(0, 8);
-
-        // Sales over time (daily)
-        const salesByDay: Record<string, number> = {};
-        filteredTickets.forEach(t => {
-            const date = new Date(t.createdAt).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' });
-            salesByDay[date] = (salesByDay[date] || 0) + 1;
-        });
-        const salesTrendData = Object.entries(salesByDay)
-            .map(([date, sales]) => ({ date, sales }))
-            .slice(-14); // Last 14 days
-
-        // Booking hours distribution
-        const bookingHours: number[] = new Array(24).fill(0);
-        filteredTickets.forEach(t => {
-            const hour = new Date(t.createdAt).getHours();
-            bookingHours[hour]++;
-        });
-        const peakHoursData = bookingHours.map((count, hour) => ({
-            hour: `${hour.toString().padStart(2, '0')}:00`,
-            bookings: count,
-        }));
-
-        // Check-in status distribution
-        const checkInData = [
-            { name: 'Checked In', value: checkedInTickets },
-            { name: 'Not Checked In', value: totalTickets - checkedInTickets },
-        ];
-
-        return {
-            totalTickets,
-            checkedInTickets,
-            checkInRate,
-            repeatAttendees,
-            uniqueAttendees,
-            salesByEventData,
-            salesTrendData,
-            peakHoursData,
-            checkInData,
         };
-    }, [filteredTickets, events]);
+
+        fetchAnalytics();
+    }, [eventId, timeRange]);
 
     // Export to CSV
     const exportToCSV = () => {
-        const headers = ['Name', 'Email', 'Phone', 'Event', 'Status', 'Checked In', 'Created At'];
-        const rows = filteredTickets.map(t => {
-            const event = events.find(e => e.id === t.eventId);
-            return [
-                t.name,
-                t.email || '',
-                t.phone || '',
-                event?.name || t.eventId,
-                t.status,
-                t.checkedIn ? 'Yes' : 'No',
-                new Date(t.createdAt).toLocaleString(),
-            ];
-        });
-
-        const csv = [headers.join(','), ...rows.map(r => r.map(c => `"${c}"`).join(','))].join('\n');
-        const blob = new Blob([csv], { type: 'text/csv' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `attendee-insights-${new Date().toISOString().split('T')[0]}.csv`;
-        a.click();
-        URL.revokeObjectURL(url);
+        window.location.href = `/api/export?eventId=${eventId}`;
+        // toast.success("Export started");
     };
 
     return (

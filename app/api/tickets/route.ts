@@ -72,6 +72,7 @@ export async function POST(req: NextRequest) {
           phone: attendee.phone || body.phone || null,
           eventId: body.eventId,
           status: 'pending',
+          customAnswers: body.customAnswers || {},
         },
       });
 

@@ -5,7 +5,7 @@ import { useApp, CATEGORY_COLORS, type Event } from '@/lib/store';
 import { useToast } from '@/components/Toaster';
 import { useState, useEffect } from 'react';
 import EventPolls from '@/components/EventPolls';
-import { Calendar, MapPin, Share2, ArrowLeft, Clock, Users, Trophy, Map, ShieldCheck, Mail, Phone, ExternalLink, Ticket, Info } from 'lucide-react';
+import { Calendar, MapPin, Share2, ArrowLeft, Clock, Users, Trophy, Map, ShieldCheck, Mail, Phone, ExternalLink, Ticket, Info, Globe } from 'lucide-react';
 
 // Countdown Timer Component
 function CountdownTimer({ targetDate }: { targetDate: string }) {
@@ -455,6 +455,25 @@ export default function EventDetailsPage() {
                                             <p className="text-zinc-500 text-sm">Address</p>
                                             <p className="text-white font-medium">{event.address || 'To be announced'}</p>
                                         </div>
+
+                                        {/* Virtual Venue */}
+                                        {event.videoLink && (
+                                            <div className="glass-light rounded-xl p-4 hover:bg-zinc-800/60 transition-colors">
+                                                <div className="w-10 h-10 rounded-lg bg-indigo-600/20 flex items-center justify-center mb-2">
+                                                    <Globe className="w-5 h-5 text-indigo-500" />
+                                                </div>
+                                                <p className="text-zinc-500 text-sm">Virtual Venue</p>
+                                                <a
+                                                    href={event.videoLink}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="text-indigo-400 font-medium hover:underline flex items-center gap-1"
+                                                >
+                                                    Join Meeting <ExternalLink className="w-3 h-3" />
+                                                </a>
+                                            </div>
+                                        )}
+
 
                                         {/* Organizer */}
                                         {event.organizer && (

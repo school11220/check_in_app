@@ -1,16 +1,23 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useApp } from '@/lib/store';
 import { useToast } from '@/components/Toaster';
 import QRScanner from '@/components/QRScanner';
-import { useRouter } from 'next/navigation';
-import { ScanLine, LogOut, Ticket, Lock, CheckCircle, XCircle } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { ScanLine, LogOut, Ticket, Lock, CheckCircle, XCircle, Radio, Calendar, X } from 'lucide-react';
+import SessionScheduler from '@/components/admin/SessionScheduler';
 
-export default function CheckinPage() {
+
+function CheckinPageContent() {
   const { events } = useApp();
   const router = useRouter();
   const { showToast } = useToast();
+  const searchParams = useSearchParams();
+  const eventId = searchParams.get('event');
+
+  const [showSchedule, setShowSchedule] = useState(false);
+
 
   const [password, setPassword] = useState('');
   const [scanResult, setScanResult] = useState<{ success: boolean; message: string; details?: any } | null>(null);
@@ -113,93 +120,109 @@ export default function CheckinPage() {
     }
   };
 
-  // Login Screen for non-admins
-  // Middleware ensures auth
-  // if (!isAdminLoggedIn) ... removed
-
   return (
-    <main className="min-h-screen py-6 px-4 pb-20">
-      <div className="max-w-5xl mx-auto">
+    <main className="min-h-screen bg-[#0B0B0B] py-6 px-4 pb-20">
+      {/* Ambient Background */}
+      <div className="fixed inset-0 pointer-events-none">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(225,29,46,0.08),transparent_60%)]" />
+      </div>
+
+      <div className="max-w-5xl mx-auto relative z-10">
         {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 glass-light p-4 rounded-2xl">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 glass p-5 rounded-2xl">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-gradient-to-br from-red-600 to-red-800 rounded-xl flex items-center justify-center shadow-lg shadow-red-900/20">
-              <ScanLine className="w-6 h-6 text-white" />
+            <div className="w-14 h-14 bg-gradient-to-br from-[#E11D2E] to-[#B91C1C] rounded-xl flex items-center justify-center shadow-lg shadow-red-900/30 glow-red-sm">
+              <ScanLine className="w-7 h-7 text-white" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-white">EventHub Check-In</h1>
-              <p className="text-zinc-400 text-xs md:text-sm">Ready to scan tickets</p>
+              <h1 className="font-heading text-2xl font-bold text-white">EventHub Check-In</h1>
+              <p className="text-[#737373] text-sm mt-0.5">Ready to scan tickets</p>
             </div>
           </div>
           <div className="flex items-center gap-3 self-end md:self-auto">
-            <a href="/admin" className="px-4 py-2 rounded-lg bg-zinc-800/50 hover:bg-zinc-800 text-zinc-300 hover:text-white text-sm flex items-center transition-colors border border-white/5">
+            {eventId && (
+              <button
+                onClick={() => setShowSchedule(true)}
+                className="px-5 py-2.5 rounded-xl bg-[#141414] hover:bg-[#1A1A1A] text-[#B3B3B3] hover:text-white text-sm flex items-center transition-colors border border-[#1F1F1F] hover:border-[#2A2A2A]"
+              >
+                <Calendar className="w-4 h-4 mr-2" /> Schedule
+              </button>
+            )}
+            <a href="/admin" className="px-5 py-2.5 rounded-xl bg-[#141414] hover:bg-[#1A1A1A] text-[#B3B3B3] hover:text-white text-sm flex items-center transition-colors border border-[#1F1F1F] hover:border-[#2A2A2A]">
               <Lock className="w-4 h-4 mr-2" /> Admin Panel
             </a>
-            <button onClick={handleLogout} className="flex items-center px-4 py-2 bg-red-900/20 text-red-400 border border-red-900/30 rounded-lg hover:bg-red-900/30 text-sm transition-colors">
+            <button onClick={handleLogout} className="flex items-center px-4 py-2.5 bg-[#E11D2E]/10 text-[#FF6B7A] border border-[#E11D2E]/20 rounded-xl hover:bg-[#E11D2E]/15 text-sm transition-colors">
               <LogOut className="w-4 h-4" />
             </button>
           </div>
+
         </div>
 
-        <div className="grid lg:grid-cols-2 gap-6 md:gap-8">
+        <div className="grid lg:grid-cols-2 gap-8">
           {/* Scanner */}
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden shadow-xl flex flex-col">
-            <div className="p-4 border-b border-zinc-800 flex justify-between items-center bg-zinc-900/50">
-              <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+          <div className="bg-[#0D0D0D] border border-[#1F1F1F] rounded-2xl overflow-hidden shadow-2xl flex flex-col">
+            {/* Scanner Header */}
+            <div className="p-5 border-b border-[#1F1F1F] flex justify-between items-center bg-[#141414]">
+              <h2 className="font-heading text-lg font-semibold text-white flex items-center gap-3">
                 <span className="relative flex h-3 w-3">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#E11D2E] opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-[#E11D2E]"></span>
                 </span>
                 Live Scanner
               </h2>
-              <span className="text-xs text-zinc-500 font-mono">Camera Active</span>
+              <span className="text-xs text-[#737373] font-mono bg-[#0D0D0D] px-3 py-1.5 rounded-lg border border-[#1F1F1F]">Camera Active</span>
             </div>
 
-            <div className="relative aspect-square bg-black group overflow-hidden">
+            {/* Scanner View - Centered */}
+            <div className="relative aspect-square bg-black group overflow-hidden flex items-center justify-center">
               <QRScanner onScan={handleScan} />
 
               {/* Overlay Elements */}
               <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center z-10">
-                {/* Scan Frame */}
-                <div className="w-64 h-64 border-2 border-white/30 rounded-3xl relative">
-                  <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-red-500 rounded-tl-xl -mt-1 -ml-1"></div>
-                  <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-red-500 rounded-tr-xl -mt-1 -mr-1"></div>
-                  <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-red-500 rounded-bl-xl -mb-1 -ml-1"></div>
-                  <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-red-500 rounded-br-xl -mb-1 -mr-1"></div>
+                {/* Premium Scan Frame */}
+                <div className="w-64 h-64 border-2 border-white/20 rounded-3xl relative">
+                  {/* Animated Corner Pieces */}
+                  <div className="absolute top-0 left-0 w-10 h-10 border-t-4 border-l-4 border-[#E11D2E] rounded-tl-2xl -mt-1 -ml-1 animate-pulse-slow"></div>
+                  <div className="absolute top-0 right-0 w-10 h-10 border-t-4 border-r-4 border-[#E11D2E] rounded-tr-2xl -mt-1 -mr-1 animate-pulse-slow animation-delay-100"></div>
+                  <div className="absolute bottom-0 left-0 w-10 h-10 border-b-4 border-l-4 border-[#E11D2E] rounded-bl-2xl -mb-1 -ml-1 animate-pulse-slow animation-delay-200"></div>
+                  <div className="absolute bottom-0 right-0 w-10 h-10 border-b-4 border-r-4 border-[#E11D2E] rounded-br-2xl -mb-1 -mr-1 animate-pulse-slow animation-delay-300"></div>
 
                   {/* Scanned Success Effect */}
                   {scanResult?.success && (
-                    <div className="absolute inset-0 bg-green-500/20 animate-pulse rounded-3xl"></div>
+                    <div className="absolute inset-0 bg-[#22C55E]/20 animate-pulse rounded-3xl"></div>
                   )}
 
-                  {/* Scanning Line Animation */}
-                  <div className="absolute top-0 left-0 right-0 h-[2px] bg-red-500 shadow-[0_0_20px_rgba(239,68,68,0.8)] animate-scan-line opacity-80"></div>
+                  {/* Animated Scanning Line */}
+                  <div className="absolute top-0 left-4 right-4 h-[2px] bg-gradient-to-r from-transparent via-[#E11D2E] to-transparent shadow-[0_0_20px_rgba(225,29,46,0.8)] animate-scan-line"></div>
                 </div>
               </div>
             </div>
 
             {/* Instruction and Manual Entry */}
-            <div className="p-4 bg-zinc-900 border-t border-zinc-800 space-y-4">
-              <div className="flex items-start gap-3 p-3 rounded-lg bg-zinc-950/50 border border-zinc-800/50">
-                <div className="p-1 bg-zinc-800 rounded-full mt-0.5">
-                  <svg className="w-3 h-3 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            <div className="p-5 bg-[#0D0D0D] border-t border-[#1F1F1F] space-y-5">
+              {/* Instructions */}
+              <div className="flex items-start gap-3 p-4 rounded-xl bg-[#141414] border border-[#1F1F1F]">
+                <div className="p-1.5 bg-[#E11D2E]/10 rounded-full text-[#E11D2E] flex-shrink-0 mt-0.5">
+                  <Radio className="w-4 h-4" />
                 </div>
-                <p className="text-xs text-zinc-400 leading-relaxed">
-                  Position the QR code within the red frame. The scanner will capture it automatically.
+                <p className="text-sm text-[#B3B3B3] leading-relaxed">
+                  Position the <span className="text-white font-medium">QR code</span> within the red frame. The scanner will capture it automatically.
                 </p>
               </div>
+
+              {/* Manual Entry */}
               <form onSubmit={handleManualSubmit} className="relative">
                 <input
                   type="text"
                   value={manualCode}
                   onChange={(e) => setManualCode(e.target.value)}
                   placeholder="Enter ticket code manually"
-                  className="w-full pl-4 pr-24 py-3 bg-zinc-950 border border-zinc-800 rounded-xl text-white text-sm focus:outline-none focus:border-red-500/50 transition-all placeholder:text-zinc-600"
+                  className="w-full pl-5 pr-28 py-4 bg-[#141414] border border-[#1F1F1F] rounded-xl text-white text-sm focus:outline-none focus:border-[#E11D2E]/50 focus:ring-2 focus:ring-[#E11D2E]/20 transition-all placeholder:text-[#737373]"
                 />
                 <button
                   type="submit"
                   disabled={!manualCode.trim() || isProcessing}
-                  className="absolute right-1.5 top-1.5 bottom-1.5 px-4 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg transition-colors text-xs font-medium disabled:opacity-50"
+                  className="absolute right-2 top-2 bottom-2 px-5 bg-gradient-to-r from-[#E11D2E] to-[#B91C1C] hover:from-[#FF2D3F] hover:to-[#E11D2E] text-white rounded-lg transition-all text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   {isProcessing ? '...' : 'Verify'}
                 </button>
@@ -208,51 +231,51 @@ export default function CheckinPage() {
 
             {/* Debug Info (Visible only on error) */}
             {scanResult && !scanResult.success && (
-              <div className="p-2 text-[10px] text-zinc-600 font-mono bg-black/50 overflow-hidden break-all">
+              <div className="p-3 text-[10px] text-[#737373] font-mono bg-black/50 overflow-hidden break-all border-t border-[#1F1F1F]">
                 Last error: {scanResult.message}
               </div>
             )}
           </div>
 
           {/* Result & Recent */}
-          <div className="space-y-6 flex flex-col h-full">
+          <div className="space-y-6 flex flex-col">
             {/* Scan Result */}
             {scanResult && (
-              <div className={`p-6 rounded-3xl backdrop-blur-md border animate-slide-in ${scanResult.success
-                ? 'bg-green-950/30 border-green-500/30 shadow-[0_0_30px_rgba(22,163,74,0.1)]'
-                : 'bg-red-950/30 border-red-500/30 shadow-[0_0_30px_rgba(220,38,38,0.1)]'
+              <div className={`p-6 rounded-2xl backdrop-blur-md border animate-scale-in ${scanResult.success
+                ? 'bg-[#22C55E]/10 border-[#22C55E]/30 shadow-[0_0_40px_rgba(34,197,94,0.1)]'
+                : 'bg-[#E11D2E]/10 border-[#E11D2E]/30 shadow-[0_0_40px_rgba(225,29,46,0.1)]'
                 }`}>
-                <div className="flex items-start gap-4 mb-4">
-                  <div className={`p-3 rounded-full ${scanResult.success ? 'bg-green-500/20' : 'bg-red-500/20'}`}>
+                <div className="flex items-start gap-4 mb-5">
+                  <div className={`p-4 rounded-full ${scanResult.success ? 'bg-[#22C55E]/20' : 'bg-[#E11D2E]/20'}`}>
                     {scanResult.success ? (
-                      <CheckCircle className="w-8 h-8 text-green-400" />
+                      <CheckCircle className="w-8 h-8 text-[#22C55E]" />
                     ) : (
-                      <XCircle className="w-8 h-8 text-red-400" />
+                      <XCircle className="w-8 h-8 text-[#E11D2E]" />
                     )}
                   </div>
-                  <div>
-                    <h3 className={`text-xl font-bold ${scanResult.success ? 'text-green-400' : 'text-red-400'}`}>
+                  <div className="flex-1">
+                    <h3 className={`font-heading text-xl font-bold ${scanResult.success ? 'text-[#22C55E]' : 'text-[#E11D2E]'}`}>
                       {scanResult.success ? 'Access Granted' : 'Access Denied'}
                     </h3>
-                    <p className="text-zinc-400 text-sm mt-1">{scanResult.message}</p>
+                    <p className="text-[#B3B3B3] text-sm mt-1">{scanResult.message}</p>
                   </div>
                 </div>
 
                 {scanResult.details && (
-                  <div className="space-y-3 bg-black/20 rounded-xl p-4 border border-white/5">
-                    <div className="flex justify-between items-center border-b border-white/5 pb-2">
-                      <span className="text-zinc-500 text-sm">Guest</span>
-                      <span className="text-white font-medium">{scanResult.details.name}</span>
+                  <div className="space-y-3 bg-black/20 rounded-xl p-5 border border-white/5">
+                    <div className="flex justify-between items-center border-b border-white/5 pb-3">
+                      <span className="text-[#737373] text-sm">Guest</span>
+                      <span className="text-white font-semibold">{scanResult.details.name}</span>
                     </div>
                     {scanResult.details.email && (
-                      <div className="flex justify-between items-center border-b border-white/5 pb-2">
-                        <span className="text-zinc-500 text-sm">Email</span>
-                        <span className="text-white font-medium text-sm">{scanResult.details.email}</span>
+                      <div className="flex justify-between items-center border-b border-white/5 pb-3">
+                        <span className="text-[#737373] text-sm">Email</span>
+                        <span className="text-white text-sm">{scanResult.details.email}</span>
                       </div>
                     )}
                     <div className="flex justify-between items-center">
-                      <span className="text-zinc-500 text-sm">Event</span>
-                      <span className="text-red-400 font-medium text-sm">{scanResult.details.event}</span>
+                      <span className="text-[#737373] text-sm">Event</span>
+                      <span className="text-[#FF6B7A] font-medium text-sm">{scanResult.details.event}</span>
                     </div>
                   </div>
                 )}
@@ -260,31 +283,42 @@ export default function CheckinPage() {
             )}
 
             {/* Recent Check-ins */}
-            <div className="glass-card rounded-3xl p-6 flex-1 min-h-[300px]">
+            <div className="glass rounded-2xl p-6 flex-1 min-h-[320px]">
               <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-semibold text-white">Recent Activity</h3>
-                <div className="text-xs text-zinc-500 bg-zinc-900 px-2 py-1 rounded-full">Live</div>
+                <h3 className="font-heading text-lg font-semibold text-white">Recent Activity</h3>
+                <div className="flex items-center gap-2 text-xs text-[#22C55E] bg-[#22C55E]/10 px-3 py-1.5 rounded-full border border-[#22C55E]/20">
+                  <span className="w-1.5 h-1.5 bg-[#22C55E] rounded-full animate-pulse"></span>
+                  Live
+                </div>
               </div>
 
               {recentCheckins.length === 0 ? (
-                <div className="h-40 flex flex-col items-center justify-center text-zinc-600">
-                  <ScanLine className="w-8 h-8 mb-2 opacity-50" />
-                  <p className="text-sm">Waiting for scans...</p>
+                <div className="h-48 flex flex-col items-center justify-center text-[#737373]">
+                  {/* Empty State Illustration */}
+                  <div className="w-20 h-20 rounded-full bg-[#141414] border border-[#1F1F1F] flex items-center justify-center mb-4 skeleton">
+                    <ScanLine className="w-8 h-8 text-[#737373] opacity-50" />
+                  </div>
+                  <p className="text-sm font-medium">Waiting for scans...</p>
+                  <p className="text-xs text-[#555] mt-1">Checked-in guests will appear here</p>
                 </div>
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-3">
                   {recentCheckins.map((checkin, i) => (
-                    <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors border border-white/5 animate-fade-in-up" style={{ animationDelay: `${i * 100}ms` }}>
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-zinc-700 to-zinc-900 flex items-center justify-center border border-white/10 text-xs font-bold text-zinc-300">
+                    <div
+                      key={i}
+                      className="flex items-center justify-between p-4 rounded-xl bg-white/[0.02] hover:bg-white/[0.04] transition-colors border border-white/5 animate-fade-in-up"
+                      style={{ animationDelay: `${i * 80}ms`, opacity: 0 }}
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="w-11 h-11 rounded-full bg-gradient-to-br from-[#E11D2E]/30 to-[#B91C1C]/30 flex items-center justify-center border border-[#E11D2E]/20 text-sm font-bold text-white">
                           {checkin.name.charAt(0)}
                         </div>
                         <div>
                           <p className="text-white font-medium text-sm">{checkin.name}</p>
-                          <p className="text-zinc-500 text-xs truncate max-w-[150px]">{checkin.event}</p>
+                          <p className="text-[#737373] text-xs truncate max-w-[160px]">{checkin.event}</p>
                         </div>
                       </div>
-                      <span className="text-zinc-500 text-xs font-mono">{checkin.time}</span>
+                      <span className="text-[#737373] text-xs font-mono">{checkin.time}</span>
                     </div>
                   ))}
                 </div>
@@ -293,6 +327,44 @@ export default function CheckinPage() {
           </div>
         </div>
       </div>
+
+      {/* Schedule Modal */}
+      {showSchedule && eventId && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
+          <div className="bg-[#0B0B0B] border border-zinc-800 w-full max-w-4xl max-h-[90vh] rounded-2xl flex flex-col shadow-2xl">
+            <div className="flex justify-between items-center p-6 border-b border-zinc-800">
+              <div>
+                <h3 className="text-xl font-bold text-white">Event Schedule</h3>
+                <p className="text-zinc-500 text-sm">
+                  {events.find(e => e.id === eventId)?.name || 'Current Event'}
+                </p>
+              </div>
+              <button
+                onClick={() => setShowSchedule(false)}
+                className="p-2 hover:bg-zinc-800 rounded-lg text-zinc-500 hover:text-white transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6 md:p-8">
+              <SessionScheduler
+                eventId={eventId}
+                eventDate={events.find(e => e.id === eventId)?.date || new Date().toISOString()}
+                showToast={showToast}
+                readOnly={true}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </main>
+  );
+}
+
+export default function CheckinPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-black text-white flex items-center justify-center">Loading check-in...</div>}>
+      <CheckinPageContent />
+    </Suspense>
   );
 }

@@ -16,7 +16,10 @@ interface Event {
   earlyBirdPrice?: number;
   earlyBirdDeadline?: string;
   // Dynamic Pricing
+  // Dynamic Pricing
   currentPrice?: number;
+  // Custom Registration Fields
+  registrationFields?: any[];
 }
 
 declare global {
@@ -36,6 +39,7 @@ export default function TicketForm() {
     email: '',
     phone: '',
   });
+  const [answers, setAnswers] = useState<Record<string, string>>({}); // { fieldId: answer }
   const [loading, setLoading] = useState(false);
   const [loadingEvents, setLoadingEvents] = useState(true);
   const { showToast } = useToast();
@@ -158,12 +162,25 @@ export default function TicketForm() {
       return;
     }
 
+    // Validate Required Custom Questions
+    const selectedEvt = events.find(e => e.id === selectedEvent);
+    if (!selectedEvt) {
+      showToast('Event not found', 'error');
+      return;
+    }
+
+    if (selectedEvt.registrationFields) {
+      for (const field of selectedEvt.registrationFields) {
+        if (field.required && (!answers[field.id] || !answers[field.id].trim())) {
+          showToast(`Please answer the required question: "${field.label}"`, 'error');
+          return;
+        }
+      }
+    }
+
     setLoading(true);
 
     try {
-      const selectedEvt = events.find(e => e.id === selectedEvent);
-      if (!selectedEvt) throw new Error('Event not found');
-
       const totalAmount = calculateTotalPrice();
 
       // Create tickets for all attendees
@@ -181,6 +198,7 @@ export default function TicketForm() {
           name: attendees[0].name,
           email: attendees[0].email || formData.email,
           phone: attendees[0].phone || formData.phone,
+          customAnswers: answers // Pass custom answers
         }),
       });
 
@@ -273,7 +291,7 @@ export default function TicketForm() {
           contact: formData.phone,
         },
         theme: {
-          color: '#dc2626',
+          color: '#E11D2E',
         },
       };
 
@@ -292,34 +310,44 @@ export default function TicketForm() {
     }
   };
 
+  const isEarlyBird = selectedEventData?.earlyBirdEnabled &&
+    selectedEventData?.earlyBirdDeadline &&
+    new Date(selectedEventData.earlyBirdDeadline) > new Date();
+
   return (
     <div className="w-full max-w-2xl mx-auto">
-      <div className="glass-card rounded-2xl shadow-2xl overflow-hidden border border-zinc-800/50">
+      <div className="glass rounded-2xl shadow-2xl overflow-hidden border border-[#1F1F1F]">
         {/* Card Header */}
-        <div className="bg-gradient-to-r from-red-600/80 to-red-900/80 px-8 py-6 backdrop-blur-sm">
-          <h2 className="text-2xl font-bold text-white">Event Registration</h2>
-          <p className="text-red-200 text-sm mt-1">Select your event and complete registration</p>
+        <div className="relative overflow-hidden px-8 py-7">
+          {/* Background gradient */}
+          <div className="absolute inset-0 bg-gradient-to-r from-[#E11D2E]/80 to-[#B91C1C]/80" />
+          <div className="absolute inset-0 noise-texture" />
+
+          <div className="relative z-10">
+            <h2 className="font-heading text-2xl font-bold text-white">Event Registration</h2>
+            <p className="text-red-200/80 text-sm mt-1.5">Select your event and complete registration</p>
+          </div>
         </div>
 
         {/* Card Body */}
-        <div className="px-8 py-8">
+        <div className="px-8 py-8 space-y-6">
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Event Selection */}
             <div>
-              <label className="block text-sm font-semibold text-zinc-300 mb-2">
-                Select Event <span className="text-red-500">*</span>
+              <label className="block text-sm font-semibold text-[#B3B3B3] mb-3">
+                Select Event <span className="text-[#E11D2E]">*</span>
               </label>
               {loadingEvents ? (
-                <div className="h-12 bg-zinc-800 rounded-xl animate-pulse" />
+                <div className="h-14 bg-[#141414] rounded-[10px] skeleton" />
               ) : events.length === 0 ? (
-                <div className="p-4 bg-zinc-800 rounded-xl text-zinc-400 text-center">
+                <div className="p-5 bg-[#141414] border border-[#1F1F1F] rounded-[10px] text-[#737373] text-center">
                   No events available at the moment
                 </div>
               ) : (
                 <select
                   value={selectedEvent}
                   onChange={(e) => setSelectedEvent(e.target.value)}
-                  className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-white transition-all appearance-none cursor-pointer"
+                  className="w-full px-4 py-4 bg-[#0D0D0D] border border-[#2A2A2A] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[#E11D2E]/50 focus:border-[#E11D2E] text-white transition-all appearance-none cursor-pointer"
                 >
                   {events.map((event) => (
                     <option key={event.id} value={event.id}>
@@ -332,95 +360,100 @@ export default function TicketForm() {
 
             {/* Event Details */}
             {selectedEventData && (
-              <div className="bg-zinc-800/50 border border-zinc-700 rounded-xl p-4">
+              <div className="bg-[#141414] border border-[#1F1F1F] rounded-xl p-5">
                 {/* Early Bird Banner */}
-                {selectedEventData.earlyBirdEnabled && selectedEventData.earlyBirdDeadline && new Date(selectedEventData.earlyBirdDeadline) > new Date() && (
-                  <div className="mb-3 -mt-1 -mx-1 px-3 py-2 bg-gradient-to-r from-green-600/20 to-emerald-600/20 rounded-lg border border-green-700/50 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
+                {isEarlyBird && (
+                  <div className="mb-4 -mt-1 -mx-1 px-4 py-3 bg-gradient-to-r from-[#22C55E]/15 to-[#16A34A]/15 rounded-lg border border-[#22C55E]/30 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-[#22C55E]/20 flex items-center justify-center">
+                        <svg className="w-5 h-5 text-[#22C55E]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </div>
                       <div>
-                        <p className="text-green-400 text-xs font-semibold">Early Bird Discount Active!</p>
-                        <p className="text-green-500/70 text-xs">
-                          Ends {new Date(selectedEventData.earlyBirdDeadline).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                        <p className="text-[#22C55E] text-sm font-semibold">Early Bird Discount Active!</p>
+                        <p className="text-[#22C55E]/60 text-xs">
+                          Ends {new Date(selectedEventData.earlyBirdDeadline!).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
                         </p>
                       </div>
                     </div>
-                    <span className="px-2 py-1 bg-green-600 text-white rounded-lg text-xs font-bold">
+                    <span className="px-3 py-1.5 bg-[#22C55E] text-white rounded-lg text-xs font-bold">
                       Save {Math.round(((selectedEventData.price - (selectedEventData.earlyBirdPrice || 0)) / selectedEventData.price) * 100)}%
                     </span>
                   </div>
                 )}
 
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h3 className="font-semibold text-white">{selectedEventData.name}</h3>
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1">
+                    <h3 className="font-heading font-semibold text-white text-lg">{selectedEventData.name}</h3>
                     {selectedEventData.description && (
-                      <p className="text-sm text-zinc-400 mt-1">{selectedEventData.description}</p>
+                      <p className="text-sm text-[#B3B3B3] mt-2 line-clamp-2">{selectedEventData.description}</p>
                     )}
-                    <div className="flex items-center gap-4 mt-3 text-sm text-zinc-400">
+                    <div className="flex items-center gap-4 mt-4 text-sm text-[#737373]">
                       {selectedEventData.venue && (
-                        <span className="flex items-center gap-1">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <span className="flex items-center gap-1.5">
+                          <svg className="w-4 h-4 text-[#E11D2E]/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                           </svg>
                           {selectedEventData.venue}
                         </span>
                       )}
-                      <span className="flex items-center gap-1">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <span className="flex items-center gap-1.5">
+                        <svg className="w-4 h-4 text-[#E11D2E]/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
                         {new Date(selectedEventData.date).toLocaleDateString('en-IN', {
                           weekday: 'short',
                           day: 'numeric',
                           month: 'short',
-                          year: 'numeric',
                         })}
                       </span>
                     </div>
                   </div>
-                  <div className="text-right">
-                    {selectedEventData.earlyBirdEnabled && selectedEventData.earlyBirdDeadline && new Date(selectedEventData.earlyBirdDeadline) > new Date() ? (
+
+                  {/* Price Display */}
+                  <div className="text-right flex-shrink-0">
+                    {isEarlyBird ? (
                       <>
-                        <p className="text-2xl font-bold text-green-400">₹{((selectedEventData.earlyBirdPrice || 0) / 100).toFixed(0)}</p>
-                        <p className="text-sm text-zinc-500 line-through">₹{(selectedEventData.price / 100).toFixed(0)}</p>
+                        <p className="font-mono text-2xl font-bold text-[#22C55E]">₹{((selectedEventData.earlyBirdPrice || 0) / 100).toFixed(0)}</p>
+                        <p className="font-mono text-sm text-[#737373] line-through">₹{(selectedEventData.price / 100).toFixed(0)}</p>
                       </>
                     ) : (
-                      <p className="text-2xl font-bold text-white">₹{(selectedEventData.price / 100).toFixed(0)}</p>
+                      <p className="font-mono text-2xl font-bold text-white">₹{(selectedEventData.price / 100).toFixed(0)}</p>
                     )}
                   </div>
                 </div>
               </div>
             )}
 
-            {/* Quantity Selector */}
+            {/* Quantity Selector - Enhanced */}
             {selectedEventData && (
-              <div className="bg-zinc-800/50 border border-zinc-700 rounded-xl p-4">
+              <div className="bg-[#141414] border border-[#1F1F1F] rounded-xl p-5">
                 <div className="flex items-center justify-between">
                   <div>
-                    <label className="block text-sm font-semibold text-zinc-300 mb-1">
+                    <label className="block text-sm font-semibold text-[#B3B3B3] mb-1">
                       Number of Tickets
                     </label>
-                    <p className="text-xs text-zinc-500">Max {MAX_TICKETS} tickets per order</p>
+                    <p className="text-xs text-[#737373]">Max {MAX_TICKETS} tickets per order</p>
                   </div>
-                  <div className="flex items-center gap-3">
+
+                  {/* Counter */}
+                  <div className="flex items-center gap-4">
                     <button
                       type="button"
                       onClick={() => handleQuantityChange(quantity - 1)}
                       disabled={quantity <= 1}
-                      className="w-10 h-10 rounded-lg bg-zinc-700 hover:bg-zinc-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center text-white text-xl font-bold transition-colors"
+                      className="w-12 h-12 rounded-xl bg-[#0D0D0D] border border-[#2A2A2A] hover:bg-[#1A1A1A] hover:border-[#E11D2E]/30 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center text-white text-2xl font-bold transition-all"
                     >
                       −
                     </button>
-                    <span className="w-12 text-center text-2xl font-bold text-white">{quantity}</span>
+                    <span className="w-14 text-center font-mono text-3xl font-bold text-white">{quantity}</span>
                     <button
                       type="button"
                       onClick={() => handleQuantityChange(quantity + 1)}
                       disabled={quantity >= MAX_TICKETS}
-                      className="w-10 h-10 rounded-lg bg-zinc-700 hover:bg-zinc-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center text-white text-xl font-bold transition-colors"
+                      className="w-12 h-12 rounded-xl bg-[#0D0D0D] border border-[#2A2A2A] hover:bg-[#1A1A1A] hover:border-[#E11D2E]/30 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center text-white text-2xl font-bold transition-all"
                     >
                       +
                     </button>
@@ -428,56 +461,56 @@ export default function TicketForm() {
                 </div>
 
                 {/* Total Price Display */}
-                <div className="mt-4 pt-4 border-t border-zinc-700 flex items-center justify-between">
-                  <span className="text-zinc-400">Total Amount:</span>
-                  <span className="text-2xl font-bold text-white">₹{(calculateTotalPrice() / 100).toLocaleString()}</span>
+                <div className="mt-5 pt-5 border-t border-[#1F1F1F] flex items-center justify-between">
+                  <span className="text-[#B3B3B3] font-medium">Total Amount:</span>
+                  <span className="font-mono text-3xl font-bold text-white">₹{(calculateTotalPrice() / 100).toLocaleString()}</span>
                 </div>
               </div>
             )}
 
             {/* Attendee Details */}
             <div className="space-y-4">
-              <label className="block text-sm font-semibold text-zinc-300">
-                Attendee Details {quantity > 1 && <span className="text-zinc-500 font-normal">({quantity} tickets)</span>}
+              <label className="block text-sm font-semibold text-[#B3B3B3]">
+                Attendee Details {quantity > 1 && <span className="text-[#737373] font-normal">({quantity} tickets)</span>}
               </label>
 
               {attendees.map((attendee, index) => (
-                <div key={index} className={`p-4 rounded-xl border ${index === 0 ? 'bg-zinc-800/70 border-red-900/50' : 'bg-zinc-800/30 border-zinc-700'}`}>
+                <div key={index} className={`p-5 rounded-xl border transition-colors ${index === 0 ? 'bg-[#141414] border-[#E11D2E]/20' : 'bg-[#0D0D0D] border-[#1F1F1F]'}`}>
                   {quantity > 1 && (
-                    <div className="flex items-center gap-2 mb-3">
-                      <span className="w-6 h-6 rounded-full bg-red-600 text-white text-xs flex items-center justify-center font-bold">
+                    <div className="flex items-center gap-3 mb-4">
+                      <span className="w-7 h-7 rounded-full bg-[#E11D2E] text-white text-xs flex items-center justify-center font-bold">
                         {index + 1}
                       </span>
-                      <span className="text-sm text-zinc-400">
+                      <span className="text-sm text-[#B3B3B3]">
                         {index === 0 ? 'Primary Ticket Holder' : `Ticket ${index + 1}`}
                       </span>
                     </div>
                   )}
 
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     <input
                       type="text"
                       required
                       value={attendee.name}
                       onChange={(e) => updateAttendee(index, 'name', e.target.value)}
-                      className="w-full px-4 py-3 bg-zinc-900 border border-zinc-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-white placeholder-zinc-500 transition-all"
+                      className="w-full px-4 py-4 bg-[#0D0D0D] border border-[#2A2A2A] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[#E11D2E]/50 focus:border-[#E11D2E] text-white placeholder-[#737373] transition-all"
                       placeholder={`Full Name ${index === 0 ? '(Required)' : ''}`}
                     />
 
                     {index === 0 && (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <input
                           type="email"
                           value={attendee.email}
                           onChange={(e) => updateAttendee(index, 'email', e.target.value)}
-                          className="w-full px-4 py-3 bg-zinc-900 border border-zinc-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-white placeholder-zinc-500 transition-all"
+                          className="w-full px-4 py-4 bg-[#0D0D0D] border border-[#2A2A2A] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[#E11D2E]/50 focus:border-[#E11D2E] text-white placeholder-[#737373] transition-all"
                           placeholder="Email Address"
                         />
                         <input
                           type="tel"
                           value={attendee.phone}
                           onChange={(e) => updateAttendee(index, 'phone', e.target.value)}
-                          className="w-full px-4 py-3 bg-zinc-900 border border-zinc-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-white placeholder-zinc-500 transition-all"
+                          className="w-full px-4 py-4 bg-[#0D0D0D] border border-[#2A2A2A] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[#E11D2E]/50 focus:border-[#E11D2E] text-white placeholder-[#737373] transition-all"
                           placeholder="Phone Number"
                         />
                       </div>
@@ -487,23 +520,76 @@ export default function TicketForm() {
               ))}
             </div>
 
+            {/* Custom Registration Questions */}
+            {selectedEventData?.registrationFields && selectedEventData.registrationFields.length > 0 && (
+              <div className="space-y-4 pt-4 border-t border-[#1F1F1F]">
+                <label className="block text-sm font-semibold text-[#B3B3B3]">
+                  Additional Information
+                </label>
+                <div className="bg-[#141414] border border-[#1F1F1F] rounded-xl p-5 space-y-4">
+                  {selectedEventData.registrationFields.map((field: any) => (
+                    <div key={field.id}>
+                      <label className="block text-sm text-[#B3B3B3] mb-2">
+                        {field.label} {field.required && <span className="text-[#E11D2E]">*</span>}
+                      </label>
+                      {field.type === 'text' && (
+                        <input
+                          type="text"
+                          required={field.required}
+                          value={answers[field.id] || ''}
+                          onChange={(e) => setAnswers(prev => ({ ...prev, [field.id]: e.target.value }))}
+                          className="w-full px-4 py-3 bg-[#0D0D0D] border border-[#2A2A2A] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[#E11D2E]/50 focus:border-[#E11D2E] text-white"
+                        />
+                      )}
+                      {field.type === 'checkbox' && (
+                        <label className="flex items-center gap-3 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            required={field.required}
+                            checked={answers[field.id] === 'yes'}
+                            onChange={(e) => setAnswers(prev => ({ ...prev, [field.id]: e.target.checked ? 'yes' : 'no' }))}
+                            className="w-5 h-5 rounded border-[#2A2A2A] bg-[#0D0D0D] text-[#E11D2E] focus:ring-[#E11D2E]/50"
+                          />
+                          <span className="text-sm text-[#B3B3B3]">Yes, I confirm</span>
+                        </label>
+                      )}
+                      {field.type === 'select' && (
+                        <select
+                          required={field.required}
+                          value={answers[field.id] || ''}
+                          onChange={(e) => setAnswers(prev => ({ ...prev, [field.id]: e.target.value }))}
+                          className="w-full px-4 py-3 bg-[#0D0D0D] border border-[#2A2A2A] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[#E11D2E]/50 focus:border-[#E11D2E] text-white appearance-none"
+                        >
+                          <option value="">Select an option</option>
+                          {field.options?.map((opt: string) => (
+                            <option key={opt} value={opt}>{opt}</option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Submit Button - Premium with Shimmer */}
             <button
               type="submit"
               disabled={loading || !selectedEvent}
-              className={`w-full py-4 px-6 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-zinc-900 disabled:from-zinc-600 disabled:to-zinc-600 disabled:cursor-not-allowed font-semibold transition-all shadow-lg text-lg ${selectedEventData?.earlyBirdEnabled && selectedEventData?.earlyBirdDeadline && new Date(selectedEventData.earlyBirdDeadline) > new Date()
-                ? 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 hover:shadow-green-900/30'
-                : 'bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 hover:shadow-red-900/30'
-                } text-white`}
+              className={`w-full py-5 px-6 rounded-xl font-semibold text-lg transition-all duration-300 relative overflow-hidden shimmer-hover ${isEarlyBird
+                ? 'bg-gradient-to-r from-[#22C55E] to-[#16A34A] hover:shadow-[0_0_32px_rgba(34,197,94,0.3)]'
+                : 'bg-gradient-to-r from-[#E11D2E] to-[#B91C1C] hover:shadow-[0_0_32px_rgba(225,29,46,0.4)]'
+                } text-white disabled:from-[#333] disabled:to-[#333] disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#0B0B0B] ${isEarlyBird ? 'focus:ring-[#22C55E]' : 'focus:ring-[#E11D2E]'}`}
             >
               {loading ? (
-                <span className="flex items-center justify-center gap-2">
+                <span className="flex items-center justify-center gap-3">
                   <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
                   Processing...
                 </span>
-              ) : selectedEventData?.earlyBirdEnabled && selectedEventData?.earlyBirdDeadline && new Date(selectedEventData.earlyBirdDeadline) > new Date() ? (
+              ) : isEarlyBird ? (
                 <span className="flex items-center justify-center gap-2">
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -518,8 +604,8 @@ export default function TicketForm() {
         </div>
 
         {/* Card Footer */}
-        <div className="bg-zinc-800/50 px-8 py-4 border-t border-zinc-800">
-          <p className="text-xs text-zinc-500 text-center flex items-center justify-center gap-2">
+        <div className="bg-[#0D0D0D] px-8 py-5 border-t border-[#1F1F1F]">
+          <p className="text-xs text-[#737373] text-center flex items-center justify-center gap-2">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
             </svg>

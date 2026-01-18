@@ -50,6 +50,30 @@ async function main() {
         });
         console.log('Seeded default event.');
     }
+
+
+    // Create or update Demo Organizer
+    // Find an event to assign
+    const event = await prisma.event.findFirst();
+    if (event) {
+        const organizerPassword = await bcrypt.hash('organizer123', 10);
+        const organizer = await prisma.user.upsert({
+            where: { email: 'organizer@eventhub.com' },
+            update: {
+                password: organizerPassword,
+                role: 'ORGANIZER',
+                assignedEventIds: [event.id]
+            },
+            create: {
+                email: 'organizer@eventhub.com',
+                name: 'Demo Organizer',
+                password: organizerPassword,
+                role: 'ORGANIZER',
+                assignedEventIds: [event.id]
+            },
+        });
+        console.log({ organizer });
+    }
 }
 
 main()

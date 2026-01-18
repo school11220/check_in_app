@@ -3,6 +3,14 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
 // Types
+export interface RegistrationField {
+    id: string;
+    type: 'text' | 'select' | 'checkbox';
+    label: string;
+    required: boolean;
+    options?: string[]; // For select type
+}
+
 export interface ScheduleItem {
     id: string;
     time: string;
@@ -47,6 +55,9 @@ export interface Event {
     speakers: Speaker[];
     sponsors: Sponsor[];
     tags: string[];
+    videoLink?: string;
+    organizerVideoLink?: string;
+
     organizer: string;
     contactEmail: string;
     contactPhone: string;
@@ -59,7 +70,8 @@ export interface Event {
     // Event Reminders
     sendReminders: boolean;
     // Dynamic Pricing
-    currentPrice?: number;
+    // Custom Registration Questions
+    registrationFields: any[]; // JSON array
 }
 
 export interface Ticket {
@@ -74,6 +86,8 @@ export interface Ticket {
     updatedAt?: string;
     createdAt: string;
     token?: string;
+    purchaseGroupId?: string;
+    customAnswers?: Record<string, any>; // JSON object
 }
 
 export interface Review {
@@ -176,6 +190,10 @@ export interface SiteSettings {
     accentColor: string;
     // Layout Control
     showEventsGrid: boolean;
+    showFeatures?: boolean;
+    showSchedule?: boolean;
+    showSponsors?: boolean;
+    showFaq?: boolean;
     showTicketForm: boolean;
     showCategories: boolean;
     enabledCategories: string[];
@@ -210,6 +228,24 @@ export interface SiteSettings {
     ticketGradientColor: string;
     ticketShowPattern: boolean;
     ticketPatternType: 'dots' | 'lines' | 'grid' | 'none';
+    // New Layout Settings
+    ticketLayout: 'classic' | 'modern' | 'minimal' | 'compact';
+    ticketHeaderStyle: 'gradient' | 'solid' | 'image';
+    ticketHeaderImage: string;
+    ticketQrPosition: 'center' | 'right' | 'bottom';
+    ticketQrSize: 'small' | 'medium' | 'large';
+    ticketShowEventImage: boolean;
+    ticketShowVenue: boolean;
+    ticketShowDate: boolean;
+    ticketShowTime: boolean;
+    ticketShowPrice: boolean;
+    ticketShowStatus: boolean;
+    ticketShowPerforation: boolean;
+    ticketShowEventDescription: boolean;
+    ticketCompactMode: boolean;
+    ticketBadgeText: string;
+    ticketFooterText: string;
+    ticketWatermark: string;
     // Custom Registration Fields
     customFields: CustomField[];
     // Reminder Settings
@@ -230,6 +266,10 @@ export const DEFAULT_SITE_SETTINGS: SiteSettings = {
     accentColor: '#dc2626',
     // Layout Control
     showEventsGrid: true,
+    showFeatures: true,
+    showSchedule: true,
+    showSponsors: true,
+    showFaq: true,
     showTicketForm: true,
     showCategories: true,
     enabledCategories: ['all', 'music', 'tech', 'art', 'sports', 'food', 'gaming', 'business'],
@@ -264,6 +304,24 @@ export const DEFAULT_SITE_SETTINGS: SiteSettings = {
     ticketGradientColor: '#991b1b',
     ticketShowPattern: true,
     ticketPatternType: 'dots',
+    // New Layout defaults
+    ticketLayout: 'classic',
+    ticketHeaderStyle: 'gradient',
+    ticketHeaderImage: '',
+    ticketQrPosition: 'center',
+    ticketQrSize: 'medium',
+    ticketShowEventImage: false,
+    ticketShowVenue: true,
+    ticketShowDate: true,
+    ticketShowTime: true,
+    ticketShowPrice: true,
+    ticketShowStatus: true,
+    ticketShowPerforation: true,
+    ticketShowEventDescription: false,
+    ticketCompactMode: false,
+    ticketBadgeText: 'VIP ACCESS',
+    ticketFooterText: '',
+    ticketWatermark: '',
     // Custom Fields
     customFields: [],
     // Reminders
@@ -454,6 +512,7 @@ interface AppContextType {
     notifyWaitlist: (eventId: string) => void;
     loginAdmin: (password: string) => boolean;
     logoutAdmin: () => void;
+    showToast?: (message: string, type: 'success' | 'error') => void;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -756,6 +815,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
         localStorage.setItem('waitlist', JSON.stringify(newWaitlist));
     };
 
+    // Placeholder for toast - typically handled by a separate ToastContext or component
+    const showToast = (message: string, type: 'success' | 'error') => {
+        console.log(`[Toast ${type}]: ${message}`);
+        // This is a placeholder. In a real app, this would trigger a UI toast.
+        // For now, we stub it so components destructuring it don't fail.
+    };
+
     return (
         <AppContext.Provider value={{
             events, tickets, reviews, teamMembers, siteSettings, festivals,
@@ -767,6 +833,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             addPromoCode, updatePromoCode, deletePromoCode, validatePromoCode,
             addToWaitlist, removeFromWaitlist, notifyWaitlist,
             loginAdmin, logoutAdmin,
+            showToast, // Add to provider value
         }}>
             {children}
         </AppContext.Provider>

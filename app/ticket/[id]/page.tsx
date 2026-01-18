@@ -237,17 +237,24 @@ export default function TicketPage() {
             backgroundColor: siteSettings.ticketBgColor || '#111111',
             borderColor: siteSettings.ticketBorderColor || '#333333',
             borderRadius: `${siteSettings.ticketBorderRadius || 24}px`,
-            fontFamily: siteSettings.ticketFontFamily || 'Inter, sans-serif'
+            fontFamily: siteSettings.ticketFontFamily === 'playfair' ? 'Georgia, serif'
+              : siteSettings.ticketFontFamily === 'montserrat' ? 'Montserrat, sans-serif'
+                : siteSettings.ticketFontFamily === 'roboto' ? 'Roboto, sans-serif'
+                  : 'Inter, sans-serif'
           }}
-          className={`border ${siteSettings.ticketBorderStyle || 'solid'} overflow-hidden shadow-2xl relative`}
+          className={`border ${siteSettings.ticketBorderStyle === 'none' ? 'border-0' : siteSettings.ticketBorderStyle === 'dashed' ? 'border-dashed' : 'border-solid'} overflow-hidden shadow-2xl relative ${siteSettings.ticketCompactMode ? 'max-w-sm mx-auto' : ''}`}
         >
           {/* Pattern Overlay */}
           {siteSettings.ticketShowPattern && siteSettings.ticketPatternType !== 'none' && (
             <div className="absolute inset-0 opacity-10 pointer-events-none z-0"
               style={{
-                backgroundImage: siteSettings.ticketPatternType === 'dots' ? 'radial-gradient(#ffffff 1px, transparent 1px)' :
-                  siteSettings.ticketPatternType === 'lines' ? 'repeating-linear-gradient(45deg, #ffffff 0, #ffffff 1px, transparent 0, transparent 50%)' :
-                    siteSettings.ticketPatternType === 'grid' ? 'linear-gradient(#ffffff 1px, transparent 1px), linear-gradient(90deg, #ffffff 1px, transparent 1px)' : 'none',
+                backgroundImage: siteSettings.ticketPatternType === 'dots'
+                  ? `radial-gradient(${siteSettings.ticketTextColor || '#ffffff'} 1px, transparent 1px)`
+                  : siteSettings.ticketPatternType === 'lines'
+                    ? `repeating-linear-gradient(45deg, transparent, transparent 10px, ${siteSettings.ticketTextColor || '#ffffff'} 10px, ${siteSettings.ticketTextColor || '#ffffff'} 11px)`
+                    : siteSettings.ticketPatternType === 'grid'
+                      ? `linear-gradient(${siteSettings.ticketTextColor || '#ffffff'} 1px, transparent 1px), linear-gradient(90deg, ${siteSettings.ticketTextColor || '#ffffff'} 1px, transparent 1px)`
+                      : 'none',
                 backgroundSize: siteSettings.ticketPatternType === 'dots' ? '20px 20px' :
                   siteSettings.ticketPatternType === 'lines' ? '10px 10px' :
                     siteSettings.ticketPatternType === 'grid' ? '20px 20px' : 'auto'
@@ -255,18 +262,48 @@ export default function TicketPage() {
             />
           )}
 
+          {/* Watermark */}
+          {siteSettings.ticketWatermark && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden z-5">
+              <p
+                className="text-5xl font-bold opacity-5 whitespace-nowrap"
+                style={{
+                  transform: 'rotate(-30deg)',
+                  color: siteSettings.ticketTextColor || '#ffffff',
+                  letterSpacing: '0.1em'
+                }}
+              >
+                {siteSettings.ticketWatermark}
+              </p>
+            </div>
+          )}
+
+          {/* Event Image Banner */}
+          {siteSettings.ticketShowEventImage && (
+            <div className="relative h-32 overflow-hidden">
+              <img
+                src={siteSettings.ticketHeaderImage || 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=600&q=80'}
+                alt="Event"
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/60"></div>
+            </div>
+          )}
+
           {/* Header */}
           <div
             style={{
-              background: siteSettings.ticketGradient
-                ? `linear-gradient(135deg, ${siteSettings.ticketAccentColor || '#dc2626'}, ${siteSettings.ticketGradientColor || '#991b1b'})`
-                : (siteSettings.ticketAccentColor || '#dc2626'),
+              background: siteSettings.ticketHeaderStyle === 'image' && siteSettings.ticketHeaderImage
+                ? `url(${siteSettings.ticketHeaderImage}) center/cover`
+                : siteSettings.ticketGradient
+                  ? `linear-gradient(135deg, ${siteSettings.ticketAccentColor || '#dc2626'}, ${siteSettings.ticketGradientColor || '#991b1b'})`
+                  : (siteSettings.ticketAccentColor || '#dc2626'),
               color: '#ffffff'
             }}
-            className="px-6 py-6 relative overflow-hidden z-10"
+            className={`px-6 ${siteSettings.ticketCompactMode ? 'py-4' : 'py-6'} relative overflow-hidden z-10`}
           >
             {siteSettings.ticketLogoUrl && (
-              <img src={siteSettings.ticketLogoUrl} alt="Logo" className="absolute top-4 right-4 h-8 object-contain opacity-50" />
+              <img src={siteSettings.ticketLogoUrl} alt="Logo" className="absolute top-4 right-4 h-8 object-contain opacity-80" />
             )}
             {!siteSettings.ticketLogoUrl && (
               <div className="absolute top-0 right-0 w-32 h-32 rounded-full -mr-16 -mt-16" style={{ backgroundColor: 'rgba(255,255,255,0.1)' }}></div>
@@ -277,43 +314,55 @@ export default function TicketPage() {
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
                 </svg>
-                VIP ACCESS
+                {siteSettings.ticketBadgeText || 'VIP ACCESS'}
               </div>
-              <h1 className="text-2xl font-bold">{ticket.event?.name || 'Event Ticket'}</h1>
+              <h1 className={`font-bold ${siteSettings.ticketCompactMode ? 'text-xl' : 'text-2xl'}`}>{ticket.event?.name || 'Event Ticket'}</h1>
+              {siteSettings.ticketShowEventDescription && ticket.event?.description && (
+                <p className="text-sm opacity-80 mt-1 line-clamp-2">{ticket.event.description}</p>
+              )}
             </div>
           </div>
 
           {/* Perforation */}
-          <div className="relative flex items-center z-10 bg-transparent">
-            <div className="absolute left-0 w-4 h-8 rounded-r-full" style={{ backgroundColor: '#000000' }}></div>
-            <div className="flex-1 border-t-2 border-dashed mx-4" style={{ borderColor: siteSettings.ticketBorderColor || '#444444' }}></div>
-            <div className="absolute right-0 w-4 h-8 rounded-l-full" style={{ backgroundColor: '#000000' }}></div>
-          </div>
+          {(siteSettings.ticketShowPerforation !== false) && (
+            <div className="relative flex items-center z-10 bg-transparent">
+              <div className="absolute left-0 w-4 h-8 rounded-r-full" style={{ backgroundColor: '#000000' }}></div>
+              <div className="flex-1 border-t-2 border-dashed mx-4" style={{ borderColor: siteSettings.ticketBorderColor || '#444444' }}></div>
+              <div className="absolute right-0 w-4 h-8 rounded-l-full" style={{ backgroundColor: '#000000' }}></div>
+            </div>
+          )}
 
           {/* Body */}
-          <div className="p-6 relative z-10">
-            <div className="grid grid-cols-2 gap-4 mb-6">
-              <div className="rounded-xl p-4" style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}>
-                <div className="flex items-center gap-2 text-xs mb-1 opacity-70" style={{ color: siteSettings.ticketTextColor || '#ffffff' }}>
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                  DATE
-                </div>
-                <p className="font-semibold" style={{ color: siteSettings.ticketTextColor || '#ffffff' }}>
-                  {ticket.event?.date ? new Date(ticket.event.date).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' }) : 'TBA'}
-                </p>
+          <div className={`${siteSettings.ticketCompactMode ? 'p-4' : 'p-6'} relative z-10`}>
+            {/* Date & Venue Grid */}
+            {(siteSettings.ticketShowDate !== false || siteSettings.ticketShowVenue !== false) && (
+              <div className={`grid ${siteSettings.ticketShowDate !== false && siteSettings.ticketShowVenue !== false ? 'grid-cols-2' : 'grid-cols-1'} gap-4 mb-6`}>
+                {siteSettings.ticketShowDate !== false && (
+                  <div className="rounded-xl p-4" style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}>
+                    <div className="flex items-center gap-2 text-xs mb-1 opacity-70" style={{ color: siteSettings.ticketTextColor || '#ffffff' }}>
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      DATE
+                    </div>
+                    <p className="font-semibold" style={{ color: siteSettings.ticketTextColor || '#ffffff' }}>
+                      {ticket.event?.date ? new Date(ticket.event.date).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' }) : 'TBA'}
+                    </p>
+                  </div>
+                )}
+                {siteSettings.ticketShowVenue !== false && (
+                  <div className="rounded-xl p-4" style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}>
+                    <div className="flex items-center gap-2 text-xs mb-1 opacity-70" style={{ color: siteSettings.ticketTextColor || '#ffffff' }}>
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                      </svg>
+                      VENUE
+                    </div>
+                    <p className="font-semibold truncate" style={{ color: siteSettings.ticketTextColor || '#ffffff' }}>{ticket.event?.venue || 'TBA'}</p>
+                  </div>
+                )}
               </div>
-              <div className="rounded-xl p-4" style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}>
-                <div className="flex items-center gap-2 text-xs mb-1 opacity-70" style={{ color: siteSettings.ticketTextColor || '#ffffff' }}>
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                  </svg>
-                  VENUE
-                </div>
-                <p className="font-semibold truncate" style={{ color: siteSettings.ticketTextColor || '#ffffff' }}>{ticket.event?.venue || 'TBA'}</p>
-              </div>
-            </div>
+            )}
 
             {/* Attendee */}
             <div className="rounded-xl p-4 mb-6" style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}>
@@ -324,9 +373,16 @@ export default function TicketPage() {
 
             {/* QR Code */}
             {qrCode && (siteSettings.ticketShowQrCode !== false) && (
-              <div className="flex flex-col items-center">
-                <div className="rounded-xl p-4 mb-3" style={{ backgroundColor: '#ffffff' }}>
-                  <img src={qrCode} alt="QR Code" className="w-40 h-40" />
+              <div className={`flex flex-col ${siteSettings.ticketQrPosition === 'right' ? 'items-end' : siteSettings.ticketQrPosition === 'bottom' ? 'items-center' : 'items-center'}`}>
+                <div
+                  className="rounded-xl p-4 mb-3"
+                  style={{ backgroundColor: '#ffffff' }}
+                >
+                  <img
+                    src={qrCode}
+                    alt="QR Code"
+                    className={`${siteSettings.ticketQrSize === 'small' ? 'w-28 h-28' : siteSettings.ticketQrSize === 'large' ? 'w-48 h-48' : 'w-40 h-40'}`}
+                  />
                 </div>
                 <p className="text-xs opacity-70" style={{ color: siteSettings.ticketTextColor || '#ffffff' }}>Ticket ID: {ticket.id.slice(-12).toUpperCase()}</p>
               </div>
@@ -334,20 +390,31 @@ export default function TicketPage() {
           </div>
 
           {/* Footer */}
-          <div className="px-6 py-4 border-t flex justify-between items-center relative z-10" style={{ borderColor: siteSettings.ticketBorderColor || '#333333', backgroundColor: 'rgba(0,0,0,0.2)' }}>
-            <div>
-              <p className="text-xl font-bold" style={{ color: siteSettings.ticketTextColor || '#ffffff' }}>₹{((ticket.event?.price || 0) / 100).toLocaleString()}</p>
-              <p className="text-xs opacity-70" style={{ color: siteSettings.ticketTextColor || '#ffffff' }}>Paid</p>
+          {(siteSettings.ticketShowPrice !== false || siteSettings.ticketShowStatus !== false || siteSettings.ticketFooterText) && (
+            <div className="px-6 py-4 border-t flex justify-between items-center relative z-10" style={{ borderColor: siteSettings.ticketBorderColor || '#333333', backgroundColor: 'rgba(0,0,0,0.2)' }}>
+              <div>
+                {siteSettings.ticketShowPrice !== false && (
+                  <>
+                    <p className="text-xl font-bold font-mono" style={{ color: siteSettings.ticketTextColor || '#ffffff' }}>₹{((ticket.event?.price || 0) / 100).toLocaleString()}</p>
+                    <p className="text-xs opacity-70" style={{ color: siteSettings.ticketTextColor || '#ffffff' }}>Paid</p>
+                  </>
+                )}
+                {siteSettings.ticketFooterText && (
+                  <p className="text-xs opacity-60 mt-1" style={{ color: siteSettings.ticketTextColor || '#ffffff' }}>{siteSettings.ticketFooterText}</p>
+                )}
+              </div>
+              {siteSettings.ticketShowStatus !== false && (
+                <span className="px-3 py-1 rounded-full text-xs font-bold border"
+                  style={{
+                    backgroundColor: ticket.checkedIn ? 'rgba(22, 101, 52, 0.2)' : 'rgba(21, 128, 61, 0.2)',
+                    color: ticket.checkedIn ? '#4ade80' : '#4ade80',
+                    borderColor: '#4ade80'
+                  }}>
+                  {ticket.checkedIn ? 'CHECKED IN' : 'VALID'}
+                </span>
+              )}
             </div>
-            <span className="px-3 py-1 rounded-full text-xs font-bold border"
-              style={{
-                backgroundColor: ticket.checkedIn ? 'rgba(22, 101, 52, 0.2)' : 'rgba(21, 128, 61, 0.2)',
-                color: ticket.checkedIn ? '#4ade80' : '#4ade80',
-                borderColor: '#4ade80'
-              }}>
-              {ticket.checkedIn ? 'CHECKED IN' : 'VALID'}
-            </span>
-          </div>
+          )}
         </div>
 
         {/* Actions */}

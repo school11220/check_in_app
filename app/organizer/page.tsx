@@ -2,8 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Calendar, Users, BarChart3, LogOut, Search } from 'lucide-react';
+import { Calendar, Users, BarChart3, LogOut, Search, X, Globe } from 'lucide-react';
 import { useToast } from '@/components/Toaster';
+import SessionScheduler from '@/components/admin/SessionScheduler';
+import EventIntegrations from '@/components/organizer/EventIntegrations';
+import EventAttendees from '@/components/organizer/EventAttendees';
+
 
 interface Event {
     id: string;
@@ -14,6 +18,8 @@ interface Event {
     soldCount: number;
     capacity: number;
     imageUrl?: string;
+    videoLink?: string;
+    organizerVideoLink?: string;
 }
 
 interface User {
@@ -28,6 +34,10 @@ export default function OrganizerDashboard() {
     const [events, setEvents] = useState<Event[]>([]);
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
+    const [showScheduleEventId, setShowScheduleEventId] = useState<string | null>(null);
+    const [showIntegrationsEventId, setShowIntegrationsEventId] = useState<string | null>(null);
+    const [showAttendeesEventId, setShowAttendeesEventId] = useState<string | null>(null);
+
 
     useEffect(() => {
         checkSession();
@@ -35,21 +45,6 @@ export default function OrganizerDashboard() {
 
     const checkSession = async () => {
         try {
-            // We can reuse the admin/pricing-check or create a dedicated me endpoint later. 
-            // For now, let's just assume if we hit the page we are auth'd by middleware 
-            // but we need user details.
-            // Let's use the login API user response if stored or fetch profile.
-            // Since we don't have a specific /api/me, let's fetch events and infer.
-            // Actually, we need to show ONLY assigned events.
-            // The /api/events endpoint returns all events. 
-            // We should filter them client side if the API doesn't support it, 
-            // OR update API to filter based on user role.
-            // For now, let's fetch all and filter client side if we can get user info.
-            // Wait, we don't have an easy way to get current user info on client side 
-            // if we don't store it in context/localStorage.
-            // Let's fetch from a new endpoint /api/user/me or similar.
-            // I'll quickly Create /api/auth/me to get session info.
-
             const meRes = await fetch('/api/auth/me'); // We need to create this
             if (meRes.ok) {
                 const userData = await meRes.json();
@@ -188,7 +183,7 @@ export default function OrganizerDashboard() {
                                         <span>Sold: <span className="text-white font-medium">{event.soldCount}</span></span>
                                     </div>
 
-                                    <div className="flex gap-3">
+                                    <div className="flex gap-3 mb-3">
                                         <button
                                             onClick={() => router.push(`/checkin?event=${event.id}`)}
                                             className="flex-1 py-2.5 bg-zinc-800 text-white rounded-xl text-sm font-medium hover:bg-zinc-700 transition-colors"
@@ -202,12 +197,128 @@ export default function OrganizerDashboard() {
                                             View Details
                                         </button>
                                     </div>
+
+                                    <div className="grid grid-cols-3 gap-2">
+                                        <button
+                                            onClick={() => setShowScheduleEventId(event.id)}
+                                            className="py-2 bg-zinc-900 border border-zinc-800 text-zinc-400 rounded-xl text-[10px] sm:text-xs font-medium hover:text-white hover:bg-zinc-800 transition-all flex flex-col sm:flex-row items-center justify-center gap-1.5 sm:gap-1"
+                                        >
+                                            <Calendar className="w-3.5 h-3.5" />
+                                            <span>Schedule</span>
+                                        </button>
+                                        <button
+                                            onClick={() => setShowIntegrationsEventId(event.id)}
+                                            className="py-2 bg-zinc-900 border border-zinc-800 text-zinc-400 rounded-xl text-[10px] sm:text-xs font-medium hover:text-white hover:bg-zinc-800 transition-all flex flex-col sm:flex-row items-center justify-center gap-1.5 sm:gap-1"
+                                        >
+                                            <Globe className="w-3.5 h-3.5" />
+                                            <span>Integrations</span>
+                                        </button>
+                                        <button
+                                            onClick={() => setShowAttendeesEventId(event.id)}
+                                            className="py-2 bg-zinc-900 border border-zinc-800 text-zinc-400 rounded-xl text-[10px] sm:text-xs font-medium hover:text-white hover:bg-zinc-800 transition-all flex flex-col sm:flex-row items-center justify-center gap-1.5 sm:gap-1"
+                                        >
+                                            <Users className="w-3.5 h-3.5" />
+                                            <span>Attendees</span>
+                                        </button>
+                                    </div>
+
                                 </div>
                             </div>
                         ))}
                     </div>
                 )}
             </main>
+
+            {/* Schedule Modal */}
+            {showScheduleEventId && (
+                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
+                    <div className="bg-[#0B0B0B] border border-zinc-800 w-full max-w-4xl max-h-[90vh] rounded-2xl flex flex-col shadow-2xl">
+                        <div className="flex justify-between items-center p-4 md:p-6 border-b border-zinc-800">
+                            <div>
+                                <h3 className="text-xl font-bold text-white">Event Schedule</h3>
+                                <p className="text-zinc-500 text-sm">
+                                    {events.find(e => e.id === showScheduleEventId)?.name}
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => setShowScheduleEventId(null)}
+                                className="p-2 hover:bg-zinc-800 rounded-lg text-zinc-500 hover:text-white transition-colors"
+                            >
+                                <X className="w-6 h-6" />
+                            </button>
+                        </div>
+                        <div className="flex-1 overflow-y-auto p-4 md:p-8">
+                            <SessionScheduler
+                                eventId={showScheduleEventId}
+                                eventDate={events.find(e => e.id === showScheduleEventId)?.date || new Date().toISOString()}
+                                showToast={showToast}
+                                readOnly={false}
+                            />
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Integrations Modal */}
+            {showIntegrationsEventId && (
+                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
+                    <div className="bg-[#0B0B0B] border border-zinc-800 w-full max-w-2xl rounded-2xl flex flex-col shadow-2xl">
+                        <div className="flex justify-between items-center p-4 md:p-6 border-b border-zinc-800">
+                            <div>
+                                <h3 className="text-xl font-bold text-white">Event Integrations</h3>
+                                <p className="text-zinc-500 text-sm">
+                                    {events.find(e => e.id === showIntegrationsEventId)?.name}
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => setShowIntegrationsEventId(null)}
+                                className="p-2 hover:bg-zinc-800 rounded-lg text-zinc-500 hover:text-white transition-colors"
+                            >
+                                <X className="w-6 h-6" />
+                            </button>
+                        </div>
+                        <div className="p-4 md:p-6">
+                            <EventIntegrations
+                                eventId={showIntegrationsEventId}
+                                initialVideoLink={events.find(e => e.id === showIntegrationsEventId)?.videoLink}
+                                initialOrganizerLink={events.find(e => e.id === showIntegrationsEventId)?.organizerVideoLink}
+                                onClose={() => {
+                                    setShowIntegrationsEventId(null);
+                                }}
+                            />
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Attendees Modal */}
+            {showAttendeesEventId && (
+                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
+                    <div className="bg-[#0B0B0B] border border-zinc-800 w-full max-w-4xl max-h-[90vh] rounded-2xl flex flex-col shadow-2xl">
+                        <div className="flex justify-between items-center p-4 md:p-6 border-b border-zinc-800">
+                            <div>
+                                <h3 className="text-xl font-bold text-white">Event Attendees</h3>
+                                <p className="text-zinc-500 text-sm">
+                                    {events.find(e => e.id === showAttendeesEventId)?.name}
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => setShowAttendeesEventId(null)}
+                                className="p-2 hover:bg-zinc-800 rounded-lg text-zinc-500 hover:text-white transition-colors"
+                            >
+                                <X className="w-6 h-6" />
+                            </button>
+                        </div>
+                        <div className="flex-1 overflow-y-auto p-4 md:p-6">
+                            <EventAttendees
+                                eventId={showAttendeesEventId}
+                                onClose={() => setShowAttendeesEventId(null)}
+                            />
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
+

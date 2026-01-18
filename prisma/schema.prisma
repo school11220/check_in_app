@@ -83,12 +83,22 @@ model Event {
   earlyBirdPrice   Int     @default(0)
   earlyBirdDeadline String?
   sendReminders    Boolean @default(false)
+  
+  // Custom Registration Questions
+  registrationFields Json @default("[]") // Stores [{ id, label, type, required, options }]
+  
+  // Virtual Meeting Integration
+  videoLink          String?   // For participants
+  organizerVideoLink String?   // For organizers
+
 
   tickets     Ticket[]
   polls       Question[]
   photos      Photo[]
   reviews     Review[]
   pricingRules PricingRule[]
+  timeSlots   TimeSlot[]
+  sessions    Session[]
   
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -115,6 +125,9 @@ model Ticket {
   // Multi-ticket support
   purchaseGroupId String?   // To group tickets bought together
   
+  // Custom Registration Answers
+  customAnswers   Json      @default("{}") // Stores { "questionId": "answer" }
+
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
@@ -178,3 +191,83 @@ model Review {
 }
 
 
+
+model TimeSlot {
+  id        String   @id @default(uuid())
+  eventId   String
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  startTime String   // "09:00"
+  endTime   String   // "10:00"
+  label     String?  // "Monitor 1"
+  
+  sessions  Session[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([eventId])
+}
+
+model Session {
+  id          String   @id @default(uuid())
+  eventId     String
+  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  slotId      String?
+  slot        TimeSlot? @relation(fields: [slotId], references: [id])
+  
+  title       String
+  description String?
+  type        String   @default("talk")
+  
+  speakerName String?
+  speakerRole String?
+  
+  startTime   String   // "09:00"
+  endTime     String   // "10:00"
+  date        String   // "2024-12-25"
+  
+  capacity    Int      @default(100)
+  registeredCount Int  @default(0)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([eventId])
+  @@index([slotId])
+}
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  action      String   // CREATE, UPDATE, DELETE, LOGIN, CHECKIN
+  resource    String   // Event, Ticket, User, Settings
+  resourceId  String?
+  details     Json?    // { changes: ..., snapshot: ... }
+  
+  userId      String
+  userName    String   // Snapshot of user name
+  userRole    String   // Snapshot of role
+  
+  ipAddress   String?
+  userAgent   String?
+  
+  createdAt   DateTime @default(now())
+
+  @@index([action])
+  @@index([resource])
+  @@index([createdAt])
+}
+
+model Integration {
+  id          String   @id @default(uuid())
+  provider    String   // zoom, google_meet, slack
+  name        String   // Display name
+  type        String   // meeting, messaging, analytics
+  
+  isEnabled   Boolean  @default(false)
+  config      Json     @default("{}") // { apiKey: "", webhookUrl: "" }
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@unique([provider])
+}
