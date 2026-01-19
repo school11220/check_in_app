@@ -26,7 +26,7 @@ export default function AdminPage() {
     const { events, tickets, teamMembers, siteSettings, festivals, emailTemplates, surveys, promoCodes, waitlist, addEvent, updateEvent, deleteEvent, duplicateEvent, addTicket, updateTicket, deleteTicket, addTeamMember, updateTeamMember, removeTeamMember, updateSiteSettings, addFestival, updateFestival, deleteFestival, updateEmailTemplate, addSurvey, updateSurvey, deleteSurvey, addPromoCode, updatePromoCode, deletePromoCode, addToWaitlist, removeFromWaitlist, notifyWaitlist } = useApp();
     const { showToast } = useToast();
 
-    const [activeTab, setActiveTab] = useState<'overview' | 'events' | 'attendees' | 'team' | 'festivals' | 'emails' | 'surveys' | 'settings' | 'layout' | 'promo' | 'analytics' | 'polls' | 'history' | 'pricing' | 'certificates' | 'sessions' | 'tickets' | 'audit' | 'integrations' | 'sales' | 'pages' | 'theme'>('overview');
+    const [activeTab, setActiveTab] = useState<'overview' | 'events' | 'attendees' | 'team' | 'festivals' | 'emails' | 'surveys' | 'settings' | 'layout' | 'growth' | 'analytics' | 'polls' | 'history' | 'certificates' | 'sessions' | 'tickets' | 'audit' | 'integrations' | 'sales' | 'pages' | 'theme'>('overview');
     const [sessionEventId, setSessionEventId] = useState<string>('');
     const [password, setPassword] = useState('');
     const [showEventModal, setShowEventModal] = useState(false);
@@ -199,15 +199,10 @@ export default function AdminPage() {
                         { id: 'team', label: 'Team', icon: Shield },
                         { id: 'tickets', label: 'Ticket Design', icon: Ticket },
                         { id: 'layout', label: 'Layout', icon: Layout },
-                        { id: 'pricing', label: 'Pricing Rules', icon: TrendingUp },
+                        { id: 'growth', label: 'Pricing', icon: TrendingUp },
                         { id: 'certificates', label: 'Certificates', icon: Award },
-                        { id: 'polls', label: 'Polls & Q&A', icon: MessageSquare },
-                        { id: 'festivals', label: 'Festivals', icon: Tent },
-                        { id: 'emails', label: 'Emails', icon: Mail },
-                        { id: 'surveys', label: 'Surveys', icon: ClipboardList },
-                        { id: 'promo', label: 'Promo Codes', icon: Tag },
                         { id: 'analytics', label: 'Analytics', icon: BarChart3 },
-                        { id: 'audit', label: 'Audit Logs', icon: Shield },
+                        { id: 'audit', label: 'Logs', icon: Shield },
                         { id: 'integrations', label: 'Integrations', icon: Globe },
                         { id: 'history', label: 'History', icon: History },
                         { id: 'sales', label: 'Sales Control', icon: Power },
@@ -232,9 +227,223 @@ export default function AdminPage() {
                     })}
                 </div>
 
-                {/* Pricing Rules Tab */}
-                {activeTab === 'pricing' && (
-                    <PricingRules events={events} />
+                {/* Growth Tab (Merged Pricing & Promo) */}
+                {activeTab === 'growth' && (
+                    <div className="space-y-8">
+
+                        {/* Promo Codes Section */}
+                        <div className="bg-[#141414] border border-[#1F1F1F] rounded-2xl p-6">
+                            <div className="flex items-center justify-between mb-6">
+                                <div>
+                                    <h2 className="text-xl font-semibold text-white flex items-center gap-2">
+                                        <svg className="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                                        </svg>
+                                        Promo Codes
+                                    </h2>
+                                    <p className="text-zinc-400 text-sm">Create discount codes for your events</p>
+                                </div>
+                                <button
+                                    onClick={() => {
+                                        addPromoCode({
+                                            id: `promo-${Date.now()}`,
+                                            code: `SAVE${Math.floor(Math.random() * 1000)}`,
+                                            discountType: 'percentage',
+                                            discountValue: 10,
+                                            maxUses: 100,
+                                            usedCount: 0,
+                                            eventIds: [],
+                                            expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                                            isActive: true,
+                                            createdAt: new Date().toISOString(),
+                                        });
+                                        showToast('Promo code created!', 'success');
+                                    }}
+                                    className="px-4 py-2 bg-red-600 text-white rounded-xl hover:bg-red-700 flex items-center gap-2"
+                                >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                    </svg>
+                                    Create Code
+                                </button>
+                            </div>
+
+                            {promoCodes.length === 0 ? (
+                                <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-12 text-center">
+                                    <svg className="w-16 h-16 text-zinc-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                                    </svg>
+                                    <p className="text-zinc-400 mb-2">No promo codes yet</p>
+                                    <p className="text-zinc-500 text-sm">Create discount codes to offer savings on tickets</p>
+                                </div>
+                            ) : (
+                                <div className="grid gap-4">
+                                    {promoCodes.map(promo => (
+                                        <div key={promo.id} className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
+                                            <div className="flex items-start justify-between mb-4">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-red-600 to-orange-600 flex items-center justify-center">
+                                                        <span className="text-white font-bold text-sm">
+                                                            {promo.discountType === 'percentage' ? `${promo.discountValue}%` : `₹${promo.discountValue / 100}`}
+                                                        </span>
+                                                    </div>
+                                                    <div>
+                                                        <input
+                                                            type="text"
+                                                            value={promo.code}
+                                                            onChange={(e) => updatePromoCode(promo.id, { code: e.target.value.toUpperCase() })}
+                                                            className="font-mono font-bold text-lg text-white bg-transparent border-none outline-none uppercase tracking-wider"
+                                                        />
+                                                        <p className="text-sm text-zinc-500">
+                                                            Used {promo.usedCount} / {promo.maxUses} times
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <button
+                                                        onClick={() => updatePromoCode(promo.id, { isActive: !promo.isActive })}
+                                                        className={`px-2 py-1 rounded-lg text-xs font-medium ${promo.isActive ? 'bg-green-600/20 text-green-400' : 'bg-zinc-800 text-zinc-500'}`}
+                                                    >
+                                                        {promo.isActive ? 'Active' : 'Inactive'}
+                                                    </button>
+                                                    <button
+                                                        onClick={() => { deletePromoCode(promo.id); showToast('Promo code deleted', 'success'); }}
+                                                        className="p-1.5 bg-red-600/20 text-red-400 rounded-lg hover:bg-red-600/30"
+                                                    >
+                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                        </svg>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                                <div>
+                                                    <label className="block text-xs text-zinc-500 mb-1">Discount Type</label>
+                                                    <select
+                                                        value={promo.discountType}
+                                                        onChange={(e) => updatePromoCode(promo.id, { discountType: e.target.value as 'percentage' | 'fixed' })}
+                                                        className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white text-sm"
+                                                    >
+                                                        <option value="percentage">Percentage</option>
+                                                        <option value="fixed">Fixed Amount</option>
+                                                    </select>
+                                                </div>
+                                                <div>
+                                                    <label className="block text-xs text-zinc-500 mb-1">
+                                                        {promo.discountType === 'percentage' ? 'Discount %' : 'Amount (₹)'}
+                                                    </label>
+                                                    <input
+                                                        type="number"
+                                                        value={promo.discountType === 'percentage' ? promo.discountValue : promo.discountValue / 100}
+                                                        onChange={(e) => updatePromoCode(promo.id, {
+                                                            discountValue: promo.discountType === 'percentage'
+                                                                ? Number(e.target.value)
+                                                                : Number(e.target.value) * 100
+                                                        })}
+                                                        className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white text-sm"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-xs text-zinc-500 mb-1">Max Uses</label>
+                                                    <input
+                                                        type="number"
+                                                        value={promo.maxUses}
+                                                        onChange={(e) => updatePromoCode(promo.id, { maxUses: Number(e.target.value) })}
+                                                        className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white text-sm"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-xs text-zinc-500 mb-1">Expires</label>
+                                                    <input
+                                                        type="date"
+                                                        value={promo.expiresAt.split('T')[0]}
+                                                        onChange={(e) => updatePromoCode(promo.id, { expiresAt: e.target.value })}
+                                                        className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white text-sm"
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div className="mt-3">
+                                                <label className="block text-xs text-zinc-500 mb-1">Applies to Events</label>
+                                                <select
+                                                    value={promo.eventIds.length === 0 ? 'all' : 'specific'}
+                                                    onChange={(e) => {
+                                                        if (e.target.value === 'all') {
+                                                            updatePromoCode(promo.id, { eventIds: [] });
+                                                        }
+                                                    }}
+                                                    className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white text-sm"
+                                                >
+                                                    <option value="all">All Events</option>
+                                                    <option value="specific">Specific Events</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            {/* Waitlist Section */}
+                            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 mt-6">
+                                <h3 className="text-lg font-medium text-white mb-4 flex items-center gap-2">
+                                    <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    Event Waitlist ({waitlist.length})
+                                </h3>
+                                {waitlist.length === 0 ? (
+                                    <p className="text-zinc-500 text-sm">No waitlist entries yet. When events sell out, customers can join the waitlist.</p>
+                                ) : (
+                                    <div className="space-y-3">
+                                        {waitlist.map(entry => {
+                                            const event = events.find(e => e.id === entry.eventId);
+                                            return (
+                                                <div key={entry.id} className="flex items-center justify-between p-3 bg-zinc-800/50 rounded-xl">
+                                                    <div>
+                                                        <p className="text-white font-medium">{entry.name}</p>
+                                                        <p className="text-sm text-zinc-500">{entry.email} • {event?.name}</p>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        {entry.notified ? (
+                                                            <span className="px-2 py-1 bg-green-600/20 text-green-400 rounded text-xs">Notified</span>
+                                                        ) : (
+                                                            <button
+                                                                onClick={() => {
+                                                                    notifyWaitlist(entry.eventId);
+                                                                    showToast(`Notified ${entry.name}`, 'success');
+                                                                }}
+                                                                className="px-2 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700"
+                                                            >
+                                                                Notify
+                                                            </button>
+                                                        )}
+                                                        <button
+                                                            onClick={() => removeFromWaitlist(entry.id)}
+                                                            className="p-1 text-zinc-500 hover:text-red-400"
+                                                        >
+                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                            </svg>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Pricing Rules Section */}
+                        <div className="pt-8 border-t border-zinc-800">
+                            <h2 className="text-xl font-semibold text-white flex items-center gap-2 mb-6">
+                                <svg className="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                Automated Pricing Rules
+                            </h2>
+                            <PricingRules events={events} />
+                        </div>
+                    </div>
                 )}
 
                 {/* Certificates Tab */}
@@ -2693,209 +2902,6 @@ export default function AdminPage() {
                     </div>
                 )}
 
-                {/* Promo Codes Tab */}
-                {activeTab === 'promo' && (
-                    <div className="space-y-6">
-                        <div className="flex justify-between items-center">
-                            <div>
-                                <h2 className="text-xl font-semibold text-white flex items-center gap-2">
-                                    <svg className="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                                    </svg>
-                                    Promo Codes
-                                </h2>
-                                <p className="text-zinc-400 text-sm">Create discount codes for your events</p>
-                            </div>
-                            <button
-                                onClick={() => {
-                                    addPromoCode({
-                                        id: `promo-${Date.now()}`,
-                                        code: `SAVE${Math.floor(Math.random() * 1000)}`,
-                                        discountType: 'percentage',
-                                        discountValue: 10,
-                                        maxUses: 100,
-                                        usedCount: 0,
-                                        eventIds: [],
-                                        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-                                        isActive: true,
-                                        createdAt: new Date().toISOString(),
-                                    });
-                                    showToast('Promo code created!', 'success');
-                                }}
-                                className="px-4 py-2 bg-red-600 text-white rounded-xl hover:bg-red-700 flex items-center gap-2"
-                            >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                                </svg>
-                                Create Code
-                            </button>
-                        </div>
-
-                        {promoCodes.length === 0 ? (
-                            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-12 text-center">
-                                <svg className="w-16 h-16 text-zinc-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                                </svg>
-                                <p className="text-zinc-400 mb-2">No promo codes yet</p>
-                                <p className="text-zinc-500 text-sm">Create discount codes to offer savings on tickets</p>
-                            </div>
-                        ) : (
-                            <div className="grid gap-4">
-                                {promoCodes.map(promo => (
-                                    <div key={promo.id} className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
-                                        <div className="flex items-start justify-between mb-4">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-red-600 to-orange-600 flex items-center justify-center">
-                                                    <span className="text-white font-bold text-sm">
-                                                        {promo.discountType === 'percentage' ? `${promo.discountValue}%` : `₹${promo.discountValue / 100}`}
-                                                    </span>
-                                                </div>
-                                                <div>
-                                                    <input
-                                                        type="text"
-                                                        value={promo.code}
-                                                        onChange={(e) => updatePromoCode(promo.id, { code: e.target.value.toUpperCase() })}
-                                                        className="font-mono font-bold text-lg text-white bg-transparent border-none outline-none uppercase tracking-wider"
-                                                    />
-                                                    <p className="text-sm text-zinc-500">
-                                                        Used {promo.usedCount} / {promo.maxUses} times
-                                                    </p>
-                                                </div>
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                <button
-                                                    onClick={() => updatePromoCode(promo.id, { isActive: !promo.isActive })}
-                                                    className={`px-2 py-1 rounded-lg text-xs font-medium ${promo.isActive ? 'bg-green-600/20 text-green-400' : 'bg-zinc-800 text-zinc-500'}`}
-                                                >
-                                                    {promo.isActive ? 'Active' : 'Inactive'}
-                                                </button>
-                                                <button
-                                                    onClick={() => { deletePromoCode(promo.id); showToast('Promo code deleted', 'success'); }}
-                                                    className="p-1.5 bg-red-600/20 text-red-400 rounded-lg hover:bg-red-600/30"
-                                                >
-                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                    </svg>
-                                                </button>
-                                            </div>
-                                        </div>
-                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                                            <div>
-                                                <label className="block text-xs text-zinc-500 mb-1">Discount Type</label>
-                                                <select
-                                                    value={promo.discountType}
-                                                    onChange={(e) => updatePromoCode(promo.id, { discountType: e.target.value as 'percentage' | 'fixed' })}
-                                                    className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white text-sm"
-                                                >
-                                                    <option value="percentage">Percentage</option>
-                                                    <option value="fixed">Fixed Amount</option>
-                                                </select>
-                                            </div>
-                                            <div>
-                                                <label className="block text-xs text-zinc-500 mb-1">
-                                                    {promo.discountType === 'percentage' ? 'Discount %' : 'Amount (₹)'}
-                                                </label>
-                                                <input
-                                                    type="number"
-                                                    value={promo.discountType === 'percentage' ? promo.discountValue : promo.discountValue / 100}
-                                                    onChange={(e) => updatePromoCode(promo.id, {
-                                                        discountValue: promo.discountType === 'percentage'
-                                                            ? Number(e.target.value)
-                                                            : Number(e.target.value) * 100
-                                                    })}
-                                                    className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white text-sm"
-                                                />
-                                            </div>
-                                            <div>
-                                                <label className="block text-xs text-zinc-500 mb-1">Max Uses</label>
-                                                <input
-                                                    type="number"
-                                                    value={promo.maxUses}
-                                                    onChange={(e) => updatePromoCode(promo.id, { maxUses: Number(e.target.value) })}
-                                                    className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white text-sm"
-                                                />
-                                            </div>
-                                            <div>
-                                                <label className="block text-xs text-zinc-500 mb-1">Expires</label>
-                                                <input
-                                                    type="date"
-                                                    value={promo.expiresAt.split('T')[0]}
-                                                    onChange={(e) => updatePromoCode(promo.id, { expiresAt: e.target.value })}
-                                                    className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white text-sm"
-                                                />
-                                            </div>
-                                        </div>
-                                        <div className="mt-3">
-                                            <label className="block text-xs text-zinc-500 mb-1">Applies to Events</label>
-                                            <select
-                                                value={promo.eventIds.length === 0 ? 'all' : 'specific'}
-                                                onChange={(e) => {
-                                                    if (e.target.value === 'all') {
-                                                        updatePromoCode(promo.id, { eventIds: [] });
-                                                    }
-                                                }}
-                                                className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white text-sm"
-                                            >
-                                                <option value="all">All Events</option>
-                                                <option value="specific">Specific Events</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-
-                        {/* Waitlist Section */}
-                        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
-                            <h3 className="text-lg font-medium text-white mb-4 flex items-center gap-2">
-                                <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                                Event Waitlist ({waitlist.length})
-                            </h3>
-                            {waitlist.length === 0 ? (
-                                <p className="text-zinc-500 text-sm">No waitlist entries yet. When events sell out, customers can join the waitlist.</p>
-                            ) : (
-                                <div className="space-y-3">
-                                    {waitlist.map(entry => {
-                                        const event = events.find(e => e.id === entry.eventId);
-                                        return (
-                                            <div key={entry.id} className="flex items-center justify-between p-3 bg-zinc-800/50 rounded-xl">
-                                                <div>
-                                                    <p className="text-white font-medium">{entry.name}</p>
-                                                    <p className="text-sm text-zinc-500">{entry.email} • {event?.name}</p>
-                                                </div>
-                                                <div className="flex items-center gap-2">
-                                                    {entry.notified ? (
-                                                        <span className="px-2 py-1 bg-green-600/20 text-green-400 rounded text-xs">Notified</span>
-                                                    ) : (
-                                                        <button
-                                                            onClick={() => {
-                                                                notifyWaitlist(entry.eventId);
-                                                                showToast(`Notified ${entry.name}`, 'success');
-                                                            }}
-                                                            className="px-2 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700"
-                                                        >
-                                                            Notify
-                                                        </button>
-                                                    )}
-                                                    <button
-                                                        onClick={() => removeFromWaitlist(entry.id)}
-                                                        className="p-1 text-zinc-500 hover:text-red-400"
-                                                    >
-                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                                        </svg>
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                )}
 
                 {/* Polls Tab */}
                 {activeTab === 'polls' && (

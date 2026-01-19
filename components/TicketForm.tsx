@@ -29,7 +29,7 @@ declare global {
 }
 
 export default function TicketForm() {
-  const { siteSettings } = useApp();
+  const { siteSettings, promoCodes } = useApp();
   const [events, setEvents] = useState<Event[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<string>('');
   const [quantity, setQuantity] = useState(1);
@@ -40,6 +40,8 @@ export default function TicketForm() {
     phone: '',
   });
   const [answers, setAnswers] = useState<Record<string, string>>({}); // { fieldId: answer }
+  const [promoCode, setPromoCode] = useState('');
+  const [discount, setDiscount] = useState<{ amount: number; type: 'percentage' | 'fixed'; code: string } | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadingEvents, setLoadingEvents] = useState(true);
   const { showToast } = useToast();
@@ -89,7 +91,32 @@ export default function TicketForm() {
       ? selectedEventData.currentPrice
       : selectedEventData.price;
 
-    return pricePerTicket * quantity;
+    let total = pricePerTicket * quantity;
+
+    // Apply Discount
+    if (discount) {
+      if (discount.type === 'percentage') {
+        total = total - (total * (discount.amount / 100));
+      } else {
+        total = Math.max(0, total - discount.amount);
+      }
+    }
+
+    return Math.round(total);
+  };
+
+  const handleApplyPromo = async () => {
+    if (!promoCode.trim()) return;
+    if (!selectedEvent) {
+      showToast('Please select an event first', 'error');
+      return;
+    }
+
+    // Since we don't have a backend endpoint for verification in this demo, 
+    // we'll fetch all codes and check client side (INSECURE for production, but fits current architecture)
+    // Or better, use the validatePromoCode from store if available, but ticket form is client component.
+    // Let's assume we can fetch from /api/promocodes or just use the store if we have access.
+    // We have useApp!
   };
 
   useEffect(() => {
@@ -473,6 +500,73 @@ export default function TicketForm() {
               </div>
             )}
 
+            {/* Promo Code Section */}
+            {selectedEventData && (
+              <div className="bg-[#141414] border border-[#1F1F1F] rounded-xl p-5">
+                <label className="block text-sm font-semibold text-[#B3B3B3] mb-3">
+                  Promo Code
+                </label>
+                <div className="flex gap-3">
+                  <input
+                    type="text"
+                    value={promoCode}
+                    onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
+                    placeholder="ENTER CODE"
+                    disabled={!!discount}
+                    className="flex-1 px-4 py-3 bg-[#0D0D0D] border border-[#2A2A2A] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[#E11D2E]/50 focus:border-[#E11D2E] text-white placeholder-[#737373] uppercase font-mono tracking-wider disabled:opacity-50"
+                  />
+                  {discount ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDiscount(null);
+                        setPromoCode('');
+                        showToast('Promo code removed', 'success');
+                      }}
+                      className="px-6 py-3 bg-zinc-800 text-zinc-400 hover:text-white rounded-[10px] border border-zinc-700 hover:bg-zinc-700 font-medium transition-colors"
+                    >
+                      Remove
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const code = promoCodes.find(p =>
+                          p.code === promoCode &&
+                          p.isActive &&
+                          new Date(p.expiresAt) > new Date() &&
+                          p.usedCount < p.maxUses &&
+                          (p.eventIds.length === 0 || p.eventIds.includes(selectedEvent))
+                        );
+
+                        if (code) {
+                          setDiscount({
+                            amount: code.discountValue,
+                            type: code.discountType,
+                            code: code.code
+                          });
+                          showToast('Promo code applied!', 'success');
+                        } else {
+                          showToast('Invalid or expired promo code', 'error');
+                        }
+                      }}
+                      className="px-6 py-3 bg-[#E11D2E]/10 text-[#E11D2E] border border-[#E11D2E]/30 rounded-[10px] hover:bg-[#E11D2E]/20 font-medium transition-colors"
+                    >
+                      Apply
+                    </button>
+                  )}
+                </div>
+                {discount && (
+                  <p className="text-[#22C55E] text-sm mt-2 flex items-center gap-1.5">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    Code {discount.code} applied!
+                  </p>
+                )}
+              </div>
+            )}
+
             {/* Attendee Details */}
             <div className="space-y-4">
               <label className="block text-sm font-semibold text-[#B3B3B3]">
@@ -617,7 +711,7 @@ export default function TicketForm() {
             Secure payment powered by Razorpay
           </p>
         </div>
-      </div>
-    </div>
+      </div >
+    </div >
   );
 }

@@ -803,10 +803,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
     };
     const removeTeamMember = (id: string) => setTeamMembers(teamMembers.filter(m => m.id !== id));
 
-    const updateSiteSettings = (data: Partial<SiteSettings>) => {
+    const updateSiteSettings = async (data: Partial<SiteSettings>) => {
         const newSettings = { ...siteSettings, ...data };
         setSiteSettings(newSettings);
         localStorage.setItem('siteSettings', JSON.stringify(newSettings));
+
+        // Persist to Backend API for cross-session/cross-browser persistence
+        try {
+            await fetch('/api/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    siteSettings: newSettings,
+                    emailTemplates // Include current templates to preserve them
+                })
+            });
+        } catch (err) {
+            console.error('Failed to save settings to API', err);
+        }
     };
 
     const addFestival = (festival: Festival) => {

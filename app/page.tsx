@@ -363,37 +363,39 @@ export default function Home() {
         )}
 
         {/* FAQ Section */}
-        <section className="py-20 px-4 bg-[#0A0A0A]">
-          <div className="max-w-4xl mx-auto">
-            <div className="text-center mb-12">
-              <h2 className="font-heading text-3xl md:text-4xl font-bold text-white mb-4">Frequently Asked Questions</h2>
-              <p className="text-[#B3B3B3]">Everything you need to know about ticketing</p>
+        {siteSettings.showFaq !== false && (
+          <section className="py-20 px-4 bg-[#0A0A0A]">
+            <div className="max-w-4xl mx-auto">
+              <div className="text-center mb-12">
+                <h2 className="font-heading text-3xl md:text-4xl font-bold text-white mb-4">Frequently Asked Questions</h2>
+                <p className="text-[#B3B3B3]">Everything you need to know about ticketing</p>
+              </div>
+              <div className="space-y-4">
+                {[
+                  { q: 'How do I purchase tickets?', a: 'Click on any event to view details, then click "Get Tickets" to proceed to registration. You can pay securely using UPI, cards, or net banking.' },
+                  { q: 'Can I get a refund?', a: 'Refund policies vary by event. Please check the event details page for specific terms. Most events allow cancellations up to 48 hours before the event.' },
+                  { q: 'How do I access my ticket?', a: 'After purchase, you\'ll receive your ticket via email with a QR code. You can also access it anytime by visiting the ticket link sent to you.' },
+                  { q: 'What if I lose my ticket?', a: 'Don\'t worry! Your ticket is linked to your email. Contact our support team and we\'ll resend it to you.' },
+                  { q: 'Can I transfer my ticket to someone else?', a: 'Yes, most events allow ticket transfers. Check the event details or contact the organizer for transfer options.' },
+                ].map((faq, i) => (
+                  <details key={i} className="group bg-[#141414] rounded-2xl border border-[#1F1F1F] hover:border-[#E11D2E]/30 transition-colors">
+                    <summary className="flex items-center justify-between p-6 cursor-pointer list-none">
+                      <span className="text-white font-medium pr-4">{faq.q}</span>
+                      <span className="text-[#E11D2E] group-open:rotate-45 transition-transform">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                        </svg>
+                      </span>
+                    </summary>
+                    <div className="px-6 pb-6 text-[#B3B3B3] leading-relaxed">
+                      {faq.a}
+                    </div>
+                  </details>
+                ))}
+              </div>
             </div>
-            <div className="space-y-4">
-              {[
-                { q: 'How do I purchase tickets?', a: 'Click on any event to view details, then click "Get Tickets" to proceed to registration. You can pay securely using UPI, cards, or net banking.' },
-                { q: 'Can I get a refund?', a: 'Refund policies vary by event. Please check the event details page for specific terms. Most events allow cancellations up to 48 hours before the event.' },
-                { q: 'How do I access my ticket?', a: 'After purchase, you\'ll receive your ticket via email with a QR code. You can also access it anytime by visiting the ticket link sent to you.' },
-                { q: 'What if I lose my ticket?', a: 'Don\'t worry! Your ticket is linked to your email. Contact our support team and we\'ll resend it to you.' },
-                { q: 'Can I transfer my ticket to someone else?', a: 'Yes, most events allow ticket transfers. Check the event details or contact the organizer for transfer options.' },
-              ].map((faq, i) => (
-                <details key={i} className="group bg-[#141414] rounded-2xl border border-[#1F1F1F] hover:border-[#E11D2E]/30 transition-colors">
-                  <summary className="flex items-center justify-between p-6 cursor-pointer list-none">
-                    <span className="text-white font-medium pr-4">{faq.q}</span>
-                    <span className="text-[#E11D2E] group-open:rotate-45 transition-transform">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                      </svg>
-                    </span>
-                  </summary>
-                  <div className="px-6 pb-6 text-[#B3B3B3] leading-relaxed">
-                    {faq.a}
-                  </div>
-                </details>
-              ))}
-            </div>
-          </div>
-        </section>
+          </section>
+        )}
 
         {/* Register CTA */}
         <section id="buy" className="py-20 px-4 relative">

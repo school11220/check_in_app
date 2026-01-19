@@ -245,6 +245,18 @@ export async function POST(request: NextRequest) {
         orderId: orderId || 'N/A',
         paymentDate: formattedPaymentDate,
         paymentMode,
+        // Pass ticket layout settings from admin config
+        layoutSettings: {
+          bgColor: siteSettings.ticketBgColor || s.bgColor,
+          textColor: siteSettings.ticketTextColor || s.textColor,
+          accentColor: siteSettings.ticketAccentColor || s.accentColor,
+          gradientColor: siteSettings.ticketGradientColor || s.gradientColor,
+          logoUrl: siteSettings.ticketLogoUrl,
+          fontFamily: siteSettings.ticketFontFamily,
+          borderRadius: siteSettings.ticketBorderRadius,
+          footerText: siteSettings.footerText || siteSettings.ticketFooterText,
+          siteName: siteSettings.siteName || 'EventHub',
+        },
       });
     } catch (pdfError) {
       console.error('PDF generation failed:', pdfError);
