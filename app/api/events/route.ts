@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { calculateDynamicPrice } from '@/lib/pricing';
+import { getSession } from '@/lib/auth';
+import { logAudit } from '@/lib/logger';
 
 export async function GET() {
     try {
@@ -24,6 +26,11 @@ export async function GET() {
 
 export async function POST(request: Request) {
     try {
+        const session = await getSession();
+        if (!session || session.user.role !== 'ADMIN') {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
         // Remove ID if present to ensure DB generates it
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { id, ...rest } = await request.json();
@@ -45,6 +52,17 @@ export async function POST(request: Request) {
             console.error('Event creation returned invalid data:', event);
             return NextResponse.json({ error: 'Failed to create event - invalid response' }, { status: 500 });
         }
+
+        // Log event creation
+        await logAudit({
+            action: 'CREATE',
+            resource: 'EVENT',
+            resourceId: event.id,
+            details: { eventName: event.name, category: event.category },
+            userId: session.user.id,
+            userName: session.user.name || session.user.email,
+            userRole: session.user.role,
+        });
 
         return NextResponse.json(event);
     } catch (error) {

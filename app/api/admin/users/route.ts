@@ -39,8 +39,22 @@ export async function POST(request: Request) {
             select: { id: true, name: true, email: true, role: true, createdAt: true }
         });
 
+        // Create audit log entry
+        await prisma.auditLog.create({
+            data: {
+                action: 'CREATE',
+                resource: 'User',
+                resourceId: user.id,
+                details: { name: user.name, email: user.email, role: user.role },
+                userId: session.user.id,
+                userName: session.user.name || session.user.email,
+                userRole: session.user.role,
+            }
+        });
+
         return NextResponse.json(user);
     } catch (error) {
+        console.error('Failed to create user:', error);
         return NextResponse.json({ error: 'Failed to create user' }, { status: 500 });
     }
 }

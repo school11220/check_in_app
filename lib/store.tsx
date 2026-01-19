@@ -182,6 +182,51 @@ export interface NavLink {
     order: number;
 }
 
+// Custom Pages
+export interface CustomPage {
+    id: string;
+    slug: string;
+    title: string;
+    content: string;
+    isPublished: boolean;
+    showInNav: boolean;
+    order: number;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export const DEFAULT_CUSTOM_PAGES: CustomPage[] = [];
+
+// Theme Settings
+export interface ThemeSettings {
+    primaryColor: string;
+    secondaryColor: string;
+    backgroundColor: string;
+    cardBackground: string;
+    textColor: string;
+    mutedTextColor: string;
+    borderColor: string;
+    headerFont: 'inter' | 'roboto' | 'playfair' | 'montserrat' | 'outfit';
+    bodyFont: 'inter' | 'roboto' | 'playfair' | 'montserrat' | 'outfit';
+    borderRadius: 'none' | 'sm' | 'md' | 'lg' | 'xl';
+    darkMode: boolean;
+}
+
+export const DEFAULT_THEME: ThemeSettings = {
+    primaryColor: '#E11D2E',
+    secondaryColor: '#B91C1C',
+    backgroundColor: '#0B0B0B',
+    cardBackground: '#141414',
+    textColor: '#FFFFFF',
+    mutedTextColor: '#737373',
+    borderColor: '#1F1F1F',
+    headerFont: 'inter',
+    bodyFont: 'inter',
+    borderRadius: 'xl',
+    darkMode: true,
+};
+
+
 export interface SiteSettings {
     siteName: string;
     heroTitle: string;
@@ -255,6 +300,13 @@ export interface SiteSettings {
     twilioAuthToken?: string;
     twilioPhoneNumber?: string;
     whatsappApiKey?: string;
+    // Sales Control
+    globalSalesPaused: boolean;
+    maintenanceMessage: string;
+    scheduledMaintenance: { start: string; end: string } | null;
+    // Custom Pages & Theme
+    customPages: CustomPage[];
+    theme: ThemeSettings;
 }
 
 export const DEFAULT_SITE_SETTINGS: SiteSettings = {
@@ -326,6 +378,13 @@ export const DEFAULT_SITE_SETTINGS: SiteSettings = {
     smsReminders: false,
     whatsappReminders: false,
     reminderHoursBefore: 24,
+    // Sales Control
+    globalSalesPaused: false,
+    maintenanceMessage: 'Sales are temporarily paused. Please check back soon!',
+    scheduledMaintenance: null,
+    // Custom Pages & Theme
+    customPages: [],
+    theme: DEFAULT_THEME,
 };
 
 // Festivals - group events together

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { login, verifyPassword } from '@/lib/auth';
+import { logAudit } from '@/lib/logger';
 
 export async function POST(request: Request) {
     try {
@@ -22,6 +23,15 @@ export async function POST(request: Request) {
         const isValid = await verifyPassword(password, user.password);
 
         if (!isValid) {
+            // Log failed login attempt
+            await logAudit({
+                action: 'LOGIN',
+                resource: 'AUTH',
+                details: { email, success: false, reason: 'Invalid password' },
+                userId: user.id,
+                userName: user.name || user.email,
+                userRole: user.role,
+            });
             return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
         }
 
@@ -32,6 +42,16 @@ export async function POST(request: Request) {
             name: user.name,
             role: user.role,
             assignedEventIds: user.assignedEventIds
+        });
+
+        // Log successful login
+        await logAudit({
+            action: 'LOGIN',
+            resource: 'AUTH',
+            details: { email, success: true, role: user.role },
+            userId: user.id,
+            userName: user.name || user.email,
+            userRole: user.role,
         });
 
         return NextResponse.json({

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useApp, CATEGORY_COLORS, Event, ScheduleItem, Speaker, Sponsor, TeamMember, TeamRole, ROLE_PERMISSIONS, SiteSettings, Festival, EmailTemplate, Survey, PromoCode, WaitlistEntry, Announcement, NavLink } from '@/lib/store';
+import { useApp, CATEGORY_COLORS, Event, ScheduleItem, Speaker, Sponsor, TeamMember, TeamRole, ROLE_PERMISSIONS, SiteSettings, Festival, EmailTemplate, Survey, PromoCode, WaitlistEntry, Announcement, NavLink, CustomPage, ThemeSettings, DEFAULT_THEME } from '@/lib/store';
 import { useToast } from '@/components/Toaster';
 import { useRouter } from 'next/navigation';
 import AttendeeInsights from '@/components/AttendeeInsights';
@@ -12,7 +12,7 @@ import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
     PieChart, Pie, Cell, AreaChart, Area,
 } from 'recharts';
-import { LogOut, Home, CheckCircle, Search, Trash2, Edit, Copy, Plus, Users, Calendar, BarChart as BarChartIcon, TrendingUp, LayoutDashboard, Shield, MessageSquare, Tent, Mail, ClipboardList, Layout, Tag, BarChart3, History, Ticket, Settings, Award, Clock, Smartphone, Bell, Receipt, Globe } from 'lucide-react';
+import { LogOut, Home, CheckCircle, Search, Trash2, Edit, Copy, Plus, Users, Calendar, BarChart as BarChartIcon, TrendingUp, LayoutDashboard, Shield, MessageSquare, Tent, Mail, ClipboardList, Layout, Tag, BarChart3, History, Ticket, Settings, Award, Clock, Smartphone, Bell, Receipt, Globe, Power, AlertTriangle, Play, Pause, FileText, Palette, Eye, EyeOff, GripVertical } from 'lucide-react';
 import AuditLogViewer from '@/components/admin/AuditLogViewer';
 import IntegrationHub from '@/components/admin/IntegrationHub';
 import { ExportButton } from '@/lib/export';
@@ -26,7 +26,7 @@ export default function AdminPage() {
     const { events, tickets, teamMembers, siteSettings, festivals, emailTemplates, surveys, promoCodes, waitlist, addEvent, updateEvent, deleteEvent, duplicateEvent, addTicket, updateTicket, deleteTicket, addTeamMember, updateTeamMember, removeTeamMember, updateSiteSettings, addFestival, updateFestival, deleteFestival, updateEmailTemplate, addSurvey, updateSurvey, deleteSurvey, addPromoCode, updatePromoCode, deletePromoCode, addToWaitlist, removeFromWaitlist, notifyWaitlist } = useApp();
     const { showToast } = useToast();
 
-    const [activeTab, setActiveTab] = useState<'overview' | 'events' | 'attendees' | 'team' | 'festivals' | 'emails' | 'surveys' | 'settings' | 'layout' | 'promo' | 'analytics' | 'polls' | 'history' | 'pricing' | 'certificates' | 'sessions' | 'tickets' | 'audit' | 'integrations'>('overview');
+    const [activeTab, setActiveTab] = useState<'overview' | 'events' | 'attendees' | 'team' | 'festivals' | 'emails' | 'surveys' | 'settings' | 'layout' | 'promo' | 'analytics' | 'polls' | 'history' | 'pricing' | 'certificates' | 'sessions' | 'tickets' | 'audit' | 'integrations' | 'sales' | 'pages' | 'theme'>('overview');
     const [password, setPassword] = useState('');
     const [showEventModal, setShowEventModal] = useState(false);
     const [editingEvent, setEditingEvent] = useState<Event | null>(null);
@@ -165,9 +165,7 @@ export default function AdminPage() {
                 {/* Header */}
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8 glass p-5 rounded-2xl">
                     <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-gradient-to-br from-[#E11D2E] to-[#B91C1C] rounded-xl flex items-center justify-center shadow-lg shadow-red-900/30">
-                            <Users className="w-6 h-6 text-white" />
-                        </div>
+                        <img src="/logo.png" alt="EventHub" className="w-12 h-12 rounded-xl shadow-lg shadow-red-900/30" />
                         <div>
                             <h1 className="font-heading text-2xl font-bold text-white">EventHub Dashboard</h1>
                             <div className="flex items-center gap-4 text-sm mt-1">
@@ -211,6 +209,9 @@ export default function AdminPage() {
                         { id: 'audit', label: 'Audit Logs', icon: Shield },
                         { id: 'integrations', label: 'Integrations', icon: Globe },
                         { id: 'history', label: 'History', icon: History },
+                        { id: 'sales', label: 'Sales Control', icon: Power },
+                        { id: 'pages', label: 'Pages', icon: FileText },
+                        { id: 'theme', label: 'Theme', icon: Palette },
                         { id: 'settings', label: 'Settings', icon: Settings },
                     ].map(tab => {
                         const Icon = tab.icon;
@@ -1736,6 +1737,528 @@ export default function AdminPage() {
                                 })}
                             </div>
                         )}
+                    </div>
+                )}
+
+                {/* Sales Control */}
+                {activeTab === 'sales' && (
+                    <div className="space-y-6">
+                        <div className="flex justify-between items-center">
+                            <div>
+                                <h2 className="text-xl font-semibold text-white flex items-center gap-2">
+                                    <Power className="w-6 h-6 text-red-500" />
+                                    Sales Control
+                                </h2>
+                                <p className="text-zinc-400 text-sm">Manage ticket sales globally and per-event</p>
+                            </div>
+                        </div>
+
+                        {/* Global Emergency Stop */}
+                        <div className={`bg-zinc-900 border rounded-xl p-6 ${siteSettings.globalSalesPaused ? 'border-red-500/50' : 'border-zinc-800'}`}>
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-4">
+                                    <div className={`w-14 h-14 rounded-xl flex items-center justify-center ${siteSettings.globalSalesPaused ? 'bg-red-600/20' : 'bg-green-600/20'}`}>
+                                        {siteSettings.globalSalesPaused ? (
+                                            <Pause className="w-7 h-7 text-red-400" />
+                                        ) : (
+                                            <Play className="w-7 h-7 text-green-400" />
+                                        )}
+                                    </div>
+                                    <div>
+                                        <h3 className="text-lg font-semibold text-white">Global Sales Status</h3>
+                                        <p className={`text-sm ${siteSettings.globalSalesPaused ? 'text-red-400' : 'text-green-400'}`}>
+                                            {siteSettings.globalSalesPaused ? '⏸ All sales are PAUSED' : '▶ Sales are ACTIVE'}
+                                        </p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => updateSiteSettings({ globalSalesPaused: !siteSettings.globalSalesPaused })}
+                                    className={`px-6 py-3 rounded-xl font-medium flex items-center gap-2 transition-all ${siteSettings.globalSalesPaused
+                                        ? 'bg-green-600 hover:bg-green-700 text-white'
+                                        : 'bg-red-600 hover:bg-red-700 text-white'
+                                        }`}
+                                >
+                                    {siteSettings.globalSalesPaused ? (
+                                        <>
+                                            <Play className="w-5 h-5" />
+                                            Resume All Sales
+                                        </>
+                                    ) : (
+                                        <>
+                                            <AlertTriangle className="w-5 h-5" />
+                                            Emergency Stop
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Maintenance Message */}
+                        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
+                            <h3 className="text-lg font-medium text-white mb-4 flex items-center gap-2">
+                                <MessageSquare className="w-5 h-5 text-red-500" />
+                                Maintenance Message
+                            </h3>
+                            <p className="text-zinc-500 text-sm mb-3">Shown to users when sales are paused</p>
+                            <textarea
+                                value={siteSettings.maintenanceMessage}
+                                onChange={(e) => updateSiteSettings({ maintenanceMessage: e.target.value })}
+                                rows={3}
+                                className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl text-white focus:border-red-500 focus:outline-none resize-none"
+                                placeholder="Sales are temporarily paused. Please check back soon!"
+                            />
+                        </div>
+
+                        {/* Scheduled Maintenance */}
+                        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
+                            <div className="flex items-center justify-between mb-4">
+                                <div>
+                                    <h3 className="text-lg font-medium text-white flex items-center gap-2">
+                                        <Clock className="w-5 h-5 text-red-500" />
+                                        Scheduled Maintenance
+                                    </h3>
+                                    <p className="text-zinc-500 text-sm">Plan downtime in advance</p>
+                                </div>
+                                <button
+                                    onClick={() => {
+                                        if (siteSettings.scheduledMaintenance) {
+                                            updateSiteSettings({ scheduledMaintenance: null });
+                                        } else {
+                                            const now = new Date();
+                                            const later = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+                                            updateSiteSettings({
+                                                scheduledMaintenance: {
+                                                    start: now.toISOString().slice(0, 16),
+                                                    end: later.toISOString().slice(0, 16)
+                                                }
+                                            });
+                                        }
+                                    }}
+                                    className={`px-4 py-2 rounded-xl text-sm font-medium ${siteSettings.scheduledMaintenance
+                                        ? 'bg-red-600/20 text-red-400 hover:bg-red-600/30'
+                                        : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
+                                        }`}
+                                >
+                                    {siteSettings.scheduledMaintenance ? 'Cancel Schedule' : '+ Schedule Maintenance'}
+                                </button>
+                            </div>
+                            {siteSettings.scheduledMaintenance && (
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-zinc-400 mb-2">Start Time</label>
+                                        <input
+                                            type="datetime-local"
+                                            value={siteSettings.scheduledMaintenance.start}
+                                            onChange={(e) => updateSiteSettings({
+                                                scheduledMaintenance: { ...siteSettings.scheduledMaintenance!, start: e.target.value }
+                                            })}
+                                            className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl text-white"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-zinc-400 mb-2">End Time</label>
+                                        <input
+                                            type="datetime-local"
+                                            value={siteSettings.scheduledMaintenance.end}
+                                            onChange={(e) => updateSiteSettings({
+                                                scheduledMaintenance: { ...siteSettings.scheduledMaintenance!, end: e.target.value }
+                                            })}
+                                            className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl text-white"
+                                        />
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Per-Event Sales Control */}
+                        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
+                            <h3 className="text-lg font-medium text-white mb-4 flex items-center gap-2">
+                                <Calendar className="w-5 h-5 text-red-500" />
+                                Per-Event Sales Control
+                            </h3>
+                            <p className="text-zinc-500 text-sm mb-4">Toggle sales on/off for individual events</p>
+
+                            <div className="space-y-3">
+                                {events.map(event => (
+                                    <div key={event.id} className="flex items-center justify-between p-4 bg-zinc-800/50 rounded-xl">
+                                        <div className="flex items-center gap-3">
+                                            <div className={`w-3 h-3 rounded-full ${event.isActive ? 'bg-green-500' : 'bg-red-500'}`} />
+                                            <div>
+                                                <p className="font-medium text-white">{event.name}</p>
+                                                <p className="text-xs text-zinc-500">
+                                                    {new Date(event.date).toLocaleDateString()} • {event.soldCount}/{event.capacity} sold
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <span className={`text-xs font-medium ${event.isActive ? 'text-green-400' : 'text-red-400'}`}>
+                                                {event.isActive ? 'ON SALE' : 'PAUSED'}
+                                            </span>
+                                            <button
+                                                onClick={async () => {
+                                                    try {
+                                                        await fetch(`/api/events/${event.id}`, {
+                                                            method: 'PATCH',
+                                                            headers: { 'Content-Type': 'application/json' },
+                                                            body: JSON.stringify({ isActive: !event.isActive })
+                                                        });
+                                                        updateEvent(event.id, { isActive: !event.isActive });
+                                                        showToast(`Sales ${event.isActive ? 'paused' : 'resumed'} for ${event.name}`, 'success');
+                                                    } catch {
+                                                        showToast('Failed to update event', 'error');
+                                                    }
+                                                }}
+                                                className={`w-12 h-6 rounded-full transition-colors relative ${event.isActive ? 'bg-green-600' : 'bg-zinc-700'}`}
+                                            >
+                                                <span className={`absolute w-5 h-5 bg-white rounded-full top-0.5 transition-all ${event.isActive ? 'left-6' : 'left-0.5'}`} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                                {events.length === 0 && (
+                                    <div className="text-center py-8 text-zinc-500">
+                                        No events found. Create events to control their sales.
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Custom Pages */}
+                {activeTab === 'pages' && (
+                    <div className="space-y-6">
+                        <div className="flex justify-between items-center">
+                            <div>
+                                <h2 className="text-xl font-semibold text-white flex items-center gap-2">
+                                    <FileText className="w-6 h-6 text-red-500" />
+                                    Custom Pages
+                                </h2>
+                                <p className="text-zinc-400 text-sm">Create static pages like About, Contact, FAQ</p>
+                            </div>
+                            <button
+                                onClick={() => {
+                                    const newPage: CustomPage = {
+                                        id: crypto.randomUUID(),
+                                        slug: 'new-page',
+                                        title: 'New Page',
+                                        content: '<h1>New Page</h1>\n<p>Add your content here...</p>',
+                                        isPublished: false,
+                                        showInNav: false,
+                                        order: siteSettings.customPages.length,
+                                        createdAt: new Date().toISOString(),
+                                        updatedAt: new Date().toISOString(),
+                                    };
+                                    updateSiteSettings({ customPages: [...siteSettings.customPages, newPage] });
+                                    showToast('New page created', 'success');
+                                }}
+                                className="px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl flex items-center gap-2 text-sm font-medium"
+                            >
+                                <Plus className="w-4 h-4" />
+                                Create Page
+                            </button>
+                        </div>
+
+                        {siteSettings.customPages.length === 0 ? (
+                            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-12 text-center">
+                                <FileText className="w-12 h-12 text-zinc-600 mx-auto mb-4" />
+                                <h3 className="text-lg font-medium text-white mb-2">No custom pages yet</h3>
+                                <p className="text-zinc-500 text-sm">Create pages like About, Contact, FAQ, Terms & Conditions</p>
+                            </div>
+                        ) : (
+                            <div className="space-y-4">
+                                {siteSettings.customPages.map((page, idx) => (
+                                    <div key={page.id} className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
+                                        <div className="flex items-start justify-between gap-4 mb-4">
+                                            <div className="flex items-center gap-3">
+                                                <GripVertical className="w-5 h-5 text-zinc-600 cursor-grab" />
+                                                <div>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className={`w-2 h-2 rounded-full ${page.isPublished ? 'bg-green-500' : 'bg-yellow-500'}`} />
+                                                        <h3 className="font-medium text-white">{page.title}</h3>
+                                                    </div>
+                                                    <p className="text-xs text-zinc-500 mt-1">/p/{page.slug}</p>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <button
+                                                    onClick={() => {
+                                                        const updated = siteSettings.customPages.map(p =>
+                                                            p.id === page.id ? { ...p, isPublished: !p.isPublished, updatedAt: new Date().toISOString() } : p
+                                                        );
+                                                        updateSiteSettings({ customPages: updated });
+                                                    }}
+                                                    className={`p-2 rounded-lg ${page.isPublished ? 'bg-green-600/20 text-green-400' : 'bg-zinc-800 text-zinc-400'}`}
+                                                    title={page.isPublished ? 'Published' : 'Draft'}
+                                                >
+                                                    {page.isPublished ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                                                </button>
+                                                <button
+                                                    onClick={() => {
+                                                        const updated = siteSettings.customPages.filter(p => p.id !== page.id);
+                                                        updateSiteSettings({ customPages: updated });
+                                                        showToast('Page deleted', 'success');
+                                                    }}
+                                                    className="p-2 rounded-lg bg-red-600/20 text-red-400 hover:bg-red-600/30"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-4 mb-4">
+                                            <div>
+                                                <label className="block text-xs text-zinc-500 mb-1">Title</label>
+                                                <input
+                                                    type="text"
+                                                    value={page.title}
+                                                    onChange={(e) => {
+                                                        const updated = siteSettings.customPages.map(p =>
+                                                            p.id === page.id ? { ...p, title: e.target.value, updatedAt: new Date().toISOString() } : p
+                                                        );
+                                                        updateSiteSettings({ customPages: updated });
+                                                    }}
+                                                    className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white text-sm"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs text-zinc-500 mb-1">URL Slug</label>
+                                                <div className="flex items-center">
+                                                    <span className="px-3 py-2 bg-zinc-800/50 border border-r-0 border-zinc-700 rounded-l-lg text-zinc-500 text-sm">/p/</span>
+                                                    <input
+                                                        type="text"
+                                                        value={page.slug}
+                                                        onChange={(e) => {
+                                                            const slug = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-');
+                                                            const updated = siteSettings.customPages.map(p =>
+                                                                p.id === page.id ? { ...p, slug, updatedAt: new Date().toISOString() } : p
+                                                            );
+                                                            updateSiteSettings({ customPages: updated });
+                                                        }}
+                                                        className="flex-1 px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-r-lg text-white text-sm"
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="mb-4">
+                                            <label className="block text-xs text-zinc-500 mb-1">Content (HTML)</label>
+                                            <textarea
+                                                value={page.content}
+                                                onChange={(e) => {
+                                                    const updated = siteSettings.customPages.map(p =>
+                                                        p.id === page.id ? { ...p, content: e.target.value, updatedAt: new Date().toISOString() } : p
+                                                    );
+                                                    updateSiteSettings({ customPages: updated });
+                                                }}
+                                                rows={6}
+                                                className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white text-sm font-mono resize-none"
+                                            />
+                                        </div>
+
+                                        <div className="flex items-center justify-between">
+                                            <label className="flex items-center gap-2 cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={page.showInNav}
+                                                    onChange={(e) => {
+                                                        const updated = siteSettings.customPages.map(p =>
+                                                            p.id === page.id ? { ...p, showInNav: e.target.checked, updatedAt: new Date().toISOString() } : p
+                                                        );
+                                                        updateSiteSettings({ customPages: updated });
+                                                    }}
+                                                    className="w-4 h-4 rounded border-zinc-600 bg-zinc-800 text-red-500 focus:ring-red-500"
+                                                />
+                                                <span className="text-sm text-zinc-400">Show in navigation</span>
+                                            </label>
+                                            <a
+                                                href={`/p/${page.slug}`}
+                                                target="_blank"
+                                                className="text-sm text-red-400 hover:text-red-300 flex items-center gap-1"
+                                            >
+                                                <Eye className="w-4 h-4" />
+                                                Preview
+                                            </a>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* Theme Builder */}
+                {activeTab === 'theme' && (
+                    <div className="space-y-6">
+                        <div className="flex justify-between items-center">
+                            <div>
+                                <h2 className="text-xl font-semibold text-white flex items-center gap-2">
+                                    <Palette className="w-6 h-6 text-red-500" />
+                                    Theme Builder
+                                </h2>
+                                <p className="text-zinc-400 text-sm">Customize colors, fonts, and styling</p>
+                            </div>
+                            <button
+                                onClick={() => {
+                                    updateSiteSettings({ theme: DEFAULT_THEME });
+                                    showToast('Theme reset to defaults', 'success');
+                                }}
+                                className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-xl text-sm"
+                            >
+                                Reset to Default
+                            </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            {/* Color Settings */}
+                            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
+                                <h3 className="text-lg font-medium text-white mb-4">Color Palette</h3>
+                                <div className="space-y-4">
+                                    {[
+                                        { key: 'primaryColor', label: 'Primary Color', desc: 'Buttons, links, accents' },
+                                        { key: 'secondaryColor', label: 'Secondary Color', desc: 'Hover states, gradients' },
+                                        { key: 'backgroundColor', label: 'Background', desc: 'Page background' },
+                                        { key: 'cardBackground', label: 'Card Background', desc: 'Cards, panels' },
+                                        { key: 'textColor', label: 'Text Color', desc: 'Primary text' },
+                                        { key: 'mutedTextColor', label: 'Muted Text', desc: 'Secondary text' },
+                                        { key: 'borderColor', label: 'Border Color', desc: 'Borders, dividers' },
+                                    ].map(item => (
+                                        <div key={item.key} className="flex items-center justify-between">
+                                            <div>
+                                                <p className="text-sm font-medium text-white">{item.label}</p>
+                                                <p className="text-xs text-zinc-500">{item.desc}</p>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <input
+                                                    type="color"
+                                                    value={(siteSettings.theme as any)[item.key]}
+                                                    onChange={(e) => updateSiteSettings({
+                                                        theme: { ...siteSettings.theme, [item.key]: e.target.value }
+                                                    })}
+                                                    className="w-10 h-10 rounded-lg border border-zinc-700 cursor-pointer bg-transparent"
+                                                />
+                                                <input
+                                                    type="text"
+                                                    value={(siteSettings.theme as any)[item.key]}
+                                                    onChange={(e) => updateSiteSettings({
+                                                        theme: { ...siteSettings.theme, [item.key]: e.target.value }
+                                                    })}
+                                                    className="w-24 px-2 py-1 bg-zinc-800 border border-zinc-700 rounded-lg text-white text-xs font-mono"
+                                                />
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Typography & Style */}
+                            <div className="space-y-6">
+                                <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
+                                    <h3 className="text-lg font-medium text-white mb-4">Typography</h3>
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label className="block text-sm text-zinc-400 mb-2">Header Font</label>
+                                            <select
+                                                value={siteSettings.theme.headerFont}
+                                                onChange={(e) => updateSiteSettings({
+                                                    theme: { ...siteSettings.theme, headerFont: e.target.value as any }
+                                                })}
+                                                className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white"
+                                            >
+                                                <option value="inter">Inter</option>
+                                                <option value="roboto">Roboto</option>
+                                                <option value="playfair">Playfair Display</option>
+                                                <option value="montserrat">Montserrat</option>
+                                                <option value="outfit">Outfit</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm text-zinc-400 mb-2">Body Font</label>
+                                            <select
+                                                value={siteSettings.theme.bodyFont}
+                                                onChange={(e) => updateSiteSettings({
+                                                    theme: { ...siteSettings.theme, bodyFont: e.target.value as any }
+                                                })}
+                                                className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white"
+                                            >
+                                                <option value="inter">Inter</option>
+                                                <option value="roboto">Roboto</option>
+                                                <option value="playfair">Playfair Display</option>
+                                                <option value="montserrat">Montserrat</option>
+                                                <option value="outfit">Outfit</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
+                                    <h3 className="text-lg font-medium text-white mb-4">Style</h3>
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label className="block text-sm text-zinc-400 mb-2">Border Radius</label>
+                                            <div className="flex gap-2">
+                                                {['none', 'sm', 'md', 'lg', 'xl'].map(radius => (
+                                                    <button
+                                                        key={radius}
+                                                        onClick={() => updateSiteSettings({
+                                                            theme: { ...siteSettings.theme, borderRadius: radius as any }
+                                                        })}
+                                                        className={`px-4 py-2 rounded-lg text-sm font-medium capitalize ${siteSettings.theme.borderRadius === radius
+                                                            ? 'bg-red-600 text-white'
+                                                            : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
+                                                            }`}
+                                                    >
+                                                        {radius}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <p className="text-sm font-medium text-white">Dark Mode</p>
+                                                <p className="text-xs text-zinc-500">Use dark theme colors</p>
+                                            </div>
+                                            <button
+                                                onClick={() => updateSiteSettings({
+                                                    theme: { ...siteSettings.theme, darkMode: !siteSettings.theme.darkMode }
+                                                })}
+                                                className={`w-12 h-6 rounded-full transition-colors relative ${siteSettings.theme.darkMode ? 'bg-green-600' : 'bg-zinc-700'}`}
+                                            >
+                                                <span className={`absolute w-5 h-5 bg-white rounded-full top-0.5 transition-all ${siteSettings.theme.darkMode ? 'left-6' : 'left-0.5'}`} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Live Preview */}
+                                <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
+                                    <h3 className="text-lg font-medium text-white mb-4">Live Preview</h3>
+                                    <div
+                                        className="p-4 rounded-xl"
+                                        style={{
+                                            backgroundColor: siteSettings.theme.cardBackground,
+                                            borderRadius: { none: '0', sm: '4px', md: '8px', lg: '12px', xl: '16px' }[siteSettings.theme.borderRadius]
+                                        }}
+                                    >
+                                        <h4 style={{ color: siteSettings.theme.textColor, fontFamily: siteSettings.theme.headerFont }}>
+                                            Sample Header
+                                        </h4>
+                                        <p style={{ color: siteSettings.theme.mutedTextColor, fontFamily: siteSettings.theme.bodyFont }} className="text-sm mt-1">
+                                            This is how your text will look.
+                                        </p>
+                                        <button
+                                            style={{
+                                                backgroundColor: siteSettings.theme.primaryColor,
+                                                borderRadius: { none: '0', sm: '4px', md: '8px', lg: '12px', xl: '16px' }[siteSettings.theme.borderRadius]
+                                            }}
+                                            className="mt-3 px-4 py-2 text-white text-sm font-medium"
+                                        >
+                                            Sample Button
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 )}
 

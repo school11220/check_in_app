@@ -1,13 +1,27 @@
 'use client';
 
 import { useApp, CATEGORY_COLORS } from '@/lib/store';
-import { useState } from 'react';
-import { Calendar, MapPin, ScanLine, LayoutDashboard, LogIn, X, Menu, Ticket } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Calendar, MapPin, ScanLine, LayoutDashboard, LogIn, X, Menu, Ticket, LogOut } from 'lucide-react';
 
 export default function Home() {
-  const { events, isAdminLoggedIn, siteSettings } = useApp();
+  const { events, siteSettings } = useApp();
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [showMenu, setShowMenu] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  // Check actual auth state from API
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const res = await fetch('/api/auth/me');
+        setIsLoggedIn(res.ok);
+      } catch {
+        setIsLoggedIn(false);
+      }
+    };
+    checkAuth();
+  }, []);
 
   // Filter categories based on admin settings
   const categories = siteSettings.enabledCategories || ['all', 'music', 'tech', 'art', 'sports', 'food', 'gaming', 'business'];
@@ -42,7 +56,7 @@ export default function Home() {
       {/* Floating Menu Button */}
       <div className="fixed bottom-6 right-6 z-50">
         <div className={`absolute bottom-16 right-0 glass rounded-xl overflow-hidden shadow-2xl transition-all duration-300 ${showMenu ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}>
-          {isAdminLoggedIn && (
+          {isLoggedIn && (
             <>
               <a href="/checkin" className="flex items-center gap-3 px-5 py-3.5 text-zinc-300 hover:bg-white/5 hover:text-white whitespace-nowrap transition-colors">
                 <ScanLine className="w-5 h-5" />
@@ -52,12 +66,23 @@ export default function Home() {
                 <LayoutDashboard className="w-5 h-5" />
                 Dashboard
               </a>
+              <button
+                onClick={async () => {
+                  await fetch('/api/auth/logout', { method: 'POST' });
+                  setIsLoggedIn(false);
+                  setShowMenu(false);
+                }}
+                className="flex items-center gap-3 px-5 py-3.5 text-red-400 hover:bg-red-500/10 hover:text-red-300 whitespace-nowrap border-t border-white/5 transition-colors w-full"
+              >
+                <LogOut className="w-5 h-5" />
+                Logout
+              </button>
             </>
           )}
-          {!isAdminLoggedIn && siteSettings.showAdminLink && (
-            <a href="/admin" className="flex items-center gap-3 px-5 py-3.5 text-zinc-300 hover:bg-white/5 hover:text-white whitespace-nowrap transition-colors">
+          {!isLoggedIn && (
+            <a href="/login" className="flex items-center gap-3 px-5 py-3.5 text-zinc-300 hover:bg-white/5 hover:text-white whitespace-nowrap transition-colors">
               <LogIn className="w-5 h-5" />
-              Admin Login
+              Login
             </a>
           )}
         </div>
@@ -72,6 +97,20 @@ export default function Home() {
           )}
         </button>
       </div>
+
+      {/* Header with Logo */}
+      <header className="sticky top-0 z-40 bg-[#0B0B0B]/90 backdrop-blur-md border-b border-white/5">
+        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <img src="/logo.png" alt="EventHub" className="w-10 h-10 rounded-xl" />
+            <span className="font-heading text-lg font-bold text-white hidden sm:block">EventHub</span>
+          </div>
+          <a href="/register" className="px-4 py-2 bg-[#E11D2E] text-white text-sm font-medium rounded-xl hover:bg-[#B91C1C] transition-colors flex items-center gap-2">
+            <Ticket className="w-4 h-4" />
+            Get Tickets
+          </a>
+        </div>
+      </header>
 
       <div className="flex-1">
         {/* Hero - Premium Design */}

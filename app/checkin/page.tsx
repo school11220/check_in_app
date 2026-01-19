@@ -131,9 +131,7 @@ function CheckinPageContent() {
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 glass p-5 rounded-2xl">
           <div className="flex items-center gap-4">
-            <div className="w-14 h-14 bg-gradient-to-br from-[#E11D2E] to-[#B91C1C] rounded-xl flex items-center justify-center shadow-lg shadow-red-900/30 glow-red-sm">
-              <ScanLine className="w-7 h-7 text-white" />
-            </div>
+            <img src="/logo.png" alt="EventHub" className="w-14 h-14 rounded-xl shadow-lg shadow-red-900/30" />
             <div>
               <h1 className="font-heading text-2xl font-bold text-white">EventHub Check-In</h1>
               <p className="text-[#737373] text-sm mt-0.5">Ready to scan tickets</p>
