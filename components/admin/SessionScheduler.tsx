@@ -24,6 +24,7 @@ export interface Session {
     type: 'talk' | 'workshop' | 'panel' | 'break' | 'networking';
     capacity?: number;
     registeredCount?: number;
+    event?: { name: string; id: string };
 }
 
 interface SessionSchedulerProps {
@@ -31,6 +32,7 @@ interface SessionSchedulerProps {
     eventDate?: string;
     showToast?: (message: string, type: 'success' | 'error') => void;
     readOnly?: boolean;
+    globalView?: boolean;
 }
 
 
@@ -55,7 +57,7 @@ const SESSION_TYPE_COLORS: Record<Session['type'], { bg: string; text: string }>
     networking: { bg: 'bg-green-600/20', text: 'text-green-400' },
 };
 
-export default function SessionScheduler({ eventId, eventDate, showToast, readOnly = false }: SessionSchedulerProps) {
+export default function SessionScheduler({ eventId, eventDate, showToast, readOnly = false, globalView = false }: SessionSchedulerProps) {
     const [timeSlots, setTimeSlots] = useState<TimeSlot[]>(DEFAULT_TIME_SLOTS);
     const [sessions, setSessions] = useState<Session[]>([]);
     const [selectedDate, setSelectedDate] = useState(eventDate || new Date().toISOString().split('T')[0]);
@@ -88,8 +90,8 @@ export default function SessionScheduler({ eventId, eventDate, showToast, readOn
         setIsLoading(true);
         try {
             const [slotsRes, sessionsRes] = await Promise.all([
-                fetch(`/api/events/${eventId}/slots`),
-                fetch(`/api/events/${eventId}/sessions?date=${selectedDate}`)
+                globalView ? fetch('/api/slots/all') : fetch(`/api/events/${eventId}/slots`),
+                globalView ? fetch('/api/sessions/all') : fetch(`/api/events/${eventId}/sessions?date=${selectedDate}`)
             ]);
 
             if (slotsRes.ok) {
@@ -105,7 +107,7 @@ export default function SessionScheduler({ eventId, eventDate, showToast, readOn
         } finally {
             setIsLoading(false);
         }
-    }, [eventId, selectedDate, showToast]);
+    }, [eventId, selectedDate, showToast, globalView]);
 
     // Initial load and date change
     useEffect(() => {
@@ -486,6 +488,11 @@ export default function SessionScheduler({ eventId, eventDate, showToast, readOn
                                                     )}
                                                 </div>
                                                 <h4 className="font-semibold text-white text-sm mb-1 line-clamp-2">{session.title}</h4>
+                                                {globalView && session.event && (
+                                                    <p className="text-[10px] text-[#E11D2E] mb-1 font-medium bg-[#E11D2E]/10 px-1.5 py-0.5 rounded w-fit">
+                                                        {session.event.name}
+                                                    </p>
+                                                )}
 
                                                 {session.speakerName && (
                                                     <div className="flex items-center gap-1.5 text-xs text-[#B3B3B3] mb-2">

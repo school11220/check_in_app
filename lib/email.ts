@@ -1,28 +1,26 @@
 import nodemailer from 'nodemailer';
 
-// Create Brevo SMTP transporter
-// Your API key format (xsmtpsib-...) is an SMTP key, so we use nodemailer
-// Create SMTP transporter (Supports Gmail & Brevo)
+// Create SMTP transporter
 function createTransporter() {
-    // If using Gmail, we can use the 'gmail' service which automatically configures host/port
-    if (process.env.SMTP_SERVICE === 'gmail' || process.env.BREVO_SMTP_LOGIN?.includes('gmail')) {
+    // Gmail Strategy: explicit GMAIL env vars or service='gmail'
+    if (process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) {
         return nodemailer.createTransport({
             service: 'gmail',
             auth: {
-                user: process.env.BREVO_SMTP_LOGIN, // Your Gmail address
-                pass: process.env.BREVO_API_KEY,    // Your Gmail App Password
+                user: process.env.GMAIL_USER,
+                pass: process.env.GMAIL_APP_PASSWORD,
             },
         });
     }
 
-    // Default to Brevo/Standard SMTP
+    // Fallback: Custom SMTP (Brevo, SendGrid, etc.)
     return nodemailer.createTransport({
         host: process.env.SMTP_HOST || 'smtp-relay.brevo.com',
         port: Number(process.env.SMTP_PORT) || 587,
         secure: false, // true for 465, false for other ports
         auth: {
-            user: process.env.BREVO_SMTP_LOGIN || '',
-            pass: process.env.BREVO_API_KEY || '',
+            user: process.env.SMTP_USER || process.env.BREVO_SMTP_LOGIN || '',
+            pass: process.env.SMTP_PASS || process.env.BREVO_API_KEY || '',
         },
     });
 }
@@ -44,15 +42,16 @@ export interface SendEmailOptions {
 }
 
 /**
- * Send a transactional email using Brevo SMTP
+ * Send a transactional email
  */
-export async function sendTransactionalEmail(
+export async function sendEmail(
     options: SendEmailOptions
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
     const transporter = createTransporter();
 
-    const senderEmail = process.env.BREVO_SENDER_EMAIL || 'noreply@eventhub.com';
-    const senderName = process.env.BREVO_SENDER_NAME || 'EventHub';
+    // Determine sender
+    const senderEmail = process.env.SENDER_EMAIL || process.env.GMAIL_USER || process.env.BREVO_SENDER_EMAIL || 'noreply@eventhub.com';
+    const senderName = process.env.SENDER_NAME || process.env.BREVO_SENDER_NAME || 'EventHub';
 
     const mailOptions: nodemailer.SendMailOptions = {
         from: `"${senderName}" <${senderEmail}>`,
@@ -73,7 +72,11 @@ export async function sendTransactionalEmail(
     }
 
     try {
-        console.log('Sending email via Brevo SMTP to:', options.to);
+        console.log('Sending email to:', options.to);
+        // Verify connection configuration
+        await transporter.verify();
+        console.log('Transporter verified');
+
         const info = await transporter.sendMail(mailOptions);
         console.log('Email sent successfully, messageId:', info.messageId);
         return {
@@ -81,7 +84,7 @@ export async function sendTransactionalEmail(
             messageId: info.messageId,
         };
     } catch (error: any) {
-        console.error('Brevo SMTP error:', error?.message || error);
+        console.error('Email sending error:', error?.message || error);
         return {
             success: false,
             error: error?.message || 'Failed to send email',
@@ -90,10 +93,16 @@ export async function sendTransactionalEmail(
 }
 
 /**
- * Check if Brevo is configured
+ * Check if Email is configured
  */
-export function isBrevoConfigured(): boolean {
-    const configured = !!(process.env.BREVO_API_KEY && process.env.BREVO_SENDER_EMAIL);
-    console.log('Brevo configured:', configured, 'API Key:', process.env.BREVO_API_KEY ? 'SET' : 'NOT SET', 'Sender:', process.env.BREVO_SENDER_EMAIL || 'NOT SET');
-    return configured;
+export function isEmailConfigured(): boolean {
+    const gmailConfigured = !!(process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD);
+    const smtpConfigured = !!((process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) || (process.env.BREVO_API_KEY));
+
+    console.log('Email configured check:', 'Gmail:', gmailConfigured, 'SMTP:', smtpConfigured);
+    return gmailConfigured || smtpConfigured;
 }
+
+// Aliases for backward compatibility
+export const sendTransactionalEmail = sendEmail;
+export const isBrevoConfigured = isEmailConfigured;

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sendTransactionalEmail, isBrevoConfigured } from '@/lib/brevo';
+import { sendTransactionalEmail, isBrevoConfigured } from '@/lib/email';
 import { generateTicketPDF } from '@/lib/pdf-generator';
 import { generateQRCodeBase64 } from '@/lib/qr-generator';
 
@@ -79,19 +79,33 @@ export async function POST(request: NextRequest) {
       })
       : 'TBA';
 
-    // Extract styles with defaults
+    // Load settings from JSON
+    let settings: any = {};
+    let template: any = null;
+    try {
+      const path = (await import('path')).default;
+      const fs = (await import('fs')).default;
+      const settingsPath = path.join(process.cwd(), 'data', 'settings.json');
+      if (fs.existsSync(settingsPath)) {
+        settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+        // Find confirmation template
+        if (settings.emailTemplates) {
+          template = settings.emailTemplates.find((t: any) => t.type === 'confirmation' && t.isActive);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load settings for email:', err);
+    }
+
+    // Merge styles: Request > Settings > Defaults
+    const siteSettings = settings.siteSettings || {};
     const s = {
-      bgColor: emailStyles?.bgColor || '#111111',
-      textColor: emailStyles?.textColor || '#ffffff',
-      accentColor: emailStyles?.accentColor || '#dc2626',
-      gradientColor: emailStyles?.gradientColor || '#991b1b',
-      borderRadius: emailStyles?.borderRadius || 16,
-      fontFamily:
-        emailStyles?.fontFamily === 'playfair'
-          ? 'Georgia, serif'
-          : emailStyles?.fontFamily === 'montserrat'
-            ? 'Verdana, sans-serif'
-            : 'Arial, sans-serif',
+      bgColor: emailStyles?.bgColor || siteSettings.ticketBgColor || '#111111',
+      textColor: emailStyles?.textColor || siteSettings.ticketTextColor || '#ffffff',
+      accentColor: emailStyles?.accentColor || siteSettings.ticketAccentColor || '#dc2626',
+      gradientColor: emailStyles?.gradientColor || siteSettings.ticketGradientColor || '#991b1b',
+      borderRadius: emailStyles?.borderRadius || siteSettings.ticketBorderRadius || 16,
+      fontFamily: emailStyles?.fontFamily || siteSettings.ticketFontFamily || 'inter',
     };
 
     // Generate QR code for inline display
@@ -100,7 +114,40 @@ export async function POST(request: NextRequest) {
       { width: 180 }
     );
 
-    // Build the email HTML with payment details
+    // Prepare Template Variables
+    const variables: Record<string, string> = {
+      '{{name}}': attendeeName,
+      '{{eventName}}': eventName,
+      '{{eventDate}}': formattedEventDate,
+      '{{eventTime}}': eventDate ? new Date(eventDate).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : 'TBA',
+      '{{eventVenue}}': venue || 'TBA',
+      '{{ticketId}}': ticketId,
+      '{{siteName}}': siteSettings.siteName || 'EventHub',
+      '{{qrCode}}': `<img src="cid:qrcode" alt="QR Code" style="width: 150px; height: 150px;">`,
+      '{{ticketLink}}': `<a href="${ticketUrl}" style="color: ${s.accentColor}">View Ticket</a>`,
+    };
+
+    let subjectLine = subject || (template ? template.subject : `🎫 Your ticket for ${eventName} - Confirmed!`);
+    let bodyContent = template ? template.body : '';
+
+    // Replace variables in subject
+    Object.keys(variables).forEach(key => {
+      subjectLine = subjectLine.replace(new RegExp(key, 'g'), variables[key]);
+    });
+
+    // If no template, use default HTML structure (fallback)
+    // If template exists, we wrap it in a nice container
+    // We assume the template body is just the text/content, not full HTML
+
+    // Simple variable replacement for body
+    if (template) {
+      Object.keys(variables).forEach(key => {
+        bodyContent = bodyContent.replace(new RegExp(key, 'g'), variables[key]);
+      });
+      // Convert newlines to <br> for plain text templates
+      bodyContent = bodyContent.replace(/\n/g, '<br>');
+    }
+
     const emailHtml = `
       <!DOCTYPE html>
       <html>
@@ -109,7 +156,7 @@ export async function POST(request: NextRequest) {
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
           <title>Your Ticket</title>
         </head>
-        <body style="margin: 0; padding: 0; background-color: #000000; font-family: ${s.fontFamily};">
+        <body style="margin: 0; padding: 0; background-color: #000000; font-family: ${s.fontFamily}, sans-serif;">
           <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #000000; padding: 40px 20px;">
             <tr>
               <td align="center">
@@ -117,138 +164,61 @@ export async function POST(request: NextRequest) {
                   <!-- Header -->
                   <tr>
                     <td style="background: ${s.accentColor}; background: linear-gradient(135deg, ${s.accentColor}, ${s.gradientColor}); padding: 30px; text-align: center;">
-                      ${emailStyles?.logoUrl ? `<img src="${emailStyles.logoUrl}" alt="Logo" style="height: 40px; margin-bottom: 10px; opacity: 0.9;">` : ''}
-                      <h1 style="color: #ffffff; margin: 0; font-size: 24px;">🎫 Your Ticket is Confirmed!</h1>
-                      <p style="color: rgba(255,255,255,0.8); margin: 10px 0 0 0; font-size: 14px;">Payment successful - Your e-ticket is attached</p>
+                       ${emailStyles?.logoUrl || siteSettings.ticketLogoUrl ? `<img src="${emailStyles?.logoUrl || siteSettings.ticketLogoUrl}" alt="Logo" style="height: 40px; margin-bottom: 10px; opacity: 0.9;">` : ''}
+                      <h1 style="color: #ffffff; margin: 0; font-size: 24px;">${template ? 'Ticket Confirmed' : '🎫 Your Ticket is Confirmed!'}</h1>
                     </td>
                   </tr>
                   
-                  <!-- Event Details -->
+                  <!-- Content -->
                   <tr>
-                    <td style="padding: 30px;">
-                      <h2 style="color: ${s.textColor}; margin: 0 0 20px 0; font-size: 22px;">${eventName}</h2>
+                    <td style="padding: 30px; color: ${s.textColor}; font-size: 16px; line-height: 1.6;">
+                      ${template
+        ? bodyContent
+        : `
+                        <h2 style="margin-top:0;">Hi ${attendeeName},</h2>
+                        <p>Thank you for your purchase. Here is your ticket for <strong>${eventName}</strong>.</p>
+                        `
+      }
                       
-                      <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 20px;">
-                        <tr>
-                          <td style="padding: 15px; background-color: rgba(255,255,255,0.05); border-radius: 8px; margin-bottom: 10px;">
-                            <p style="color: #888888; font-size: 12px; margin: 0 0 5px 0; text-transform: uppercase;">ATTENDEE</p>
-                            <p style="color: ${s.textColor}; font-size: 16px; margin: 0; font-weight: bold;">${attendeeName}</p>
-                          </td>
-                        </tr>
-                      </table>
-                      
-                      <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 20px;">
-                        <tr>
-                          <td width="48%" style="padding: 15px; background-color: rgba(255,255,255,0.05); border-radius: 8px;">
-                            <p style="color: #888888; font-size: 12px; margin: 0 0 5px 0; text-transform: uppercase;">📅 DATE</p>
-                            <p style="color: ${s.textColor}; font-size: 14px; margin: 0;">${formattedEventDate}</p>
-                          </td>
-                          <td width="4%"></td>
-                          <td width="48%" style="padding: 15px; background-color: rgba(255,255,255,0.05); border-radius: 8px;">
-                            <p style="color: #888888; font-size: 12px; margin: 0 0 5px 0; text-transform: uppercase;">📍 VENUE</p>
-                            <p style="color: ${s.textColor}; font-size: 14px; margin: 0;">${venue || 'TBA'}</p>
-                          </td>
-                        </tr>
-                      </table>
-
-                      <!-- QR Code Section -->
-                      <div style="text-align: center; margin: 30px 0; padding: 20px; background-color: #ffffff; border-radius: 12px;">
-                        <img src="cid:qrcode" alt="Ticket QR Code" style="width: 150px; height: 150px;">
-                        <p style="color: #666666; font-size: 12px; margin: 10px 0 0 0;">Scan at venue for entry</p>
+                      ${!template ? `
+                      <div style="background-color: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; margin: 20px 0;">
+                        <p style="margin:5px 0; font-size:14px; color:#888;">DATE & TIME</p>
+                        <p style="margin:0 0 15px 0; font-weight:bold;">${formattedEventDate}</p>
+                        
+                        <p style="margin:5px 0; font-size:14px; color:#888;">VENUE</p>
+                        <p style="margin:0; font-weight:bold;">${venue || 'TBA'}</p>
                       </div>
-                    </td>
-                  </tr>
+                      ` : ''}
 
-                  <!-- Payment Details Section -->
-                  <tr>
-                    <td style="padding: 0 30px 30px 30px;">
-                      <table width="100%" cellpadding="0" cellspacing="0" style="background-color: rgba(255,255,255,0.03); border-radius: 12px; border: 1px solid #333;">
-                        <tr>
-                          <td style="padding: 20px;">
-                            <h3 style="color: ${s.accentColor}; font-size: 14px; margin: 0 0 15px 0; text-transform: uppercase; letter-spacing: 1px;">💳 Payment Details</h3>
-                            
-                            <table width="100%" cellpadding="0" cellspacing="0">
-                              <tr>
-                                <td style="padding: 8px 0; border-bottom: 1px solid #333;">
-                                  <span style="color: #888888; font-size: 13px;">Amount Paid</span>
-                                </td>
-                                <td style="padding: 8px 0; border-bottom: 1px solid #333; text-align: right;">
-                                  <span style="color: #22c55e; font-size: 16px; font-weight: bold;">₹${((amountPaid || 0) / 100).toFixed(2)}</span>
-                                </td>
-                              </tr>
-                              <tr>
-                                <td style="padding: 8px 0; border-bottom: 1px solid #333;">
-                                  <span style="color: #888888; font-size: 13px;">Transaction ID</span>
-                                </td>
-                                <td style="padding: 8px 0; border-bottom: 1px solid #333; text-align: right;">
-                                  <span style="color: ${s.textColor}; font-size: 12px; font-family: monospace;">${transactionId || 'N/A'}</span>
-                                </td>
-                              </tr>
-                              <tr>
-                                <td style="padding: 8px 0; border-bottom: 1px solid #333;">
-                                  <span style="color: #888888; font-size: 13px;">Order ID</span>
-                                </td>
-                                <td style="padding: 8px 0; border-bottom: 1px solid #333; text-align: right;">
-                                  <span style="color: ${s.textColor}; font-size: 12px; font-family: monospace;">${orderId || 'N/A'}</span>
-                                </td>
-                              </tr>
-                              <tr>
-                                <td style="padding: 8px 0; border-bottom: 1px solid #333;">
-                                  <span style="color: #888888; font-size: 13px;">Payment Date</span>
-                                </td>
-                                <td style="padding: 8px 0; border-bottom: 1px solid #333; text-align: right;">
-                                  <span style="color: ${s.textColor}; font-size: 13px;">${formattedPaymentDate}</span>
-                                </td>
-                              </tr>
-                              ${paymentMode ? `
-                              <tr>
-                                <td style="padding: 8px 0;">
-                                  <span style="color: #888888; font-size: 13px;">Payment Mode</span>
-                                </td>
-                                <td style="padding: 8px 0; text-align: right;">
-                                  <span style="color: ${s.textColor}; font-size: 13px;">${paymentMode}</span>
-                                </td>
-                              </tr>
-                              ` : ''}
-                            </table>
-                          </td>
-                        </tr>
-                      </table>
-                    </td>
-                  </tr>
+                       <div style="text-align: center; margin: 30px 0; padding: 20px; background-color: #ffffff; border-radius: 12px; color: #000;">
+                        <img src="cid:qrcode" alt="Ticket QR Code" style="width: 150px; height: 150px;">
+                        <p style="margin: 10px 0 0 0; font-size: 12px; color: #666;">Scan at venue</p>
+                      </div>
 
-                  <!-- Ticket Info -->
-                  <tr>
-                    <td style="padding: 0 30px 20px 30px;">
-                      <table width="100%" cellpadding="0" cellspacing="0">
-                        <tr>
-                          <td style="padding: 15px; background-color: rgba(255,255,255,0.05); border-radius: 8px; text-align: center;">
-                            <p style="color: #888888; font-size: 11px; margin: 0 0 5px 0; text-transform: uppercase;">TICKET ID</p>
-                            <p style="color: ${s.textColor}; font-size: 14px; margin: 0; font-family: monospace;">${ticketId}</p>
-                          </td>
-                        </tr>
-                      </table>
-                    </td>
-                  </tr>
-                      
-                  <!-- CTA Button -->
-                  <tr>
-                    <td style="padding: 0 30px 30px 30px; text-align: center;">
-                      <a href="${ticketUrl}" 
-                         style="display: inline-block; padding: 16px 40px; background-color: ${s.accentColor}; color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">
-                        View Ticket Online
-                      </a>
+                       <div style="text-align: center; margin-top: 30px;">
+                          <a href="${ticketUrl}" style="display: inline-block; padding: 14px 30px; background-color: ${s.accentColor}; color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: bold;">View Ticket</a>
+                       </div>
                     </td>
                   </tr>
                   
+                   <!-- Payment Details (Always show at bottom unless template forbids - but we keep it for receipt) -->
+                   <tr>
+                     <td style="padding: 0 30px 30px 30px;">
+                       <table width="100%" cellpadding="0" cellspacing="0" style="background-color: rgba(255,255,255,0.03); border-radius: 12px; border: 1px solid #333;">
+                         <tr>
+                            <td style="padding: 15px; text-align:center;">
+                                <p style="margin:0; font-size:12px; color:#888;">Total Paid: ₹${((amountPaid || 0) / 100).toFixed(2)} • Txn: ${transactionId}</p>
+                            </td>
+                         </tr>
+                       </table>
+                     </td>
+                   </tr>
+
                   <!-- Footer -->
                   <tr>
                     <td style="padding: 20px; background-color: #0a0a0a; text-align: center; border-top: 1px solid #333333;">
-                      <p style="color: #666666; font-size: 12px; margin: 0 0 5px 0;">
-                        📎 Your ticket is also attached as a PDF
-                      </p>
-                      <p style="color: #444444; font-size: 11px; margin: 0;">
-                        EventHub • Secure Event Ticketing
+                      <p style="color: #666666; font-size: 12px; margin: 0;">
+                        ${siteSettings.footerText || 'EventHub • Secure Event Ticketing'}
                       </p>
                     </td>
                   </tr>

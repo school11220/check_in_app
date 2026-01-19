@@ -47,6 +47,18 @@ export async function POST(req: NextRequest) {
       console.log('Database not available, using fallback events');
     }
 
+    // Check if event is active or global sales paused
+    // Note: We need to get global settings from DB or assume active. 
+    // Since we don't have easy access to store settings here, we rely on event.isActive for now.
+    // Ideally, global settings should be in DB. 
+    // For now, we'll check event.isActive if event exists.
+    if (event && !event.isActive) {
+      return NextResponse.json(
+        { error: 'Ticket sales are currently paused for this event' },
+        { status: 403 }
+      );
+    }
+
     // Use fallback if no database event
     if (!event && fallbackEvent) {
       eventName = fallbackEvent.name;

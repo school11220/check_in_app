@@ -26,8 +26,8 @@ export default function Home() {
   // Filter categories based on admin settings
   const categories = siteSettings.enabledCategories || ['all', 'music', 'tech', 'art', 'sports', 'food', 'gaming', 'business'];
   const filteredEvents = selectedCategory === 'all'
-    ? events.filter(e => e.isActive)
-    : events.filter(e => e.category === selectedCategory && e.isActive);
+    ? events
+    : events.filter(e => e.category === selectedCategory);
 
   // Grid column classes based on settings
   const gridColsClass = {
@@ -290,6 +290,42 @@ export default function Home() {
                             {event.venue.split(',')[0]}
                           </span>
                         </div>
+                      </div>
+
+                      {/* Footer Actions */}
+                      <div className="p-4 flex items-center justify-between border-t border-[#1F1F1F] bg-[#141414]">
+                        <div className="flex flex-col">
+                          <span className="text-[#B3B3B3] text-xs uppercase tracking-wider font-medium mb-0.5">Price</span>
+                          <span className="text-white font-bold text-lg">
+                            {event.price === 0 ? 'Free' : `₹${event.price.toLocaleString()}`}
+                          </span>
+                        </div>
+                        <button
+                          disabled={!event.isActive || siteSettings.globalSalesPaused || isSoldOut}
+                          className={`px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 flex items-center gap-2 ${!event.isActive || siteSettings.globalSalesPaused
+                            ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed border border-zinc-700'
+                            : isSoldOut
+                              ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed border border-zinc-700'
+                              : 'bg-white text-black hover:bg-[#E11D2E] hover:text-white hover:scale-105 shadow-lg shadow-white/5 disabled:opacity-50 disabled:cursor-not-allowed'
+                            }`}
+                        >
+                          {(!event.isActive || siteSettings.globalSalesPaused) ? (
+                            <>
+                              <X className="w-4 h-4" />
+                              {siteSettings.globalSalesPaused ? 'On Hold' : 'Unavailable'}
+                            </>
+                          ) : isSoldOut ? (
+                            <>
+                              <X className="w-4 h-4" />
+                              Sold Out
+                            </>
+                          ) : (
+                            <>
+                              <Ticket className="w-4 h-4" />
+                              Get Tickets
+                            </>
+                          )}
+                        </button>
                       </div>
 
                       {/* Hover Glow Effect */}

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Calendar, Users, BarChart3, LogOut, Globe, Edit3, Save, Loader2, LayoutDashboard, Home, Ticket, CheckCircle } from 'lucide-react';
+import { Calendar, Users, BarChart3, LogOut, Globe, Edit3, Save, Loader2, LayoutDashboard, Home, Ticket, CheckCircle, Power, Play, Pause, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/components/Toaster';
 import SessionScheduler from '@/components/admin/SessionScheduler';
 import EventIntegrations from '@/components/organizer/EventIntegrations';
@@ -27,6 +27,7 @@ interface Event {
     organizer?: string;
     contactEmail?: string;
     contactPhone?: string;
+    isActive: boolean;
 }
 
 interface User {
@@ -35,7 +36,7 @@ interface User {
     assignedEventIds: string[];
 }
 
-type TabId = 'overview' | 'events' | 'edit' | 'schedule' | 'attendees' | 'integrations';
+type TabId = 'overview' | 'events' | 'edit' | 'schedule' | 'attendees' | 'integrations' | 'sales';
 
 export default function OrganizerDashboard() {
     const router = useRouter();
@@ -138,6 +139,7 @@ export default function OrganizerDashboard() {
         { id: 'events' as TabId, label: 'Events', icon: Calendar },
         { id: 'edit' as TabId, label: 'Edit', icon: Edit3 },
         { id: 'schedule' as TabId, label: 'Schedule', icon: Calendar },
+        { id: 'sales' as TabId, label: 'Sales', icon: Power },
         { id: 'attendees' as TabId, label: 'Attendees', icon: Users },
         { id: 'integrations' as TabId, label: 'Integrations', icon: Globe },
     ];
@@ -211,7 +213,7 @@ export default function OrganizerDashboard() {
                 {activeTab === 'overview' && (
                     <div className="space-y-6">
                         {/* Stats */}
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="bg-[#141414] border border-[#1F1F1F] p-5 rounded-2xl">
                                 <div className="flex items-center gap-3 mb-3">
                                     <div className="w-10 h-10 bg-[#E11D2E]/20 rounded-xl flex items-center justify-center">
@@ -229,15 +231,6 @@ export default function OrganizerDashboard() {
                                     <span className="text-[#737373] text-sm">Total Attendees</span>
                                 </div>
                                 <p className="text-3xl font-bold text-white">{events.reduce((acc, curr) => acc + curr.soldCount, 0)}</p>
-                            </div>
-                            <div className="bg-[#141414] border border-[#1F1F1F] p-5 rounded-2xl">
-                                <div className="flex items-center gap-3 mb-3">
-                                    <div className="w-10 h-10 bg-[#E11D2E]/20 rounded-xl flex items-center justify-center">
-                                        <BarChart3 className="w-5 h-5 text-[#E11D2E]" />
-                                    </div>
-                                    <span className="text-[#737373] text-sm">Total Revenue</span>
-                                </div>
-                                <p className="text-3xl font-bold text-white">₹{(events.reduce((acc, curr) => acc + (curr.price * curr.soldCount), 0) / 100).toLocaleString()}</p>
                             </div>
                         </div>
 
@@ -378,13 +371,45 @@ export default function OrganizerDashboard() {
                             </div>
 
                             <div>
-                                <label className="block text-sm text-[#737373] mb-1">Image URL</label>
-                                <input
-                                    type="url"
-                                    value={editForm.imageUrl || ''}
-                                    onChange={(e) => setEditForm({ ...editForm, imageUrl: e.target.value })}
-                                    className="w-full px-4 py-3 bg-[#1A1A1A] border border-[#1F1F1F] rounded-xl text-white focus:border-[#E11D2E] focus:outline-none"
-                                />
+                                <label className="block text-sm text-[#737373] mb-2">Event Image</label>
+                                <div className="bg-[#1A1A1A] border-2 border-dashed border-[#1F1F1F] rounded-xl p-6 text-center hover:border-[#E11D2E]/50 transition-colors relative group">
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        onChange={(e) => {
+                                            const file = e.target.files?.[0];
+                                            if (file) {
+                                                if (file.size > 2 * 1024 * 1024) {
+                                                    showToast('Image must be less than 2MB', 'error');
+                                                    return;
+                                                }
+                                                const reader = new FileReader();
+                                                reader.onload = (event) => {
+                                                    const base64 = event.target?.result as string;
+                                                    setEditForm({ ...editForm, imageUrl: base64 });
+                                                };
+                                                reader.readAsDataURL(file);
+                                            }
+                                        }}
+                                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                                    />
+                                    {editForm.imageUrl ? (
+                                        <div className="relative">
+                                            <img src={editForm.imageUrl} alt="Preview" className="h-48 mx-auto rounded-lg object-cover" />
+                                            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity rounded-lg">
+                                                <p className="text-white font-medium">Click to change</p>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="py-4">
+                                            <div className="w-12 h-12 bg-[#1F1F1F] rounded-full flex items-center justify-center mx-auto mb-3 text-[#737373] group-hover:text-[#E11D2E] transition-colors">
+                                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                                            </div>
+                                            <p className="text-white text-sm font-medium">Click to upload image</p>
+                                            <p className="text-[#737373] text-xs mt-1">SVG, PNG, JPG or GIF (max. 2MB)</p>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
 
                             {/* Date & Time */}
@@ -443,15 +468,6 @@ export default function OrganizerDashboard() {
                             {/* Pricing & Capacity */}
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm text-[#737373] mb-1">Price (paise)</label>
-                                    <input
-                                        type="number"
-                                        value={editForm.price || 0}
-                                        onChange={(e) => setEditForm({ ...editForm, price: parseInt(e.target.value) })}
-                                        className="w-full px-4 py-3 bg-[#1A1A1A] border border-[#1F1F1F] rounded-xl text-white focus:border-[#E11D2E] focus:outline-none"
-                                    />
-                                </div>
-                                <div>
                                     <label className="block text-sm text-[#737373] mb-1">Capacity</label>
                                     <input
                                         type="number"
@@ -506,7 +522,8 @@ export default function OrganizerDashboard() {
                             eventId={selectedEvent.id}
                             eventDate={selectedEvent.date}
                             showToast={showToast}
-                            readOnly={false}
+                            readOnly={true}
+                            globalView={true}
                         />
                     </div>
                 )}
@@ -530,6 +547,73 @@ export default function OrganizerDashboard() {
                             initialOrganizerLink={selectedEvent.organizerVideoLink}
                             onClose={() => { }}
                         />
+                    </div>
+                )}
+
+                {/* Sales Control Tab */}
+                {activeTab === 'sales' && selectedEvent && (
+                    <div className="bg-[#141414] border border-[#1F1F1F] rounded-2xl p-6 md:p-8 max-w-2xl mx-auto">
+                        <div className="text-center mb-8">
+                            <h2 className="text-2xl font-bold text-white mb-2">Sales Control</h2>
+                            <p className="text-[#737373]">Manage availability for {selectedEvent.name}</p>
+                        </div>
+
+                        <div className={`border rounded-2xl p-8 transition-all ${selectedEvent.isActive
+                            ? 'bg-[#1A1A1A] border-green-500/30'
+                            : 'bg-[#1A1A1A] border-red-500/30'
+                            }`}>
+
+                            <div className="flex flex-col items-center justify-center text-center space-y-6">
+                                <div className={`w-20 h-20 rounded-full flex items-center justify-center ${selectedEvent.isActive ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
+                                    <Power className="w-10 h-10" />
+                                </div>
+
+                                <div>
+                                    <h3 className="text-xl font-bold text-white mb-2">
+                                        {selectedEvent.isActive ? 'Sales are Live' : 'Sales Paused'}
+                                    </h3>
+                                    <p className="text-[#737373] text-sm max-w-sm mx-auto">
+                                        {selectedEvent.isActive
+                                            ? "Tickets are available for purchase."
+                                            : "Ticket sales are halted. Resume when ready."}
+                                    </p>
+                                </div>
+
+                                <div className="flex items-center gap-4">
+                                    <span className={`text-sm font-medium ${!selectedEvent.isActive ? 'text-white' : 'text-[#737373]'}`}>Paused</span>
+                                    <button
+                                        onClick={async () => {
+                                            if (saving) return;
+                                            setSaving(true);
+                                            try {
+                                                const res = await fetch(`/api/events/${selectedEvent.id}`, {
+                                                    method: 'PATCH',
+                                                    headers: { 'Content-Type': 'application/json' },
+                                                    body: JSON.stringify({ isActive: !selectedEvent.isActive }),
+                                                });
+                                                if (res.ok) {
+                                                    showToast(`Sales ${!selectedEvent.isActive ? 'resumed' : 'paused'} successfully`, 'success');
+                                                    if (user) fetchEvents(user.assignedEventIds, user.role);
+                                                } else {
+                                                    throw new Error();
+                                                }
+                                            } catch (e) {
+                                                showToast('Failed to update status', 'error');
+                                            } finally {
+                                                setSaving(false);
+                                            }
+                                        }}
+                                        disabled={saving}
+                                        className={`w-16 h-8 rounded-full p-1 transition-colors relative ${selectedEvent.isActive ? 'bg-green-500' : 'bg-[#2A2A2A]'
+                                            }`}
+                                    >
+                                        <div className={`w-6 h-6 bg-white rounded-full shadow-md transition-transform duration-200 ease-in-out ${selectedEvent.isActive ? 'translate-x-8' : 'translate-x-0'
+                                            }`} />
+                                    </button>
+                                    <span className={`text-sm font-medium ${selectedEvent.isActive ? 'text-white' : 'text-[#737373]'}`}>Active</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 )}
             </main>

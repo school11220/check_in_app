@@ -1,34 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sendTransactionalEmail, isBrevoConfigured } from '@/lib/brevo';
+import { sendTransactionalEmail, isBrevoConfigured } from '@/lib/email';
 
 export interface CertificateEmailRequestBody {
-    to: string;
-    recipientName: string;
-    eventName: string;
-    pdfBase64: string; // Base64 encoded PDF content
+  to: string;
+  recipientName: string;
+  eventName: string;
+  pdfBase64: string; // Base64 encoded PDF content
 }
 
 export async function POST(request: NextRequest) {
-    try {
-        const body: CertificateEmailRequestBody = await request.json();
-        const { to, recipientName, eventName, pdfBase64 } = body;
+  try {
+    const body: CertificateEmailRequestBody = await request.json();
+    const { to, recipientName, eventName, pdfBase64 } = body;
 
-        if (!to || !recipientName || !pdfBase64) {
-            return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
-        }
+    if (!to || !recipientName || !pdfBase64) {
+      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    }
 
-        // Check if Brevo is configured
-        if (!isBrevoConfigured()) {
-            return NextResponse.json({
-                success: false,
-                error: 'Email service not configured',
-            });
-        }
+    // Check if Brevo is configured
+    if (!isBrevoConfigured()) {
+      return NextResponse.json({
+        success: false,
+        error: 'Email service not configured',
+      });
+    }
 
-        const subject = `🎓 Your Certificate for ${eventName}`;
+    const subject = `🎓 Your Certificate for ${eventName}`;
 
-        // Simple HTML email for certificate
-        const emailHtml = `
+    // Simple HTML email for certificate
+    const emailHtml = `
       <!DOCTYPE html>
       <html>
         <body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
@@ -64,36 +64,36 @@ export async function POST(request: NextRequest) {
       </html>
     `;
 
-        const result = await sendTransactionalEmail({
-            to,
-            toName: recipientName,
-            subject,
-            htmlContent: emailHtml,
-            attachments: [
-                {
-                    filename: `${recipientName.replace(/\s+/g, '_')}_Certificate.pdf`,
-                    content: pdfBase64,
-                    contentType: 'application/pdf',
-                },
-            ],
-        });
+    const result = await sendTransactionalEmail({
+      to,
+      toName: recipientName,
+      subject,
+      htmlContent: emailHtml,
+      attachments: [
+        {
+          filename: `${recipientName.replace(/\s+/g, '_')}_Certificate.pdf`,
+          content: pdfBase64,
+          contentType: 'application/pdf',
+        },
+      ],
+    });
 
-        if (result.success) {
-            return NextResponse.json({
-                success: true,
-                message: 'Email sent successfully',
-            });
-        } else {
-            return NextResponse.json(
-                { error: result.error || 'Failed to send email' },
-                { status: 500 }
-            );
-        }
-    } catch (error: any) {
-        console.error('Certificate email error:', error);
-        return NextResponse.json(
-            { error: error.message || 'Failed to send email' },
-            { status: 500 }
-        );
+    if (result.success) {
+      return NextResponse.json({
+        success: true,
+        message: 'Email sent successfully',
+      });
+    } else {
+      return NextResponse.json(
+        { error: result.error || 'Failed to send email' },
+        { status: 500 }
+      );
     }
+  } catch (error: any) {
+    console.error('Certificate email error:', error);
+    return NextResponse.json(
+      { error: error.message || 'Failed to send email' },
+      { status: 500 }
+    );
+  }
 }

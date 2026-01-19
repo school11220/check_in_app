@@ -27,6 +27,7 @@ export default function AdminPage() {
     const { showToast } = useToast();
 
     const [activeTab, setActiveTab] = useState<'overview' | 'events' | 'attendees' | 'team' | 'festivals' | 'emails' | 'surveys' | 'settings' | 'layout' | 'promo' | 'analytics' | 'polls' | 'history' | 'pricing' | 'certificates' | 'sessions' | 'tickets' | 'audit' | 'integrations' | 'sales' | 'pages' | 'theme'>('overview');
+    const [sessionEventId, setSessionEventId] = useState<string>('');
     const [password, setPassword] = useState('');
     const [showEventModal, setShowEventModal] = useState(false);
     const [editingEvent, setEditingEvent] = useState<Event | null>(null);
@@ -247,11 +248,25 @@ export default function AdminPage() {
 
                 {/* Sessions Tab */}
                 {activeTab === 'sessions' && (
-                    <SessionScheduler
-                        eventId={events[0]?.id}
-                        eventDate={events[0]?.date}
-                        showToast={showToast}
-                    />
+                    <div className="space-y-6">
+                        <div className="bg-[#141414] border border-[#1F1F1F] rounded-2xl p-6">
+                            <h3 className="text-lg font-semibold text-white mb-4">Select Event to Schedule</h3>
+                            <select
+                                value={sessionEventId || (events[0]?.id || '')}
+                                onChange={(e) => setSessionEventId(e.target.value)}
+                                className="w-full sm:w-1/3 px-4 py-3 bg-[#0D0D0D] border border-[#2A2A2A] rounded-xl text-white focus:border-[#E11D2E]/50 focus:outline-none"
+                            >
+                                {events.map(e => (
+                                    <option key={e.id} value={e.id}>{e.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <SessionScheduler
+                            eventId={sessionEventId || events[0]?.id}
+                            eventDate={events.find(e => e.id === (sessionEventId || events[0]?.id))?.date}
+                            showToast={showToast}
+                        />
+                    </div>
                 )}
 
                 {/* Layout Tab */}

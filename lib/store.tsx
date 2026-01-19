@@ -593,18 +593,27 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const adminSession = localStorage.getItem('adminLoggedIn');
         if (adminSession === 'true') setIsAdminLoggedIn(true);
 
-        // Load site settings from localStorage
-        const savedSettings = localStorage.getItem('siteSettings');
-        if (savedSettings) {
+        // Load site settings and templates from API
+        const fetchSettings = async () => {
             try {
-                const parsed = JSON.parse(savedSettings);
-                setSiteSettings({ ...DEFAULT_SITE_SETTINGS, ...parsed });
-            } catch (e) {
-                console.error('Failed to parse site settings:', e);
-            }
-        }
+                const res = await fetch('/api/settings');
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data) {
+                        if (data.siteSettings) setSiteSettings({ ...DEFAULT_SITE_SETTINGS, ...data.siteSettings });
+                        // Support legacy direct settings object or nested structure
+                        else setSiteSettings({ ...DEFAULT_SITE_SETTINGS, ...data });
 
-        // Load festivals from localStorage
+                        if (data.emailTemplates) setEmailTemplates(data.emailTemplates);
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to load settings from API:', error);
+            }
+        };
+        fetchSettings();
+
+        // Load festivals from localStorage (Keep as is for now unless requested)
         const savedFestivals = localStorage.getItem('festivals');
         if (savedFestivals) {
             try {
@@ -614,6 +623,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             }
         }
 
+        // ... rest of loading logic
         // Load promo codes from localStorage
         const savedPromoCodes = localStorage.getItem('promoCodes');
         if (savedPromoCodes) {
@@ -815,8 +825,31 @@ export function AppProvider({ children }: { children: ReactNode }) {
         localStorage.setItem('festivals', JSON.stringify(newFestivals));
     };
 
-    const updateEmailTemplate = (id: string, data: Partial<EmailTemplate>) => {
-        setEmailTemplates(emailTemplates.map(t => t.id === id ? { ...t, ...data } : t));
+    const updateEmailTemplate = async (id: string, data: Partial<EmailTemplate>) => {
+        const newTemplates = emailTemplates.map(t => t.id === id ? { ...t, ...data } : t);
+        setEmailTemplates(newTemplates);
+
+        // Persist to Backend API
+        try {
+            // We need to save the key 'emailTemplates' alongside 'siteSettings'
+            // To do this properly without overwriting, we should ideally GET then POST, 
+            // but since this is a simple app, we can just send what we have in state if we trust it, 
+            // OR the API endpoint needs to handle partial updates (which my simple FS endpoint does NOT, it overwrites).
+            // So we must fetch existing settings first or send everything.
+            // A safer bet for this "no DB" approach is to fetch current settings.json content client-side? No, that's slow.
+            // Better: update the API to handle merging, OR send both siteSettings and emailTemplates here.
+
+            await fetch('/api/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    siteSettings: siteSettings, // Explicit property name
+                    emailTemplates: newTemplates
+                })
+            });
+        } catch (err) {
+            console.error('Failed to save templates to API', err);
+        }
     };
 
     const addSurvey = (survey: Survey) => setSurveys([survey, ...surveys]);

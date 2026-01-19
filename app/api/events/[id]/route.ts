@@ -42,13 +42,41 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         }
 
         const body = await request.json();
-        const { ...data } = body;
 
-        if (data.date) data.date = new Date(data.date);
+        // STRICT ALLOWLIST: Only allow specific fields to be updated
+        // This prevents any relation or immutable field from breaking the update
+        const updateData: any = {};
+
+        const allowedFields = [
+            'name', 'description', 'startTime', 'endTime', 'venue', 'address',
+            'price', 'entryFee', 'prizePool', 'category', 'imageUrl', 'capacity',
+            'isActive', 'isFeatured', 'organizer', 'contactEmail', 'contactPhone',
+            'termsAndConditions', 'registrationDeadline', 'earlyBirdEnabled',
+            'earlyBirdPrice', 'earlyBirdDeadline', 'sendReminders', 'videoLink',
+            'organizerVideoLink', 'tags', 'registrationFields', 'schedule',
+            'speakers', 'sponsors'
+        ];
+
+        // Copy only allowed fields
+        for (const field of allowedFields) {
+            if (body[field] !== undefined) {
+                updateData[field] = body[field];
+            }
+        }
+
+        // Specific type handling
+        if (body.date) updateData.date = new Date(body.date);
+
+        // Ensure numeric fields are numbers
+        if (updateData.price !== undefined) updateData.price = Number(updateData.price);
+        if (updateData.entryFee !== undefined) updateData.entryFee = Number(updateData.entryFee);
+        if (updateData.prizePool !== undefined) updateData.prizePool = Number(updateData.prizePool);
+        if (updateData.capacity !== undefined) updateData.capacity = Number(updateData.capacity);
+        if (updateData.earlyBirdPrice !== undefined) updateData.earlyBirdPrice = Number(updateData.earlyBirdPrice);
 
         const event = await prisma.event.update({
             where: { id },
-            data,
+            data: updateData,
         });
 
         // Log event update
@@ -56,7 +84,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
             action: 'UPDATE',
             resource: 'EVENT',
             resourceId: id,
-            details: { eventName: event.name, changes: Object.keys(data) },
+            details: { eventName: event.name, changes: Object.keys(updateData) },
             userId: session.user.id,
             userName: session.user.name || session.user.email,
             userRole: session.user.role,

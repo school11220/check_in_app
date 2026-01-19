@@ -24,6 +24,7 @@ interface TicketData {
     venue: string | null;
     price: number;
     description?: string;
+    imageUrl?: string;
   };
 }
 
@@ -282,7 +283,7 @@ export default function TicketPage() {
           {siteSettings.ticketShowEventImage && (
             <div className="relative h-32 overflow-hidden">
               <img
-                src={siteSettings.ticketHeaderImage || 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=600&q=80'}
+                src={ticket.event?.imageUrl || siteSettings.ticketHeaderImage || 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=600&q=80'}
                 alt="Event"
                 className="w-full h-full object-cover"
               />

@@ -120,21 +120,26 @@ export default function TicketForm() {
           fetchedEvents = data.events;
         }
 
-        setEvents(fetchedEvents);
+        // Filter out inactive events
+        // Note: We need to cast to any if isActive is not on Event interface yet, 
+        // but based on store.tsx it should be.
+        // Let's extend the Event interface locally if needed, or just access it.
+        const activeEvents = fetchedEvents.filter((e: any) => e.isActive);
+        setEvents(activeEvents);
 
         // Auto-select event logic
-        if (fetchedEvents.length > 0) {
+        if (activeEvents.length > 0) {
           const preSelected = localStorage.getItem('selectedEventId');
           if (preSelected) {
-            const exists = fetchedEvents.find((e) => e.id === preSelected);
+            const exists = activeEvents.find((e) => e.id === preSelected);
             if (exists) {
               setSelectedEvent(preSelected);
               localStorage.removeItem('selectedEventId');
             } else {
-              setSelectedEvent(fetchedEvents[0].id);
+              setSelectedEvent(activeEvents[0].id);
             }
           } else {
-            setSelectedEvent(fetchedEvents[0].id);
+            setSelectedEvent(activeEvents[0].id);
           }
         }
       }
