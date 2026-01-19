@@ -2672,62 +2672,7 @@ export default function AdminPage() {
                             </div>
                         </div>
 
-                        {/* Home Page Sections */}
-                        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
-                            <h3 className="text-lg font-medium text-white mb-4 flex items-center gap-2">
-                                <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                                </svg>
-                                Home Page Sections
-                            </h3>
-                            <div className="grid gap-4">
-                                {/* Events Grid Toggle */}
-                                <div className="flex items-center justify-between p-4 bg-zinc-800/50 rounded-xl">
-                                    <div>
-                                        <p className="font-medium text-white">Events Grid</p>
-                                        <p className="text-sm text-zinc-500">Show the grid of events on home page</p>
-                                    </div>
-                                    <button
-                                        onClick={() => updateSiteSettings({ showEventsGrid: !siteSettings.showEventsGrid })}
-                                        className={`w-12 h-6 rounded-full transition-colors relative ${siteSettings.showEventsGrid ? 'bg-red-600' : 'bg-zinc-700'}`}
-                                    >
-                                        <span className={`absolute w-5 h-5 bg-white rounded-full top-0.5 transition-all ${siteSettings.showEventsGrid ? 'left-6' : 'left-0.5'}`} />
-                                    </button>
-                                </div>
 
-
-
-                                {/* Categories Toggle */}
-                                <div className="flex items-center justify-between p-4 bg-zinc-800/50 rounded-xl">
-                                    <div>
-                                        <p className="font-medium text-white">Category Filters</p>
-                                        <p className="text-sm text-zinc-500">Show category filter buttons</p>
-                                    </div>
-                                    <button
-                                        onClick={() => updateSiteSettings({ showCategories: !siteSettings.showCategories })}
-                                        className={`w-12 h-6 rounded-full transition-colors relative ${siteSettings.showCategories ? 'bg-red-600' : 'bg-zinc-700'}`}
-                                    >
-                                        <span className={`absolute w-5 h-5 bg-white rounded-full top-0.5 transition-all ${siteSettings.showCategories ? 'left-6' : 'left-0.5'}`} />
-                                    </button>
-                                </div>
-
-                                {/* Grid Columns */}
-                                <div>
-                                    <label className="block text-sm font-medium text-zinc-400 mb-2">Events Grid Columns</label>
-                                    <div className="flex gap-2">
-                                        {([2, 3, 4] as const).map(cols => (
-                                            <button
-                                                key={cols}
-                                                onClick={() => updateSiteSettings({ eventsGridColumns: cols })}
-                                                className={`flex-1 px-4 py-2 rounded-xl text-sm ${siteSettings.eventsGridColumns === cols ? 'bg-red-600 text-white' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`}
-                                            >
-                                                {cols} Columns
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
 
                         {/* Event Page Settings */}
                         <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">

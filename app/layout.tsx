@@ -3,7 +3,7 @@ import { Inter, Space_Grotesk, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { ToastProvider } from "@/components/Toaster";
 import { AppProvider } from "@/lib/store";
-import ThemeRegistry from "@/components/ThemeRegistry";
+
 
 // Typography System
 const inter = Inter({
@@ -70,7 +70,7 @@ export default function RootLayout({
         </div>
 
         <AppProvider>
-          <ThemeRegistry />
+
           <ToastProvider>
             <div className="relative z-10">
               {children}
