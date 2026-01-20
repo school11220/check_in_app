@@ -473,11 +473,57 @@ export default function HomeClient({ initialEvents, initialSettings }: HomeClien
             </div >
 
             {/* Footer */}
-            < footer className="border-t border-[#1F1F1F] py-10 px-4" >
-                <div className="max-w-6xl mx-auto text-center">
-                    <p className="text-[#737373] text-sm">{siteSettings.footerText}</p>
+            {/* Footer */}
+            <footer className="border-t border-[#1F1F1F] py-10 px-4">
+                <div className="max-w-6xl mx-auto flex flex-col items-center gap-6">
+                    {/* Social Links */}
+                    {siteSettings.socialLinks && siteSettings.socialLinks.length > 0 && (
+                        <div className="flex items-center gap-6">
+                            {siteSettings.socialLinks.map((link, i) => (
+                                <a
+                                    key={i}
+                                    href={link.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-[#737373] hover:text-[#E11D2E] transition-colors"
+                                >
+                                    {link.platform}
+                                </a>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* Legal Links */}
+                    <div className="flex flex-wrap justify-center gap-x-8 gap-y-2 text-sm text-[#737373]">
+                        {[
+                            { key: 'privacyPolicy', label: 'Privacy Policy' },
+                            { key: 'termsOfService', label: 'Terms of Service' },
+                            { key: 'refundPolicy', label: 'Refund Policy' },
+                            { key: 'cookiePolicy', label: 'Cookie Policy' },
+                        ].map(({ key, label }) => {
+                            const pageId = siteSettings.legalPages?.[key as keyof typeof siteSettings.legalPages];
+                            const page = siteSettings.customPages?.find(p => p.id === pageId);
+
+                            if (!page || !page.isPublished) return null;
+
+                            return (
+                                <a
+                                    key={key}
+                                    href={`/p/${page.slug}`}
+                                    className="hover:text-white transition-colors"
+                                >
+                                    {label}
+                                </a>
+                            );
+                        })}
+                    </div>
+
+                    {/* Copyright */}
+                    <p className="text-[#737373] text-sm text-center">
+                        {siteSettings.footerText}
+                    </p>
                 </div>
-            </footer >
+            </footer>
         </main >
     );
 }

@@ -504,9 +504,7 @@ export default function AdminPage() {
                 )}
 
                 {/* Layout Tab */}
-                {activeTab === 'layout' && (
-                    <LayoutManager />
-                )}
+
 
                 {/* Ticket Design Tab */}
                 {activeTab === 'tickets' && (
@@ -2813,52 +2811,7 @@ export default function AdminPage() {
                             </div>
                         </div>
 
-                        {/* Legal Links */}
-                        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
-                            <h3 className="text-lg font-medium text-white mb-4 flex items-center gap-2">
-                                <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" />
-                                </svg>
-                                Legal Links
-                            </h3>
-                            <p className="text-zinc-500 text-sm mb-4">Link your custom pages to display as legal documents in the footer</p>
 
-                            <div className="grid sm:grid-cols-2 gap-4">
-                                {[
-                                    { key: 'privacyPolicy', label: 'Privacy Policy', icon: <Shield className="w-5 h-5 text-blue-400" /> },
-                                    { key: 'termsOfService', label: 'Terms of Service', icon: <FileText className="w-5 h-5 text-purple-400" /> },
-                                    { key: 'refundPolicy', label: 'Refund Policy', icon: <Receipt className="w-5 h-5 text-green-400" /> },
-                                    { key: 'cookiePolicy', label: 'Cookie Policy', icon: <Globe className="w-5 h-5 text-orange-400" /> },
-                                ].map(item => (
-                                    <div key={item.key} className="flex items-center gap-3 p-3 bg-zinc-800/50 rounded-xl">
-                                        {item.icon}
-                                        <div className="flex-1">
-                                            <label className="block text-sm font-medium text-white mb-1">{item.label}</label>
-                                            <select
-                                                value={(siteSettings.legalPages as any)?.[item.key] || ''}
-                                                onChange={(e) => updateSiteSettings({
-                                                    legalPages: { ...siteSettings.legalPages, [item.key]: e.target.value }
-                                                })}
-                                                className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-zinc-300 text-sm"
-                                            >
-                                                <option value="">— Select a page —</option>
-                                                {siteSettings.customPages.filter(p => p.isPublished).map(page => (
-                                                    <option key={page.id} value={page.id}>{page.title}</option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-
-                            {siteSettings.customPages.length === 0 && (
-                                <div className="mt-4 p-3 bg-yellow-900/20 border border-yellow-800/50 rounded-xl">
-                                    <p className="text-sm text-yellow-400">
-                                        No custom pages found. Go to the <strong>Pages</strong> tab to create legal pages first.
-                                    </p>
-                                </div>
-                            )}
-                        </div>
 
                         {/* Admin Team */}
                         <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
@@ -2957,6 +2910,9 @@ export default function AdminPage() {
                                 <p className="text-zinc-400 text-sm">Customize how your site looks and functions</p>
                             </div>
                         </div>
+
+                        {/* Home Page Layout */}
+                        <LayoutManager />
 
 
 
@@ -3129,6 +3085,53 @@ export default function AdminPage() {
                                     />
                                 </div>
                             </div>
+                        </div>
+
+                        {/* Legal Links */}
+                        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
+                            <h3 className="text-lg font-medium text-white mb-4 flex items-center gap-2">
+                                <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" />
+                                </svg>
+                                Legal Links
+                            </h3>
+                            <p className="text-zinc-500 text-sm mb-4">Link your custom pages to display as legal documents in the footer</p>
+
+                            <div className="grid sm:grid-cols-2 gap-4">
+                                {[
+                                    { key: 'privacyPolicy', label: 'Privacy Policy', icon: <Shield className="w-5 h-5 text-blue-400" /> },
+                                    { key: 'termsOfService', label: 'Terms of Service', icon: <FileText className="w-5 h-5 text-purple-400" /> },
+                                    { key: 'refundPolicy', label: 'Refund Policy', icon: <Receipt className="w-5 h-5 text-green-400" /> },
+                                    { key: 'cookiePolicy', label: 'Cookie Policy', icon: <Globe className="w-5 h-5 text-orange-400" /> },
+                                ].map(item => (
+                                    <div key={item.key} className="flex items-center gap-3 p-3 bg-zinc-800/50 rounded-xl">
+                                        {item.icon}
+                                        <div className="flex-1">
+                                            <label className="block text-sm font-medium text-white mb-1">{item.label}</label>
+                                            <select
+                                                value={(siteSettings.legalPages as any)?.[item.key] || ''}
+                                                onChange={(e) => updateSiteSettings({
+                                                    legalPages: { ...siteSettings.legalPages, [item.key]: e.target.value }
+                                                })}
+                                                className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-zinc-300 text-sm"
+                                            >
+                                                <option value="">— Select a page —</option>
+                                                {siteSettings.customPages.filter(p => p.isPublished).map(page => (
+                                                    <option key={page.id} value={page.id}>{page.title}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            {siteSettings.customPages.length === 0 && (
+                                <div className="mt-4 p-3 bg-yellow-900/20 border border-yellow-800/50 rounded-xl">
+                                    <p className="text-sm text-yellow-400">
+                                        No custom pages found. Go to the <strong>Pages</strong> tab to create legal pages first.
+                                    </p>
+                                </div>
+                            )}
                         </div>
                     </div>
                 )}
