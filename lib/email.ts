@@ -73,9 +73,8 @@ export async function sendEmail(
 
     try {
         console.log('Sending email to:', options.to);
-        // Verify connection configuration
-        await transporter.verify();
-        console.log('Transporter verified');
+        // Skip verify() for performance in production logic as it adds round trip latency
+        // await transporter.verify(); 
 
         const info = await transporter.sendMail(mailOptions);
         console.log('Email sent successfully, messageId:', info.messageId);
@@ -84,7 +83,12 @@ export async function sendEmail(
             messageId: info.messageId,
         };
     } catch (error: any) {
-        console.error('Email sending error:', error?.message || error);
+        console.error('Email sending error details:', {
+            message: error?.message || error,
+            code: error?.code,
+            command: error?.command,
+            response: error?.response
+        });
         return {
             success: false,
             error: error?.message || 'Failed to send email',

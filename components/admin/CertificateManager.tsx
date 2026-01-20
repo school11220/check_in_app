@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback } from 'react';
+import RichTextEditor from './RichTextEditor';
 import {
     CertificateType,
     CertificateTemplate,
@@ -66,6 +67,13 @@ export default function CertificateManager({ eventName = 'Event', eventDate, sho
     const [isGenerating, setIsGenerating] = useState(false);
     const [progress, setProgress] = useState({ current: 0, total: 0 });
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+    const [emailMessages, setEmailMessages] = useState<Record<CertificateType, string>>({
+        winner_1st: 'Congratulations on winning 1st place! Your hard work and dedication have truly paid off.',
+        winner_2nd: 'Congratulations on winning 2nd place! This is a fantastic achievement.',
+        participant: 'Thank you for your enthusiastic participation! We hope you had a great learning experience.',
+        volunteer: 'Thank you for your selfless volunteering! Your support made this event possible.',
+    });
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -275,17 +283,23 @@ export default function CertificateManager({ eventName = 'Event', eventDate, sho
                 setProgress({ current: i + 1, total: validRecipients.length });
 
                 try {
+                    // 1. Create Certificate Record in DB
                     // Generate PDF
                     const pdfBytes = await generateCertificate(
                         templateBytes,
-                        { name: recipient.name, type: activeType, eventName, eventDate },
+                        {
+                            name: recipient.name,
+                            type: activeType,
+                            eventName,
+                            eventDate
+                        },
                         currentConfig
                     );
 
                     // Convert to Base64
                     const base64 = arrayBufferToBase64(pdfBytes.buffer as ArrayBuffer);
 
-                    // Send Email
+                    // 4. Send Email
                     const response = await fetch('/api/email/send-certificate', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -294,16 +308,23 @@ export default function CertificateManager({ eventName = 'Event', eventDate, sho
                             recipientName: recipient.name,
                             eventName,
                             pdfBase64: base64,
+                            customMessage: emailMessages[activeType],
                         }),
                     });
 
-                    if (response.ok) {
+                    const data = await response.json();
+
+                    if (response.ok && data.success) {
                         successCount++;
                     } else {
-                        console.error(`Failed to send email to ${recipient.email}`);
+                        console.error(`Failed to send email to ${recipient.email}:`, data.error);
                         failCount++;
+                        // Show specific error for the first failure
+                        if (failCount === 1) {
+                            showToast?.(`Error: ${data.error || 'Failed to send email'}`, 'error');
+                        }
                     }
-                } catch (err) {
+                } catch (err: any) {
                     console.error(`Error processing ${recipient.name}:`, err);
                     failCount++;
                 }
@@ -322,7 +343,7 @@ export default function CertificateManager({ eventName = 'Event', eventDate, sho
             setIsGenerating(false);
             setProgress({ current: 0, total: 0 });
         }
-    }, [currentTemplate, names, activeType, eventName, eventDate, currentConfig, showToast]);
+    }, [currentTemplate, names, activeType, eventName, eventDate, currentConfig, showToast, emailMessages]);
 
     // Create blank template
     const createBlank = useCallback(async () => {
@@ -445,6 +466,24 @@ export default function CertificateManager({ eventName = 'Event', eventDate, sho
                                 Template loaded for {CERTIFICATE_TYPES.find(t => t.type === activeType)?.label}
                             </p>
                         )}
+                    </div>
+
+                    {/* Email Message Editor */}
+                    <div className="bg-[#141414] border border-[#1F1F1F] rounded-2xl p-5">
+                        <h3 className="font-medium text-white mb-4 flex items-center gap-2">
+                            <svg className="w-5 h-5 text-[#737373]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                            </svg>
+                            Email Message
+                        </h3>
+                        <RichTextEditor
+                            value={emailMessages[activeType]}
+                            onChange={(value) => setEmailMessages(prev => ({ ...prev, [activeType]: value }))}
+                            placeholder="Enter the body of the email here..."
+                        />
+                        <p className="text-xs text-[#737373] mt-2">
+                            This message will be included in the email sent to recipients.
+                        </p>
                     </div>
 
                     {/* Text Settings */}
@@ -633,7 +672,7 @@ export default function CertificateManager({ eventName = 'Event', eventDate, sho
                         </div>
                     )}
                 </div>
-            </div>
-        </div>
+            </div >
+        </div >
     );
 }

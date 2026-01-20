@@ -39,6 +39,27 @@ export default function AdminPage() {
     const dailyCheckIns = tickets.filter(t => t.checkedIn && t.checkedInAt && new Date(t.checkedInAt).toDateString() === today).length;
 
 
+    const [ticketDraft, setTicketDraft] = useState<SiteSettings | null>(null);
+
+    // Initialize draft when entering tickets tab
+    useEffect(() => {
+        if (activeTab === 'tickets' && siteSettings && !ticketDraft) {
+            setTicketDraft(siteSettings);
+        }
+    }, [activeTab, siteSettings]);
+
+    const handleSaveTicketDraft = () => {
+        if (ticketDraft) {
+            updateSiteSettings(ticketDraft);
+            showToast('Ticket design saved successfully', 'success');
+        }
+    };
+
+    const handleDiscardTicketDraft = () => {
+        setTicketDraft(siteSettings);
+        showToast('Changes discarded', 'info');
+    };
+
     const handleLogout = async () => {
         await fetch('/api/auth/logout', { method: 'POST' });
         router.push('/login');
@@ -503,6 +524,21 @@ export default function AdminPage() {
                                 </h2>
                                 <p className="text-[#737373] text-sm mt-1 ml-13">Customize how your tickets look when attendees receive them</p>
                             </div>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={handleDiscardTicketDraft}
+                                    className="px-4 py-2 border border-[#1F1F1F] text-[#737373] hover:text-white rounded-xl text-sm font-medium transition-colors"
+                                >
+                                    Reset
+                                </button>
+                                <button
+                                    onClick={handleSaveTicketDraft}
+                                    className="px-4 py-2 bg-[#E11D2E] hover:bg-red-700 text-white rounded-xl text-sm font-medium transition-colors flex items-center gap-2"
+                                >
+                                    <CheckCircle className="w-4 h-4" />
+                                    Save Changes
+                                </button>
+                            </div>
                         </div>
 
                         {/* Quick Presets */}
@@ -516,7 +552,8 @@ export default function AdminPage() {
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                 {/* Classic Dark */}
                                 <button
-                                    onClick={() => updateSiteSettings({
+                                    onClick={() => setTicketDraft(prev => ({
+                                        ...(prev || siteSettings),
                                         ticketBgColor: '#111111',
                                         ticketTextColor: '#ffffff',
                                         ticketAccentColor: '#dc2626',
@@ -526,7 +563,7 @@ export default function AdminPage() {
                                         ticketShowPattern: false,
                                         ticketBorderRadius: 16,
                                         ticketFontFamily: 'inter'
-                                    })}
+                                    }))}
                                     className="p-4 rounded-xl border border-[#1F1F1F] hover:border-[#E11D2E]/50 transition-all group"
                                 >
                                     <div className="h-20 rounded-lg mb-3 bg-[#111111] border border-[#333333] flex items-center justify-center">
@@ -538,7 +575,8 @@ export default function AdminPage() {
 
                                 {/* Gradient Red */}
                                 <button
-                                    onClick={() => updateSiteSettings({
+                                    onClick={() => setTicketDraft(prev => ({
+                                        ...(prev || siteSettings),
                                         ticketBgColor: '#1a0000',
                                         ticketTextColor: '#ffffff',
                                         ticketAccentColor: '#dc2626',
@@ -549,7 +587,7 @@ export default function AdminPage() {
                                         ticketShowPattern: false,
                                         ticketBorderRadius: 24,
                                         ticketFontFamily: 'inter'
-                                    })}
+                                    }))}
                                     className="p-4 rounded-xl border border-[#1F1F1F] hover:border-[#E11D2E]/50 transition-all group"
                                 >
                                     <div className="h-20 rounded-lg mb-3 bg-gradient-to-br from-[#1a0000] to-[#7f1d1d] border border-red-800 flex items-center justify-center">
@@ -561,7 +599,8 @@ export default function AdminPage() {
 
                                 {/* Premium Gold */}
                                 <button
-                                    onClick={() => updateSiteSettings({
+                                    onClick={() => setTicketDraft(prev => ({
+                                        ...(prev || siteSettings),
                                         ticketBgColor: '#0a0a08',
                                         ticketTextColor: '#fef3c7',
                                         ticketAccentColor: '#d97706',
@@ -572,7 +611,7 @@ export default function AdminPage() {
                                         ticketShowPattern: true,
                                         ticketBorderRadius: 20,
                                         ticketFontFamily: 'playfair'
-                                    })}
+                                    }))}
                                     className="p-4 rounded-xl border border-[#1F1F1F] hover:border-[#E11D2E]/50 transition-all group"
                                 >
                                     <div className="h-20 rounded-lg mb-3 bg-gradient-to-br from-[#0a0a08] to-[#1c1917] border border-amber-600 flex items-center justify-center">
@@ -584,7 +623,8 @@ export default function AdminPage() {
 
                                 {/* Neon Cyber */}
                                 <button
-                                    onClick={() => updateSiteSettings({
+                                    onClick={() => setTicketDraft(prev => ({
+                                        ...(prev || siteSettings),
                                         ticketBgColor: '#0a0a0f',
                                         ticketTextColor: '#e0e7ff',
                                         ticketAccentColor: '#8b5cf6',
@@ -595,7 +635,7 @@ export default function AdminPage() {
                                         ticketShowPattern: true,
                                         ticketBorderRadius: 16,
                                         ticketFontFamily: 'montserrat'
-                                    })}
+                                    }))}
                                     className="p-4 rounded-xl border border-[#1F1F1F] hover:border-[#E11D2E]/50 transition-all group"
                                 >
                                     <div className="h-20 rounded-lg mb-3 bg-gradient-to-br from-[#0a0a0f] to-[#1e1b4b] border border-violet-500 flex items-center justify-center">
@@ -625,8 +665,8 @@ export default function AdminPage() {
                                             <label className="block text-sm font-medium text-[#B3B3B3] mb-2">Logo URL</label>
                                             <input
                                                 type="text"
-                                                value={siteSettings.ticketLogoUrl}
-                                                onChange={(e) => updateSiteSettings({ ticketLogoUrl: e.target.value })}
+                                                value={ticketDraft?.ticketLogoUrl || ''}
+                                                onChange={(e) => setTicketDraft(prev => ({ ...(prev || siteSettings), ticketLogoUrl: e.target.value }))}
                                                 className="w-full px-4 py-3 bg-[#0D0D0D] border border-[#2A2A2A] rounded-xl text-white focus:border-[#E11D2E]/50 focus:ring-2 focus:ring-[#E11D2E]/20 focus:outline-none transition-all placeholder:text-[#737373]"
                                                 placeholder="https://example.com/logo.png"
                                             />
@@ -648,7 +688,7 @@ export default function AdminPage() {
                                                         const reader = new FileReader();
                                                         reader.onload = (event) => {
                                                             const base64 = event.target?.result as string;
-                                                            updateSiteSettings({ ticketLogoUrl: base64 });
+                                                            setTicketDraft(prev => ({ ...(prev || siteSettings), ticketLogoUrl: base64 }));
                                                         };
                                                         reader.readAsDataURL(file);
                                                     }
@@ -662,11 +702,11 @@ export default function AdminPage() {
                                             <p className="text-[#737373] text-xs mt-1">PNG, JPG up to 2MB</p>
                                         </div>
 
-                                        {siteSettings.ticketLogoUrl && (
+                                        {ticketDraft?.ticketLogoUrl && (
                                             <div className="flex items-center gap-3 p-3 bg-[#0D0D0D] rounded-xl border border-[#1F1F1F]">
-                                                <img src={siteSettings.ticketLogoUrl} alt="Logo preview" className="h-10 object-contain rounded" />
+                                                <img src={ticketDraft.ticketLogoUrl} alt="Logo preview" className="h-10 object-contain rounded" />
                                                 <span className="text-sm text-[#B3B3B3] flex-1 truncate">Logo uploaded</span>
-                                                <button onClick={() => updateSiteSettings({ ticketLogoUrl: '' })} className="text-[#E11D2E] hover:text-red-400 p-1">
+                                                <button onClick={() => setTicketDraft(prev => ({ ...(prev || siteSettings), ticketLogoUrl: '' }))} className="text-[#E11D2E] hover:text-red-400 p-1">
                                                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                                                     </svg>
@@ -694,14 +734,14 @@ export default function AdminPage() {
                                                 <div className="flex gap-2">
                                                     <input
                                                         type="color"
-                                                        value={siteSettings.ticketBgColor || '#111111'}
-                                                        onChange={(e) => updateSiteSettings({ ticketBgColor: e.target.value })}
+                                                        value={ticketDraft?.ticketBgColor || '#111111'}
+                                                        onChange={(e) => setTicketDraft(prev => ({ ...(prev || siteSettings), ticketBgColor: e.target.value }))}
                                                         className="w-12 h-12 rounded-xl border-2 border-[#2A2A2A] cursor-pointer"
                                                     />
                                                     <input
                                                         type="text"
-                                                        value={siteSettings.ticketBgColor || '#111111'}
-                                                        onChange={(e) => updateSiteSettings({ ticketBgColor: e.target.value })}
+                                                        value={ticketDraft?.ticketBgColor || '#111111'}
+                                                        onChange={(e) => setTicketDraft(prev => ({ ...(prev || siteSettings), ticketBgColor: e.target.value }))}
                                                         className="flex-1 px-3 py-2 bg-[#0D0D0D] border border-[#2A2A2A] rounded-xl text-white text-sm font-mono"
                                                     />
                                                 </div>
@@ -713,14 +753,14 @@ export default function AdminPage() {
                                                 <div className="flex gap-2">
                                                     <input
                                                         type="color"
-                                                        value={siteSettings.ticketTextColor || '#ffffff'}
-                                                        onChange={(e) => updateSiteSettings({ ticketTextColor: e.target.value })}
+                                                        value={ticketDraft?.ticketTextColor || '#ffffff'}
+                                                        onChange={(e) => setTicketDraft(prev => ({ ...(prev || siteSettings), ticketTextColor: e.target.value }))}
                                                         className="w-12 h-12 rounded-xl border-2 border-[#2A2A2A] cursor-pointer"
                                                     />
                                                     <input
                                                         type="text"
-                                                        value={siteSettings.ticketTextColor || '#ffffff'}
-                                                        onChange={(e) => updateSiteSettings({ ticketTextColor: e.target.value })}
+                                                        value={ticketDraft?.ticketTextColor || '#ffffff'}
+                                                        onChange={(e) => setTicketDraft(prev => ({ ...(prev || siteSettings), ticketTextColor: e.target.value }))}
                                                         className="flex-1 px-3 py-2 bg-[#0D0D0D] border border-[#2A2A2A] rounded-xl text-white text-sm font-mono"
                                                     />
                                                 </div>
@@ -732,14 +772,14 @@ export default function AdminPage() {
                                                 <div className="flex gap-2">
                                                     <input
                                                         type="color"
-                                                        value={siteSettings.ticketAccentColor || '#dc2626'}
-                                                        onChange={(e) => updateSiteSettings({ ticketAccentColor: e.target.value })}
+                                                        value={ticketDraft?.ticketAccentColor || '#dc2626'}
+                                                        onChange={(e) => setTicketDraft(prev => ({ ...(prev || siteSettings), ticketAccentColor: e.target.value }))}
                                                         className="w-12 h-12 rounded-xl border-2 border-[#2A2A2A] cursor-pointer"
                                                     />
                                                     <input
                                                         type="text"
-                                                        value={siteSettings.ticketAccentColor || '#dc2626'}
-                                                        onChange={(e) => updateSiteSettings({ ticketAccentColor: e.target.value })}
+                                                        value={ticketDraft?.ticketAccentColor || '#dc2626'}
+                                                        onChange={(e) => setTicketDraft(prev => ({ ...(prev || siteSettings), ticketAccentColor: e.target.value }))}
                                                         className="flex-1 px-3 py-2 bg-[#0D0D0D] border border-[#2A2A2A] rounded-xl text-white text-sm font-mono"
                                                     />
                                                 </div>
@@ -751,14 +791,14 @@ export default function AdminPage() {
                                                 <div className="flex gap-2">
                                                     <input
                                                         type="color"
-                                                        value={siteSettings.ticketBorderColor || '#333333'}
-                                                        onChange={(e) => updateSiteSettings({ ticketBorderColor: e.target.value })}
+                                                        value={ticketDraft?.ticketBorderColor || '#333333'}
+                                                        onChange={(e) => setTicketDraft(prev => ({ ...(prev || siteSettings), ticketBorderColor: e.target.value }))}
                                                         className="w-12 h-12 rounded-xl border-2 border-[#2A2A2A] cursor-pointer"
                                                     />
                                                     <input
                                                         type="text"
-                                                        value={siteSettings.ticketBorderColor || '#333333'}
-                                                        onChange={(e) => updateSiteSettings({ ticketBorderColor: e.target.value })}
+                                                        value={ticketDraft?.ticketBorderColor || '#333333'}
+                                                        onChange={(e) => setTicketDraft(prev => ({ ...(prev || siteSettings), ticketBorderColor: e.target.value }))}
                                                         className="flex-1 px-3 py-2 bg-[#0D0D0D] border border-[#2A2A2A] rounded-xl text-white text-sm font-mono"
                                                     />
                                                 </div>
@@ -772,27 +812,27 @@ export default function AdminPage() {
                                                 <p className="text-sm text-[#737373]">Add gradient effect to header</p>
                                             </div>
                                             <button
-                                                onClick={() => updateSiteSettings({ ticketGradient: !siteSettings.ticketGradient })}
-                                                className={`w-14 h-7 rounded-full transition-colors relative ${siteSettings.ticketGradient ? 'bg-[#E11D2E]' : 'bg-[#2A2A2A]'}`}
+                                                onClick={() => setTicketDraft(prev => ({ ...(prev || siteSettings), ticketGradient: !ticketDraft?.ticketGradient }))}
+                                                className={`w-14 h-7 rounded-full transition-colors relative ${ticketDraft?.ticketGradient ? 'bg-[#E11D2E]' : 'bg-[#2A2A2A]'}`}
                                             >
-                                                <span className={`absolute w-5 h-5 bg-white rounded-full top-1 transition-all shadow-md ${siteSettings.ticketGradient ? 'left-8' : 'left-1'}`} />
+                                                <span className={`absolute w-5 h-5 bg-white rounded-full top-1 transition-all shadow-md ${ticketDraft?.ticketGradient ? 'left-8' : 'left-1'}`} />
                                             </button>
                                         </div>
 
-                                        {siteSettings.ticketGradient && (
+                                        {ticketDraft?.ticketGradient && (
                                             <div>
                                                 <label className="block text-sm font-medium text-[#B3B3B3] mb-2">Gradient End Color</label>
                                                 <div className="flex gap-2">
                                                     <input
                                                         type="color"
-                                                        value={siteSettings.ticketGradientColor || '#991b1b'}
-                                                        onChange={(e) => updateSiteSettings({ ticketGradientColor: e.target.value })}
+                                                        value={ticketDraft?.ticketGradientColor || '#991b1b'}
+                                                        onChange={(e) => setTicketDraft(prev => ({ ...(prev || siteSettings), ticketGradientColor: e.target.value }))}
                                                         className="w-12 h-12 rounded-xl border-2 border-[#2A2A2A] cursor-pointer"
                                                     />
                                                     <input
                                                         type="text"
-                                                        value={siteSettings.ticketGradientColor || '#991b1b'}
-                                                        onChange={(e) => updateSiteSettings({ ticketGradientColor: e.target.value })}
+                                                        value={ticketDraft?.ticketGradientColor || '#991b1b'}
+                                                        onChange={(e) => setTicketDraft(prev => ({ ...(prev || siteSettings), ticketGradientColor: e.target.value }))}
                                                         className="flex-1 px-3 py-2 bg-[#0D0D0D] border border-[#2A2A2A] rounded-xl text-white text-sm font-mono"
                                                     />
                                                 </div>
@@ -823,11 +863,11 @@ export default function AdminPage() {
                                                 ].map(font => (
                                                     <button
                                                         key={font.id}
-                                                        onClick={() => updateSiteSettings({ ticketFontFamily: font.id as any })}
-                                                        className={`p-4 rounded-xl text-left transition-all border ${(siteSettings.ticketFontFamily || 'inter') === font.id ? 'bg-[#E11D2E]/10 border-[#E11D2E]/50' : 'bg-[#0D0D0D] border-[#1F1F1F] hover:border-[#2A2A2A]'}`}
+                                                        onClick={() => setTicketDraft(prev => ({ ...(prev || siteSettings), ticketFontFamily: font.id as any }))}
+                                                        className={`p-4 rounded-xl text-left transition-all border ${(ticketDraft?.ticketFontFamily || 'inter') === font.id ? 'bg-[#E11D2E]/10 border-[#E11D2E]/50' : 'bg-[#0D0D0D] border-[#1F1F1F] hover:border-[#2A2A2A]'}`}
                                                         style={{ fontFamily: font.style }}
                                                     >
-                                                        <p className={`text-lg font-semibold ${(siteSettings.ticketFontFamily || 'inter') === font.id ? 'text-[#FF6B7A]' : 'text-white'}`}>{font.name}</p>
+                                                        <p className={`text-lg font-semibold ${(ticketDraft?.ticketFontFamily || 'inter') === font.id ? 'text-[#FF6B7A]' : 'text-white'}`}>{font.name}</p>
                                                         <p className="text-xs text-[#737373] mt-0.5">{font.desc}</p>
                                                     </button>
                                                 ))}
@@ -841,8 +881,8 @@ export default function AdminPage() {
                                                 {(['solid', 'dashed', 'none'] as const).map(style => (
                                                     <button
                                                         key={style}
-                                                        onClick={() => updateSiteSettings({ ticketBorderStyle: style })}
-                                                        className={`flex-1 px-4 py-3 rounded-xl text-sm capitalize font-medium transition-all ${siteSettings.ticketBorderStyle === style ? 'bg-[#E11D2E] text-white' : 'bg-[#0D0D0D] text-[#B3B3B3] border border-[#1F1F1F] hover:border-[#2A2A2A]'}`}
+                                                        onClick={() => setTicketDraft(prev => ({ ...(prev || siteSettings), ticketBorderStyle: style }))}
+                                                        className={`flex-1 px-4 py-3 rounded-xl text-sm capitalize font-medium transition-all ${ticketDraft?.ticketBorderStyle === style ? 'bg-[#E11D2E] text-white' : 'bg-[#0D0D0D] text-[#B3B3B3] border border-[#1F1F1F] hover:border-[#2A2A2A]'}`}
                                                     >
                                                         {style}
                                                     </button>
@@ -853,14 +893,14 @@ export default function AdminPage() {
                                         {/* Border Radius */}
                                         <div>
                                             <label className="block text-sm font-medium text-[#B3B3B3] mb-3">
-                                                Corner Radius: <span className="font-mono text-[#E11D2E]">{siteSettings.ticketBorderRadius || 24}px</span>
+                                                Corner Radius: <span className="font-mono text-[#E11D2E]">{ticketDraft?.ticketBorderRadius || 24}px</span>
                                             </label>
                                             <input
                                                 type="range"
                                                 min="0"
                                                 max="40"
-                                                value={siteSettings.ticketBorderRadius || 24}
-                                                onChange={(e) => updateSiteSettings({ ticketBorderRadius: parseInt(e.target.value) })}
+                                                value={ticketDraft?.ticketBorderRadius || 24}
+                                                onChange={(e) => setTicketDraft(prev => ({ ...(prev || siteSettings), ticketBorderRadius: parseInt(e.target.value) }))}
                                                 className="w-full h-2 bg-[#2A2A2A] rounded-lg appearance-none cursor-pointer accent-[#E11D2E]"
                                             />
                                             <div className="flex justify-between text-xs text-[#737373] mt-1">
@@ -877,8 +917,8 @@ export default function AdminPage() {
                                                 {(['none', 'dots', 'lines', 'grid'] as const).map(pattern => (
                                                     <button
                                                         key={pattern}
-                                                        onClick={() => updateSiteSettings({ ticketPatternType: pattern, ticketShowPattern: pattern !== 'none' })}
-                                                        className={`p-3 rounded-xl text-sm capitalize font-medium transition-all ${(siteSettings.ticketPatternType || 'dots') === pattern ? 'bg-[#E11D2E] text-white' : 'bg-[#0D0D0D] text-[#B3B3B3] border border-[#1F1F1F] hover:border-[#2A2A2A]'}`}
+                                                        onClick={() => setTicketDraft(prev => ({ ...(prev || siteSettings), ticketPatternType: pattern, ticketShowPattern: pattern !== 'none' }))}
+                                                        className={`p-3 rounded-xl text-sm capitalize font-medium transition-all ${(ticketDraft?.ticketPatternType || 'dots') === pattern ? 'bg-[#E11D2E] text-white' : 'bg-[#0D0D0D] text-[#B3B3B3] border border-[#1F1F1F] hover:border-[#2A2A2A]'}`}
                                                     >
                                                         {pattern}
                                                     </button>
@@ -893,15 +933,15 @@ export default function AdminPage() {
                                                 <p className="text-sm text-[#737373]">Display scannable QR for check-in</p>
                                             </div>
                                             <button
-                                                onClick={() => updateSiteSettings({ ticketShowQrCode: !siteSettings.ticketShowQrCode })}
-                                                className={`w-14 h-7 rounded-full transition-colors relative ${siteSettings.ticketShowQrCode ? 'bg-[#E11D2E]' : 'bg-[#2A2A2A]'}`}
+                                                onClick={() => setTicketDraft(prev => ({ ...(prev || siteSettings), ticketShowQrCode: !ticketDraft?.ticketShowQrCode }))}
+                                                className={`w-14 h-7 rounded-full transition-colors relative ${ticketDraft?.ticketShowQrCode ? 'bg-[#E11D2E]' : 'bg-[#2A2A2A]'}`}
                                             >
-                                                <span className={`absolute w-5 h-5 bg-white rounded-full top-1 transition-all shadow-md ${siteSettings.ticketShowQrCode ? 'left-8' : 'left-1'}`} />
+                                                <span className={`absolute w-5 h-5 bg-white rounded-full top-1 transition-all shadow-md ${ticketDraft?.ticketShowQrCode ? 'left-8' : 'left-1'}`} />
                                             </button>
                                         </div>
 
                                         {/* QR Size and Position */}
-                                        {siteSettings.ticketShowQrCode && (
+                                        {ticketDraft?.ticketShowQrCode && (
                                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                                 <div>
                                                     <label className="block text-sm font-medium text-[#B3B3B3] mb-2">QR Size</label>
@@ -909,8 +949,8 @@ export default function AdminPage() {
                                                         {(['small', 'medium', 'large'] as const).map(size => (
                                                             <button
                                                                 key={size}
-                                                                onClick={() => updateSiteSettings({ ticketQrSize: size })}
-                                                                className={`flex-1 px-3 py-2 rounded-lg text-sm capitalize ${(siteSettings.ticketQrSize || 'medium') === size ? 'bg-[#E11D2E] text-white' : 'bg-[#0D0D0D] text-[#B3B3B3] border border-[#1F1F1F]'}`}
+                                                                onClick={() => setTicketDraft(prev => ({ ...(prev || siteSettings), ticketQrSize: size }))}
+                                                                className={`flex-1 px-3 py-2 rounded-lg text-sm capitalize ${(ticketDraft?.ticketQrSize || 'medium') === size ? 'bg-[#E11D2E] text-white' : 'bg-[#0D0D0D] text-[#B3B3B3] border border-[#1F1F1F]'}`}
                                                             >
                                                                 {size}
                                                             </button>
@@ -923,8 +963,8 @@ export default function AdminPage() {
                                                         {(['center', 'right', 'bottom'] as const).map(pos => (
                                                             <button
                                                                 key={pos}
-                                                                onClick={() => updateSiteSettings({ ticketQrPosition: pos })}
-                                                                className={`flex-1 px-3 py-2 rounded-lg text-sm capitalize ${(siteSettings.ticketQrPosition || 'center') === pos ? 'bg-[#E11D2E] text-white' : 'bg-[#0D0D0D] text-[#B3B3B3] border border-[#1F1F1F]'}`}
+                                                                onClick={() => setTicketDraft(prev => ({ ...(prev || siteSettings), ticketQrPosition: pos }))}
+                                                                className={`flex-1 px-3 py-2 rounded-lg text-sm capitalize ${(ticketDraft?.ticketQrPosition || 'center') === pos ? 'bg-[#E11D2E] text-white' : 'bg-[#0D0D0D] text-[#B3B3B3] border border-[#1F1F1F]'}`}
                                                             >
                                                                 {pos}
                                                             </button>
@@ -953,10 +993,10 @@ export default function AdminPage() {
                                                 <p className="text-sm text-[#737373]">Smaller ticket for mobile-first view</p>
                                             </div>
                                             <button
-                                                onClick={() => updateSiteSettings({ ticketCompactMode: !siteSettings.ticketCompactMode })}
-                                                className={`w-14 h-7 rounded-full transition-colors relative ${siteSettings.ticketCompactMode ? 'bg-[#E11D2E]' : 'bg-[#2A2A2A]'}`}
+                                                onClick={() => setTicketDraft(prev => ({ ...(prev || siteSettings), ticketCompactMode: !ticketDraft?.ticketCompactMode }))}
+                                                className={`w-14 h-7 rounded-full transition-colors relative ${ticketDraft?.ticketCompactMode ? 'bg-[#E11D2E]' : 'bg-[#2A2A2A]'}`}
                                             >
-                                                <span className={`absolute w-5 h-5 bg-white rounded-full top-1 transition-all shadow-md ${siteSettings.ticketCompactMode ? 'left-8' : 'left-1'}`} />
+                                                <span className={`absolute w-5 h-5 bg-white rounded-full top-1 transition-all shadow-md ${ticketDraft?.ticketCompactMode ? 'left-8' : 'left-1'}`} />
                                             </button>
                                         </div>
 
@@ -967,20 +1007,20 @@ export default function AdminPage() {
                                                 <p className="text-sm text-[#737373]">Show event poster in ticket header</p>
                                             </div>
                                             <button
-                                                onClick={() => updateSiteSettings({ ticketShowEventImage: !siteSettings.ticketShowEventImage })}
-                                                className={`w-14 h-7 rounded-full transition-colors relative ${siteSettings.ticketShowEventImage ? 'bg-[#E11D2E]' : 'bg-[#2A2A2A]'}`}
+                                                onClick={() => setTicketDraft(prev => ({ ...(prev || siteSettings), ticketShowEventImage: !ticketDraft?.ticketShowEventImage }))}
+                                                className={`w-14 h-7 rounded-full transition-colors relative ${ticketDraft?.ticketShowEventImage ? 'bg-[#E11D2E]' : 'bg-[#2A2A2A]'}`}
                                             >
-                                                <span className={`absolute w-5 h-5 bg-white rounded-full top-1 transition-all shadow-md ${siteSettings.ticketShowEventImage ? 'left-8' : 'left-1'}`} />
+                                                <span className={`absolute w-5 h-5 bg-white rounded-full top-1 transition-all shadow-md ${ticketDraft?.ticketShowEventImage ? 'left-8' : 'left-1'}`} />
                                             </button>
                                         </div>
 
-                                        {siteSettings.ticketShowEventImage && (
+                                        {ticketDraft?.ticketShowEventImage && (
                                             <div>
                                                 <label className="block text-sm font-medium text-[#B3B3B3] mb-2">Default Event Banner URL</label>
                                                 <input
                                                     type="text"
-                                                    value={siteSettings.ticketHeaderImage || ''}
-                                                    onChange={(e) => updateSiteSettings({ ticketHeaderImage: e.target.value })}
+                                                    value={ticketDraft?.ticketHeaderImage || ''}
+                                                    onChange={(e) => setTicketDraft(prev => ({ ...(prev || siteSettings), ticketHeaderImage: e.target.value }))}
                                                     className="w-full px-4 py-3 bg-[#0D0D0D] border border-[#2A2A2A] rounded-xl text-white focus:border-[#E11D2E]/50 focus:outline-none placeholder:text-[#737373]"
                                                     placeholder="https://example.com/event-banner.jpg"
                                                 />
@@ -994,10 +1034,10 @@ export default function AdminPage() {
                                             <div className="flex items-center justify-between p-3 bg-[#0D0D0D] rounded-lg border border-[#1F1F1F]">
                                                 <span className="text-sm text-[#B3B3B3]">Show Date</span>
                                                 <button
-                                                    onClick={() => updateSiteSettings({ ticketShowDate: !(siteSettings.ticketShowDate !== false) })}
-                                                    className={`w-10 h-5 rounded-full transition-colors relative ${siteSettings.ticketShowDate !== false ? 'bg-[#22C55E]' : 'bg-[#2A2A2A]'}`}
+                                                    onClick={() => setTicketDraft(prev => ({ ...(prev || siteSettings), ticketShowDate: !(ticketDraft?.ticketShowDate !== false) }))}
+                                                    className={`w-10 h-5 rounded-full transition-colors relative ${ticketDraft?.ticketShowDate !== false ? 'bg-[#22C55E]' : 'bg-[#2A2A2A]'}`}
                                                 >
-                                                    <span className={`absolute w-4 h-4 bg-white rounded-full top-0.5 transition-all ${siteSettings.ticketShowDate !== false ? 'left-5' : 'left-0.5'}`} />
+                                                    <span className={`absolute w-4 h-4 bg-white rounded-full top-0.5 transition-all ${ticketDraft?.ticketShowDate !== false ? 'left-5' : 'left-0.5'}`} />
                                                 </button>
                                             </div>
 
@@ -1005,10 +1045,10 @@ export default function AdminPage() {
                                             <div className="flex items-center justify-between p-3 bg-[#0D0D0D] rounded-lg border border-[#1F1F1F]">
                                                 <span className="text-sm text-[#B3B3B3]">Show Venue</span>
                                                 <button
-                                                    onClick={() => updateSiteSettings({ ticketShowVenue: !(siteSettings.ticketShowVenue !== false) })}
-                                                    className={`w-10 h-5 rounded-full transition-colors relative ${siteSettings.ticketShowVenue !== false ? 'bg-[#22C55E]' : 'bg-[#2A2A2A]'}`}
+                                                    onClick={() => setTicketDraft(prev => ({ ...(prev || siteSettings), ticketShowVenue: !(ticketDraft?.ticketShowVenue !== false) }))}
+                                                    className={`w-10 h-5 rounded-full transition-colors relative ${ticketDraft?.ticketShowVenue !== false ? 'bg-[#22C55E]' : 'bg-[#2A2A2A]'}`}
                                                 >
-                                                    <span className={`absolute w-4 h-4 bg-white rounded-full top-0.5 transition-all ${siteSettings.ticketShowVenue !== false ? 'left-5' : 'left-0.5'}`} />
+                                                    <span className={`absolute w-4 h-4 bg-white rounded-full top-0.5 transition-all ${ticketDraft?.ticketShowVenue !== false ? 'left-5' : 'left-0.5'}`} />
                                                 </button>
                                             </div>
 
@@ -1016,10 +1056,10 @@ export default function AdminPage() {
                                             <div className="flex items-center justify-between p-3 bg-[#0D0D0D] rounded-lg border border-[#1F1F1F]">
                                                 <span className="text-sm text-[#B3B3B3]">Show Price</span>
                                                 <button
-                                                    onClick={() => updateSiteSettings({ ticketShowPrice: !(siteSettings.ticketShowPrice !== false) })}
-                                                    className={`w-10 h-5 rounded-full transition-colors relative ${siteSettings.ticketShowPrice !== false ? 'bg-[#22C55E]' : 'bg-[#2A2A2A]'}`}
+                                                    onClick={() => setTicketDraft(prev => ({ ...(prev || siteSettings), ticketShowPrice: !(ticketDraft?.ticketShowPrice !== false) }))}
+                                                    className={`w-10 h-5 rounded-full transition-colors relative ${ticketDraft?.ticketShowPrice !== false ? 'bg-[#22C55E]' : 'bg-[#2A2A2A]'}`}
                                                 >
-                                                    <span className={`absolute w-4 h-4 bg-white rounded-full top-0.5 transition-all ${siteSettings.ticketShowPrice !== false ? 'left-5' : 'left-0.5'}`} />
+                                                    <span className={`absolute w-4 h-4 bg-white rounded-full top-0.5 transition-all ${ticketDraft?.ticketShowPrice !== false ? 'left-5' : 'left-0.5'}`} />
                                                 </button>
                                             </div>
 
@@ -1027,10 +1067,10 @@ export default function AdminPage() {
                                             <div className="flex items-center justify-between p-3 bg-[#0D0D0D] rounded-lg border border-[#1F1F1F]">
                                                 <span className="text-sm text-[#B3B3B3]">Show Status</span>
                                                 <button
-                                                    onClick={() => updateSiteSettings({ ticketShowStatus: !(siteSettings.ticketShowStatus !== false) })}
-                                                    className={`w-10 h-5 rounded-full transition-colors relative ${siteSettings.ticketShowStatus !== false ? 'bg-[#22C55E]' : 'bg-[#2A2A2A]'}`}
+                                                    onClick={() => setTicketDraft(prev => ({ ...(prev || siteSettings), ticketShowStatus: !(ticketDraft?.ticketShowStatus !== false) }))}
+                                                    className={`w-10 h-5 rounded-full transition-colors relative ${ticketDraft?.ticketShowStatus !== false ? 'bg-[#22C55E]' : 'bg-[#2A2A2A]'}`}
                                                 >
-                                                    <span className={`absolute w-4 h-4 bg-white rounded-full top-0.5 transition-all ${siteSettings.ticketShowStatus !== false ? 'left-5' : 'left-0.5'}`} />
+                                                    <span className={`absolute w-4 h-4 bg-white rounded-full top-0.5 transition-all ${ticketDraft?.ticketShowStatus !== false ? 'left-5' : 'left-0.5'}`} />
                                                 </button>
                                             </div>
 
@@ -1038,10 +1078,10 @@ export default function AdminPage() {
                                             <div className="flex items-center justify-between p-3 bg-[#0D0D0D] rounded-lg border border-[#1F1F1F]">
                                                 <span className="text-sm text-[#B3B3B3]">Perforation Effect</span>
                                                 <button
-                                                    onClick={() => updateSiteSettings({ ticketShowPerforation: !(siteSettings.ticketShowPerforation !== false) })}
-                                                    className={`w-10 h-5 rounded-full transition-colors relative ${siteSettings.ticketShowPerforation !== false ? 'bg-[#22C55E]' : 'bg-[#2A2A2A]'}`}
+                                                    onClick={() => setTicketDraft(prev => ({ ...(prev || siteSettings), ticketShowPerforation: !(ticketDraft?.ticketShowPerforation !== false) }))}
+                                                    className={`w-10 h-5 rounded-full transition-colors relative ${ticketDraft?.ticketShowPerforation !== false ? 'bg-[#22C55E]' : 'bg-[#2A2A2A]'}`}
                                                 >
-                                                    <span className={`absolute w-4 h-4 bg-white rounded-full top-0.5 transition-all ${siteSettings.ticketShowPerforation !== false ? 'left-5' : 'left-0.5'}`} />
+                                                    <span className={`absolute w-4 h-4 bg-white rounded-full top-0.5 transition-all ${ticketDraft?.ticketShowPerforation !== false ? 'left-5' : 'left-0.5'}`} />
                                                 </button>
                                             </div>
 
@@ -1049,10 +1089,10 @@ export default function AdminPage() {
                                             <div className="flex items-center justify-between p-3 bg-[#0D0D0D] rounded-lg border border-[#1F1F1F]">
                                                 <span className="text-sm text-[#B3B3B3]">Event Description</span>
                                                 <button
-                                                    onClick={() => updateSiteSettings({ ticketShowEventDescription: !siteSettings.ticketShowEventDescription })}
-                                                    className={`w-10 h-5 rounded-full transition-colors relative ${siteSettings.ticketShowEventDescription ? 'bg-[#22C55E]' : 'bg-[#2A2A2A]'}`}
+                                                    onClick={() => setTicketDraft(prev => ({ ...(prev || siteSettings), ticketShowEventDescription: !ticketDraft?.ticketShowEventDescription }))}
+                                                    className={`w-10 h-5 rounded-full transition-colors relative ${ticketDraft?.ticketShowEventDescription ? 'bg-[#22C55E]' : 'bg-[#2A2A2A]'}`}
                                                 >
-                                                    <span className={`absolute w-4 h-4 bg-white rounded-full top-0.5 transition-all ${siteSettings.ticketShowEventDescription ? 'left-5' : 'left-0.5'}`} />
+                                                    <span className={`absolute w-4 h-4 bg-white rounded-full top-0.5 transition-all ${ticketDraft?.ticketShowEventDescription ? 'left-5' : 'left-0.5'}`} />
                                                 </button>
                                             </div>
                                         </div>
@@ -1062,8 +1102,8 @@ export default function AdminPage() {
                                             <label className="block text-sm font-medium text-[#B3B3B3] mb-2">Badge Text</label>
                                             <input
                                                 type="text"
-                                                value={siteSettings.ticketBadgeText || 'VIP ACCESS'}
-                                                onChange={(e) => updateSiteSettings({ ticketBadgeText: e.target.value })}
+                                                value={ticketDraft?.ticketBadgeText || 'VIP ACCESS'}
+                                                onChange={(e) => setTicketDraft(prev => ({ ...(prev || siteSettings), ticketBadgeText: e.target.value }))}
                                                 className="w-full px-4 py-3 bg-[#0D0D0D] border border-[#2A2A2A] rounded-xl text-white focus:border-[#E11D2E]/50 focus:outline-none placeholder:text-[#737373]"
                                                 placeholder="VIP ACCESS"
                                             />
@@ -1075,8 +1115,8 @@ export default function AdminPage() {
                                             <label className="block text-sm font-medium text-[#B3B3B3] mb-2">Footer Text (optional)</label>
                                             <input
                                                 type="text"
-                                                value={siteSettings.ticketFooterText || ''}
-                                                onChange={(e) => updateSiteSettings({ ticketFooterText: e.target.value })}
+                                                value={ticketDraft?.ticketFooterText || ''}
+                                                onChange={(e) => setTicketDraft(prev => ({ ...(prev || siteSettings), ticketFooterText: e.target.value }))}
                                                 className="w-full px-4 py-3 bg-[#0D0D0D] border border-[#2A2A2A] rounded-xl text-white focus:border-[#E11D2E]/50 focus:outline-none placeholder:text-[#737373]"
                                                 placeholder="Powered by EventHub"
                                             />
@@ -1088,8 +1128,8 @@ export default function AdminPage() {
                                             <label className="block text-sm font-medium text-[#B3B3B3] mb-2">Watermark (optional)</label>
                                             <input
                                                 type="text"
-                                                value={siteSettings.ticketWatermark || ''}
-                                                onChange={(e) => updateSiteSettings({ ticketWatermark: e.target.value })}
+                                                value={ticketDraft?.ticketWatermark || ''}
+                                                onChange={(e) => setTicketDraft(prev => ({ ...(prev || siteSettings), ticketWatermark: e.target.value }))}
                                                 className="w-full px-4 py-3 bg-[#0D0D0D] border border-[#2A2A2A] rounded-xl text-white focus:border-[#E11D2E]/50 focus:outline-none placeholder:text-[#737373]"
                                                 placeholder="OFFICIAL • VERIFIED"
                                             />
@@ -1115,49 +1155,49 @@ export default function AdminPage() {
 
                                     {/* Ticket Preview */}
                                     <div
-                                        className={`overflow-hidden relative shadow-2xl ${siteSettings.ticketCompactMode ? 'max-w-xs mx-auto' : ''}`}
+                                        className={`overflow-hidden relative shadow-2xl ${(ticketDraft?.ticketCompactMode ?? siteSettings.ticketCompactMode) ? 'max-w-xs mx-auto' : ''}`}
                                         style={{
-                                            borderRadius: `${siteSettings.ticketBorderRadius || 24}px`,
-                                            background: siteSettings.ticketGradient
-                                                ? `linear-gradient(135deg, ${siteSettings.ticketBgColor || '#111111'}, ${siteSettings.ticketGradientColor || '#991b1b'})`
-                                                : siteSettings.ticketBgColor || '#111111',
-                                            border: (siteSettings.ticketBorderStyle || 'solid') === 'none' ? 'none' : `2px ${siteSettings.ticketBorderStyle || 'solid'} ${siteSettings.ticketBorderColor || '#333333'}`,
-                                            fontFamily: siteSettings.ticketFontFamily === 'playfair' ? 'Georgia, serif' : siteSettings.ticketFontFamily === 'montserrat' ? 'Montserrat, sans-serif' : siteSettings.ticketFontFamily === 'roboto' ? 'Roboto, sans-serif' : 'Inter, sans-serif'
+                                            borderRadius: `${ticketDraft?.ticketBorderRadius ?? siteSettings.ticketBorderRadius ?? 24}px`,
+                                            background: (ticketDraft?.ticketGradient ?? siteSettings.ticketGradient)
+                                                ? `linear-gradient(135deg, ${ticketDraft?.ticketBgColor ?? siteSettings.ticketBgColor ?? '#111111'}, ${ticketDraft?.ticketGradientColor ?? siteSettings.ticketGradientColor ?? '#991b1b'})`
+                                                : ticketDraft?.ticketBgColor ?? siteSettings.ticketBgColor ?? '#111111',
+                                            border: (ticketDraft?.ticketBorderStyle ?? siteSettings.ticketBorderStyle ?? 'solid') === 'none' ? 'none' : `2px ${ticketDraft?.ticketBorderStyle ?? siteSettings.ticketBorderStyle ?? 'solid'} ${ticketDraft?.ticketBorderColor ?? siteSettings.ticketBorderColor ?? '#333333'}`,
+                                            fontFamily: (ticketDraft?.ticketFontFamily ?? siteSettings.ticketFontFamily) === 'playfair' ? 'Georgia, serif' : (ticketDraft?.ticketFontFamily ?? siteSettings.ticketFontFamily) === 'montserrat' ? 'Montserrat, sans-serif' : (ticketDraft?.ticketFontFamily ?? siteSettings.ticketFontFamily) === 'roboto' ? 'Roboto, sans-serif' : 'Inter, sans-serif'
                                         }}
                                     >
                                         {/* Pattern Overlay */}
-                                        {siteSettings.ticketShowPattern && siteSettings.ticketPatternType !== 'none' && (
+                                        {(ticketDraft?.ticketShowPattern ?? siteSettings.ticketShowPattern) && (ticketDraft?.ticketPatternType ?? siteSettings.ticketPatternType) !== 'none' && (
                                             <div className="absolute inset-0 opacity-10 pointer-events-none" style={{
-                                                backgroundImage: siteSettings.ticketPatternType === 'dots'
-                                                    ? `radial-gradient(circle, ${siteSettings.ticketTextColor || '#ffffff'} 1px, transparent 1px)`
-                                                    : siteSettings.ticketPatternType === 'lines'
-                                                        ? `repeating-linear-gradient(45deg, transparent, transparent 10px, ${siteSettings.ticketTextColor || '#ffffff'} 10px, ${siteSettings.ticketTextColor || '#ffffff'} 11px)`
-                                                        : `linear-gradient(to right, ${siteSettings.ticketTextColor || '#ffffff'} 1px, transparent 1px), linear-gradient(to bottom, ${siteSettings.ticketTextColor || '#ffffff'} 1px, transparent 1px)`,
-                                                backgroundSize: siteSettings.ticketPatternType === 'dots' ? '15px 15px' : siteSettings.ticketPatternType === 'grid' ? '20px 20px' : 'auto'
+                                                backgroundImage: (ticketDraft?.ticketPatternType ?? siteSettings.ticketPatternType) === 'dots'
+                                                    ? `radial-gradient(circle, ${ticketDraft?.ticketTextColor ?? siteSettings.ticketTextColor ?? '#ffffff'} 1px, transparent 1px)`
+                                                    : (ticketDraft?.ticketPatternType ?? siteSettings.ticketPatternType) === 'lines'
+                                                        ? `repeating-linear-gradient(45deg, transparent, transparent 10px, ${ticketDraft?.ticketTextColor ?? siteSettings.ticketTextColor ?? '#ffffff'} 10px, ${ticketDraft?.ticketTextColor ?? siteSettings.ticketTextColor ?? '#ffffff'} 11px)`
+                                                        : `linear-gradient(to right, ${ticketDraft?.ticketTextColor ?? siteSettings.ticketTextColor ?? '#ffffff'} 1px, transparent 1px), linear-gradient(to bottom, ${ticketDraft?.ticketTextColor ?? siteSettings.ticketTextColor ?? '#ffffff'} 1px, transparent 1px)`,
+                                                backgroundSize: (ticketDraft?.ticketPatternType ?? siteSettings.ticketPatternType) === 'dots' ? '15px 15px' : (ticketDraft?.ticketPatternType ?? siteSettings.ticketPatternType) === 'grid' ? '20px 20px' : 'auto'
                                             }} />
                                         )}
 
                                         {/* Watermark */}
-                                        {siteSettings.ticketWatermark && (
+                                        {(ticketDraft?.ticketWatermark ?? siteSettings.ticketWatermark) && (
                                             <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden z-20">
                                                 <p
                                                     className="text-4xl font-bold opacity-5 whitespace-nowrap"
                                                     style={{
                                                         transform: 'rotate(-30deg)',
-                                                        color: siteSettings.ticketTextColor || '#ffffff',
+                                                        color: ticketDraft?.ticketTextColor ?? siteSettings.ticketTextColor ?? '#ffffff',
                                                         letterSpacing: '0.1em'
                                                     }}
                                                 >
-                                                    {siteSettings.ticketWatermark}
+                                                    {ticketDraft?.ticketWatermark ?? siteSettings.ticketWatermark}
                                                 </p>
                                             </div>
                                         )}
 
                                         {/* Event Image Banner */}
-                                        {siteSettings.ticketShowEventImage && (
+                                        {(ticketDraft?.ticketShowEventImage ?? siteSettings.ticketShowEventImage) && (
                                             <div className="relative h-24 overflow-hidden">
                                                 <img
-                                                    src={siteSettings.ticketHeaderImage || 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=600&q=80'}
+                                                    src={ticketDraft?.ticketHeaderImage || siteSettings.ticketHeaderImage || 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=600&q=80'}
                                                     alt="Event"
                                                     className="w-full h-full object-cover"
                                                 />
@@ -1167,96 +1207,96 @@ export default function AdminPage() {
 
                                         {/* Header */}
                                         <div
-                                            className={`px-6 ${siteSettings.ticketCompactMode ? 'py-4' : 'py-5'} relative overflow-hidden`}
+                                            className={`px-6 ${(ticketDraft?.ticketCompactMode ?? siteSettings.ticketCompactMode) ? 'py-4' : 'py-5'} relative overflow-hidden`}
                                             style={{
-                                                background: siteSettings.ticketGradient
-                                                    ? `linear-gradient(135deg, ${siteSettings.ticketAccentColor || '#dc2626'}, ${siteSettings.ticketGradientColor || '#991b1b'})`
-                                                    : (siteSettings.ticketAccentColor || '#dc2626')
+                                                background: (ticketDraft?.ticketGradient ?? siteSettings.ticketGradient)
+                                                    ? `linear-gradient(135deg, ${ticketDraft?.ticketAccentColor ?? siteSettings.ticketAccentColor ?? '#dc2626'}, ${ticketDraft?.ticketGradientColor ?? siteSettings.ticketGradientColor ?? '#991b1b'})`
+                                                    : (ticketDraft?.ticketAccentColor ?? siteSettings.ticketAccentColor ?? '#dc2626')
                                             }}
                                         >
                                             <div className="absolute top-0 right-0 w-24 h-24 rounded-full -mr-12 -mt-12" style={{ backgroundColor: 'rgba(255,255,255,0.1)' }}></div>
-                                            {siteSettings.ticketLogoUrl && (
-                                                <img src={siteSettings.ticketLogoUrl} alt="Logo" className="h-6 mb-2 opacity-80" />
+                                            {(ticketDraft?.ticketLogoUrl ?? siteSettings.ticketLogoUrl) && (
+                                                <img src={ticketDraft?.ticketLogoUrl ?? siteSettings.ticketLogoUrl} alt="Logo" className="h-6 mb-2 opacity-80" />
                                             )}
                                             <div className="flex items-center gap-2 text-xs mb-1 opacity-90 text-white">
                                                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
                                                 </svg>
-                                                {siteSettings.ticketBadgeText || 'VIP ACCESS'}
+                                                {ticketDraft?.ticketBadgeText ?? siteSettings.ticketBadgeText ?? 'VIP ACCESS'}
                                             </div>
-                                            <h3 className={`font-bold text-white ${siteSettings.ticketCompactMode ? 'text-lg' : 'text-xl'}`}>Summer Music Festival</h3>
-                                            {siteSettings.ticketShowEventDescription && (
+                                            <h3 className={`font-bold text-white ${(ticketDraft?.ticketCompactMode ?? siteSettings.ticketCompactMode) ? 'text-lg' : 'text-xl'}`}>Summer Music Festival</h3>
+                                            {(ticketDraft?.ticketShowEventDescription ?? siteSettings.ticketShowEventDescription) && (
                                                 <p className="text-xs opacity-70 mt-1 text-white">Amazing event with live performances</p>
                                             )}
                                         </div>
 
                                         {/* Perforation */}
-                                        {(siteSettings.ticketShowPerforation !== false) && (
+                                        {(ticketDraft?.ticketShowPerforation ?? siteSettings.ticketShowPerforation) !== false && (
                                             <div className="relative flex items-center bg-transparent">
                                                 <div className="absolute left-0 w-3 h-6 rounded-r-full" style={{ backgroundColor: '#0B0B0B' }}></div>
-                                                <div className="flex-1 border-t-2 border-dashed mx-3" style={{ borderColor: siteSettings.ticketBorderColor || '#444444' }}></div>
+                                                <div className="flex-1 border-t-2 border-dashed mx-3" style={{ borderColor: ticketDraft?.ticketBorderColor ?? siteSettings.ticketBorderColor ?? '#444444' }}></div>
                                                 <div className="absolute right-0 w-3 h-6 rounded-l-full" style={{ backgroundColor: '#0B0B0B' }}></div>
                                             </div>
                                         )}
 
                                         {/* Body */}
-                                        <div className={`${siteSettings.ticketCompactMode ? 'p-4' : 'p-5'} relative`}>
+                                        <div className={`${(ticketDraft?.ticketCompactMode ?? siteSettings.ticketCompactMode) ? 'p-4' : 'p-5'} relative`}>
                                             {/* Date & Venue */}
-                                            {(siteSettings.ticketShowDate !== false || siteSettings.ticketShowVenue !== false) && (
-                                                <div className={`grid ${siteSettings.ticketShowDate !== false && siteSettings.ticketShowVenue !== false ? 'grid-cols-2' : 'grid-cols-1'} gap-3 mb-4`}>
-                                                    {siteSettings.ticketShowDate !== false && (
+                                            {((ticketDraft?.ticketShowDate ?? siteSettings.ticketShowDate) !== false || (ticketDraft?.ticketShowVenue ?? siteSettings.ticketShowVenue) !== false) && (
+                                                <div className={`grid ${(ticketDraft?.ticketShowDate ?? siteSettings.ticketShowDate) !== false && (ticketDraft?.ticketShowVenue ?? siteSettings.ticketShowVenue) !== false ? 'grid-cols-2' : 'grid-cols-1'} gap-3 mb-4`}>
+                                                    {(ticketDraft?.ticketShowDate ?? siteSettings.ticketShowDate) !== false && (
                                                         <div className="rounded-lg p-3" style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}>
-                                                            <p className="text-[10px] opacity-60 mb-0.5" style={{ color: siteSettings.ticketTextColor || '#ffffff' }}>DATE</p>
-                                                            <p className="text-sm font-semibold" style={{ color: siteSettings.ticketTextColor || '#ffffff' }}>Dec 25, 2024</p>
+                                                            <p className="text-[10px] opacity-60 mb-0.5" style={{ color: ticketDraft?.ticketTextColor ?? siteSettings.ticketTextColor ?? '#ffffff' }}>DATE</p>
+                                                            <p className="text-sm font-semibold" style={{ color: ticketDraft?.ticketTextColor ?? siteSettings.ticketTextColor ?? '#ffffff' }}>Dec 25, 2024</p>
                                                         </div>
                                                     )}
-                                                    {siteSettings.ticketShowVenue !== false && (
+                                                    {(ticketDraft?.ticketShowVenue ?? siteSettings.ticketShowVenue) !== false && (
                                                         <div className="rounded-lg p-3" style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}>
-                                                            <p className="text-[10px] opacity-60 mb-0.5" style={{ color: siteSettings.ticketTextColor || '#ffffff' }}>VENUE</p>
-                                                            <p className="text-sm font-semibold truncate" style={{ color: siteSettings.ticketTextColor || '#ffffff' }}>Convention Center</p>
+                                                            <p className="text-[10px] opacity-60 mb-0.5" style={{ color: ticketDraft?.ticketTextColor ?? siteSettings.ticketTextColor ?? '#ffffff' }}>VENUE</p>
+                                                            <p className="text-sm font-semibold truncate" style={{ color: ticketDraft?.ticketTextColor ?? siteSettings.ticketTextColor ?? '#ffffff' }}>Convention Center</p>
                                                         </div>
                                                     )}
                                                 </div>
                                             )}
 
                                             <div className="rounded-lg p-3 mb-4" style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}>
-                                                <p className="text-[10px] opacity-60 mb-0.5" style={{ color: siteSettings.ticketTextColor || '#ffffff' }}>ATTENDEE</p>
-                                                <p className="text-base font-semibold" style={{ color: siteSettings.ticketTextColor || '#ffffff' }}>John Doe</p>
-                                                <p className="text-xs opacity-60" style={{ color: siteSettings.ticketTextColor || '#ffffff' }}>john@example.com</p>
+                                                <p className="text-[10px] opacity-60 mb-0.5" style={{ color: ticketDraft?.ticketTextColor ?? siteSettings.ticketTextColor ?? '#ffffff' }}>ATTENDEE</p>
+                                                <p className="text-base font-semibold" style={{ color: ticketDraft?.ticketTextColor ?? siteSettings.ticketTextColor ?? '#ffffff' }}>John Doe</p>
+                                                <p className="text-xs opacity-60" style={{ color: ticketDraft?.ticketTextColor ?? siteSettings.ticketTextColor ?? '#ffffff' }}>john@example.com</p>
                                             </div>
 
                                             {/* QR Code */}
-                                            {siteSettings.ticketShowQrCode && (
-                                                <div className={`flex flex-col ${siteSettings.ticketQrPosition === 'right' ? 'items-end' : 'items-center'}`}>
+                                            {(ticketDraft?.ticketShowQrCode ?? siteSettings.ticketShowQrCode) && (
+                                                <div className={`flex flex-col ${(ticketDraft?.ticketQrPosition ?? siteSettings.ticketQrPosition) === 'right' ? 'items-end' : 'items-center'}`}>
                                                     <div className="rounded-xl p-3 mb-2" style={{ backgroundColor: '#ffffff' }}>
                                                         <svg
-                                                            className={`text-black ${siteSettings.ticketQrSize === 'small' ? 'w-16 h-16' : siteSettings.ticketQrSize === 'large' ? 'w-28 h-28' : 'w-20 h-20'}`}
+                                                            className={`text-black ${(ticketDraft?.ticketQrSize ?? siteSettings.ticketQrSize) === 'small' ? 'w-16 h-16' : (ticketDraft?.ticketQrSize ?? siteSettings.ticketQrSize) === 'large' ? 'w-28 h-28' : 'w-20 h-20'}`}
                                                             viewBox="0 0 24 24"
                                                             fill="currentColor"
                                                         >
                                                             <path d="M3 3h7v7H3V3zm1 1v5h5V4H4zm8-1h7v7h-7V3zm1 1v5h5V4h-5zM3 12h7v7H3v-7zm1 1v5h5v-5H4zm11 1h1v1h-1v-1zm-3-1h1v1h-1v-1zm5 0h1v1h-1v-1zm-2 2h1v1h-1v-1zm2 0h3v3h-3v-3zm1 1v1h1v-1h-1zm-8 3h1v1h-1v-1zm2 0h1v1h-1v-1zm4 0h1v1h-1v-1z" />
                                                         </svg>
                                                     </div>
-                                                    <p className="text-[10px] opacity-50" style={{ color: siteSettings.ticketTextColor || '#ffffff' }}>TICKET-ABC123XYZ</p>
+                                                    <p className="text-[10px] opacity-50" style={{ color: ticketDraft?.ticketTextColor ?? siteSettings.ticketTextColor ?? '#ffffff' }}>TICKET-ABC123XYZ</p>
                                                 </div>
                                             )}
                                         </div>
 
                                         {/* Footer */}
-                                        {(siteSettings.ticketShowPrice !== false || siteSettings.ticketShowStatus !== false || siteSettings.ticketFooterText) && (
-                                            <div className="px-5 py-3 border-t flex justify-between items-center" style={{ borderColor: siteSettings.ticketBorderColor || '#333333', backgroundColor: 'rgba(0,0,0,0.3)' }}>
+                                        {((ticketDraft?.ticketShowPrice ?? siteSettings.ticketShowPrice) !== false || (ticketDraft?.ticketShowStatus ?? siteSettings.ticketShowStatus) !== false || (ticketDraft?.ticketFooterText ?? siteSettings.ticketFooterText)) && (
+                                            <div className="px-5 py-3 border-t flex justify-between items-center" style={{ borderColor: ticketDraft?.ticketBorderColor ?? siteSettings.ticketBorderColor ?? '#333333', backgroundColor: 'rgba(0,0,0,0.3)' }}>
                                                 <div>
-                                                    {siteSettings.ticketShowPrice !== false && (
+                                                    {(ticketDraft?.ticketShowPrice ?? siteSettings.ticketShowPrice) !== false && (
                                                         <>
-                                                            <p className="text-lg font-bold font-mono" style={{ color: siteSettings.ticketTextColor || '#ffffff' }}>₹1,999</p>
-                                                            <p className="text-[10px] opacity-50" style={{ color: siteSettings.ticketTextColor || '#ffffff' }}>Paid</p>
+                                                            <p className="text-lg font-bold font-mono" style={{ color: ticketDraft?.ticketTextColor ?? siteSettings.ticketTextColor ?? '#ffffff' }}>₹1,999</p>
+                                                            <p className="text-[10px] opacity-50" style={{ color: ticketDraft?.ticketTextColor ?? siteSettings.ticketTextColor ?? '#ffffff' }}>Paid</p>
                                                         </>
                                                     )}
-                                                    {siteSettings.ticketFooterText && (
-                                                        <p className="text-[10px] opacity-60 mt-1" style={{ color: siteSettings.ticketTextColor || '#ffffff' }}>{siteSettings.ticketFooterText}</p>
+                                                    {(ticketDraft?.ticketFooterText ?? siteSettings.ticketFooterText) && (
+                                                        <p className="text-[10px] opacity-60 mt-1" style={{ color: ticketDraft?.ticketTextColor ?? siteSettings.ticketTextColor ?? '#ffffff' }}>{ticketDraft?.ticketFooterText ?? siteSettings.ticketFooterText}</p>
                                                     )}
                                                 </div>
-                                                {siteSettings.ticketShowStatus !== false && (
+                                                {(ticketDraft?.ticketShowStatus ?? siteSettings.ticketShowStatus) !== false && (
                                                     <span className="px-2 py-1 rounded-full text-[10px] font-bold" style={{ backgroundColor: 'rgba(34, 197, 94, 0.2)', color: '#4ade80', border: '1px solid rgba(34, 197, 94, 0.3)' }}>VALID</span>
                                                 )}
                                             </div>
@@ -2188,6 +2228,54 @@ export default function AdminPage() {
                             </button>
                         </div>
 
+                        {/* Page Templates */}
+                        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+                            <div className="flex items-center gap-3 mb-3">
+                                <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
+                                </svg>
+                                <span className="text-sm font-medium text-white">Quick Templates</span>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                                {[
+                                    { slug: 'privacy-policy', title: 'Privacy Policy', icon: <Shield className="w-4 h-4" />, content: `<h1>Privacy Policy</h1>\n<p>Last updated: ${new Date().toLocaleDateString()}</p>\n\n<h2>Information We Collect</h2>\n<p>We collect information you provide directly to us, such as when you create an account, make a purchase, or contact us for support.</p>\n\n<h2>How We Use Your Information</h2>\n<p>We use the information we collect to provide, maintain, and improve our services, process transactions, and send you technical notices and support messages.</p>\n\n<h2>Information Sharing</h2>\n<p>We do not share your personal information with third parties except as described in this policy or with your consent.</p>\n\n<h2>Contact Us</h2>\n<p>If you have any questions about this Privacy Policy, please contact us.</p>` },
+                                    { slug: 'terms-of-service', title: 'Terms of Service', icon: <FileText className="w-4 h-4" />, content: `<h1>Terms of Service</h1>\n<p>Last updated: ${new Date().toLocaleDateString()}</p>\n\n<h2>Acceptance of Terms</h2>\n<p>By accessing and using this service, you accept and agree to be bound by the terms and provision of this agreement.</p>\n\n<h2>Use License</h2>\n<p>Permission is granted to temporarily access the materials on our website for personal, non-commercial transitory viewing only.</p>\n\n<h2>Ticket Purchases</h2>\n<p>All ticket sales are final. Refunds may be issued at the discretion of the event organizer.</p>\n\n<h2>Disclaimer</h2>\n<p>The materials on this website are provided on an 'as is' basis.</p>` },
+                                    { slug: 'refund-policy', title: 'Refund Policy', icon: <Receipt className="w-4 h-4" />, content: `<h1>Refund Policy</h1>\n<p>Last updated: ${new Date().toLocaleDateString()}</p>\n\n<h2>General Policy</h2>\n<p>Tickets purchased through our platform are generally non-refundable unless the event is cancelled by the organizer.</p>\n\n<h2>Event Cancellation</h2>\n<p>If an event is cancelled, refunds will be processed automatically within 5-7 business days.</p>\n\n<h2>Event Rescheduling</h2>\n<p>If an event is rescheduled, your ticket will remain valid for the new date. If you cannot attend, contact us for refund options.</p>\n\n<h2>Contact</h2>\n<p>For refund inquiries, please contact our support team.</p>` },
+                                    { slug: 'contact', title: 'Contact Us', icon: <Mail className="w-4 h-4" />, content: `<h1>Contact Us</h1>\n<p>We'd love to hear from you! Get in touch with us through any of the methods below.</p>\n\n<h2>Email</h2>\n<p>support@example.com</p>\n\n<h2>Phone</h2>\n<p>+91 XXXXXXXXXX</p>\n\n<h2>Address</h2>\n<p>123 Event Street<br/>City, State 12345</p>\n\n<h2>Business Hours</h2>\n<p>Monday - Friday: 9:00 AM - 6:00 PM<br/>Saturday - Sunday: Closed</p>` },
+                                    { slug: 'faq', title: 'FAQ', icon: <MessageSquare className="w-4 h-4" />, content: `<h1>Frequently Asked Questions</h1>\n\n<h2>How do I purchase tickets?</h2>\n<p>Browse our events, select the one you want to attend, and click "Get Tickets". Follow the checkout process to complete your purchase.</p>\n\n<h2>How do I access my tickets?</h2>\n<p>After purchase, you'll receive an email with your ticket and QR code. You can also access your tickets through your account.</p>\n\n<h2>Can I transfer my ticket to someone else?</h2>\n<p>Ticket transferability depends on the event organizer's policy. Contact us for assistance.</p>\n\n<h2>What if I lose my ticket?</h2>\n<p>Don't worry! Log into your account to re-download your ticket, or contact our support team.</p>` },
+                                    { slug: 'about', title: 'About Us', icon: <Users className="w-4 h-4" />, content: `<h1>About Us</h1>\n<p>Welcome to EventHub - your premier destination for discovering and attending amazing events!</p>\n\n<h2>Our Mission</h2>\n<p>We're passionate about connecting people with unforgettable experiences. Our platform makes it easy to discover, book, and enjoy the best events in your area.</p>\n\n<h2>Our Story</h2>\n<p>Founded in 2024, we set out to revolutionize the way people discover and attend events. What started as a small project has grown into a platform serving thousands of event-goers.</p>\n\n<h2>Join Us</h2>\n<p>Whether you're an event organizer or an attendee, we'd love to have you as part of our community!</p>` },
+                                ].map(template => (
+                                    <button
+                                        key={template.slug}
+                                        onClick={() => {
+                                            const existingPage = siteSettings.customPages.find(p => p.slug === template.slug);
+                                            if (existingPage) {
+                                                showToast(`${template.title} page already exists`, 'error');
+                                                return;
+                                            }
+                                            const newPage: CustomPage = {
+                                                id: crypto.randomUUID(),
+                                                slug: template.slug,
+                                                title: template.title,
+                                                content: template.content,
+                                                isPublished: false,
+                                                showInNav: false,
+                                                order: siteSettings.customPages.length,
+                                                createdAt: new Date().toISOString(),
+                                                updatedAt: new Date().toISOString(),
+                                            };
+                                            updateSiteSettings({ customPages: [...siteSettings.customPages, newPage] });
+                                            showToast(`${template.title} page created`, 'success');
+                                        }}
+                                        className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg text-sm flex items-center gap-1.5 border border-zinc-700"
+                                    >
+                                        {template.icon}
+                                        {template.title}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
                         {siteSettings.customPages.length === 0 ? (
                             <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-12 text-center">
                                 <FileText className="w-12 h-12 text-zinc-600 mx-auto mb-4" />
@@ -2658,6 +2746,199 @@ export default function AdminPage() {
                                     </div>
                                 )}
                             </div>
+                        </div>
+
+                        {/* Logo Management */}
+                        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
+                            <h3 className="text-lg font-medium text-white mb-4 flex items-center gap-2">
+                                <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
+                                Logo Management
+                            </h3>
+                            <p className="text-zinc-500 text-sm mb-4">Upload your site logo and favicon</p>
+
+                            <div className="grid sm:grid-cols-2 gap-6">
+                                {/* Site Logo */}
+                                <div>
+                                    <label className="block text-sm font-medium text-zinc-400 mb-2">Site Logo</label>
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-20 h-20 bg-zinc-800 rounded-xl flex items-center justify-center border border-zinc-700 overflow-hidden">
+                                            {siteSettings.logoUrl ? (
+                                                <img src={siteSettings.logoUrl} alt="Logo" className="w-full h-full object-contain" />
+                                            ) : (
+                                                <svg className="w-8 h-8 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                                </svg>
+                                            )}
+                                        </div>
+                                        <div className="flex-1">
+                                            <input
+                                                type="text"
+                                                value={siteSettings.logoUrl || ''}
+                                                onChange={(e) => updateSiteSettings({ logoUrl: e.target.value })}
+                                                placeholder="https://example.com/logo.png"
+                                                className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white text-sm"
+                                            />
+                                            <p className="text-xs text-zinc-500 mt-1">Recommended: 200x50px PNG</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Favicon */}
+                                <div>
+                                    <label className="block text-sm font-medium text-zinc-400 mb-2">Favicon</label>
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-20 h-20 bg-zinc-800 rounded-xl flex items-center justify-center border border-zinc-700 overflow-hidden">
+                                            {siteSettings.faviconUrl ? (
+                                                <img src={siteSettings.faviconUrl} alt="Favicon" className="w-8 h-8 object-contain" />
+                                            ) : (
+                                                <svg className="w-6 h-6 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                                </svg>
+                                            )}
+                                        </div>
+                                        <div className="flex-1">
+                                            <input
+                                                type="text"
+                                                value={siteSettings.faviconUrl || ''}
+                                                onChange={(e) => updateSiteSettings({ faviconUrl: e.target.value })}
+                                                placeholder="https://example.com/favicon.ico"
+                                                className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white text-sm"
+                                            />
+                                            <p className="text-xs text-zinc-500 mt-1">Recommended: 32x32px ICO/PNG</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Legal Links */}
+                        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
+                            <h3 className="text-lg font-medium text-white mb-4 flex items-center gap-2">
+                                <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" />
+                                </svg>
+                                Legal Links
+                            </h3>
+                            <p className="text-zinc-500 text-sm mb-4">Link your custom pages to display as legal documents in the footer</p>
+
+                            <div className="grid sm:grid-cols-2 gap-4">
+                                {[
+                                    { key: 'privacyPolicy', label: 'Privacy Policy', icon: <Shield className="w-5 h-5 text-blue-400" /> },
+                                    { key: 'termsOfService', label: 'Terms of Service', icon: <FileText className="w-5 h-5 text-purple-400" /> },
+                                    { key: 'refundPolicy', label: 'Refund Policy', icon: <Receipt className="w-5 h-5 text-green-400" /> },
+                                    { key: 'cookiePolicy', label: 'Cookie Policy', icon: <Globe className="w-5 h-5 text-orange-400" /> },
+                                ].map(item => (
+                                    <div key={item.key} className="flex items-center gap-3 p-3 bg-zinc-800/50 rounded-xl">
+                                        {item.icon}
+                                        <div className="flex-1">
+                                            <label className="block text-sm font-medium text-white mb-1">{item.label}</label>
+                                            <select
+                                                value={(siteSettings.legalPages as any)?.[item.key] || ''}
+                                                onChange={(e) => updateSiteSettings({
+                                                    legalPages: { ...siteSettings.legalPages, [item.key]: e.target.value }
+                                                })}
+                                                className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-zinc-300 text-sm"
+                                            >
+                                                <option value="">— Select a page —</option>
+                                                {siteSettings.customPages.filter(p => p.isPublished).map(page => (
+                                                    <option key={page.id} value={page.id}>{page.title}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            {siteSettings.customPages.length === 0 && (
+                                <div className="mt-4 p-3 bg-yellow-900/20 border border-yellow-800/50 rounded-xl">
+                                    <p className="text-sm text-yellow-400">
+                                        No custom pages found. Go to the <strong>Pages</strong> tab to create legal pages first.
+                                    </p>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Admin Team */}
+                        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
+                            <h3 className="text-lg font-medium text-white mb-4 flex items-center gap-2">
+                                <Shield className="w-5 h-5 text-red-500" />
+                                Admin Team
+                            </h3>
+                            <p className="text-zinc-500 text-sm mb-4">Whitelist email addresses that can access the admin panel</p>
+
+                            <div className="space-y-3 mb-4">
+                                {(siteSettings.adminEmails || []).map((email, index) => (
+                                    <div key={index} className="flex items-center gap-3 p-3 bg-zinc-800/50 rounded-xl group">
+                                        <div className="w-10 h-10 bg-red-600/20 rounded-full flex items-center justify-center">
+                                            <span className="text-red-400 font-medium">{email[0]?.toUpperCase()}</span>
+                                        </div>
+                                        <div className="flex-1">
+                                            <p className="text-white text-sm">{email}</p>
+                                            <p className="text-xs text-zinc-500">Admin Access</p>
+                                        </div>
+                                        <button
+                                            onClick={() => {
+                                                const newEmails = [...(siteSettings.adminEmails || [])];
+                                                newEmails.splice(index, 1);
+                                                updateSiteSettings({ adminEmails: newEmails });
+                                                showToast('Admin removed', 'success');
+                                            }}
+                                            className="p-2 text-zinc-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+
+                            <div className="flex gap-2">
+                                <input
+                                    type="email"
+                                    id="newAdminEmail"
+                                    placeholder="admin@example.com"
+                                    className="flex-1 px-4 py-2.5 bg-zinc-800 border border-zinc-700 rounded-xl text-white text-sm"
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                            const input = e.target as HTMLInputElement;
+                                            const email = input.value.trim();
+                                            if (email && email.includes('@')) {
+                                                if (!(siteSettings.adminEmails || []).includes(email)) {
+                                                    updateSiteSettings({ adminEmails: [...(siteSettings.adminEmails || []), email] });
+                                                    showToast('Admin added', 'success');
+                                                    input.value = '';
+                                                } else {
+                                                    showToast('Email already exists', 'error');
+                                                }
+                                            }
+                                        }
+                                    }}
+                                />
+                                <button
+                                    onClick={() => {
+                                        const input = document.getElementById('newAdminEmail') as HTMLInputElement;
+                                        const email = input?.value.trim();
+                                        if (email && email.includes('@')) {
+                                            if (!(siteSettings.adminEmails || []).includes(email)) {
+                                                updateSiteSettings({ adminEmails: [...(siteSettings.adminEmails || []), email] });
+                                                showToast('Admin added', 'success');
+                                                input.value = '';
+                                            } else {
+                                                showToast('Email already exists', 'error');
+                                            }
+                                        }
+                                    }}
+                                    className="px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-medium flex items-center gap-2"
+                                >
+                                    <Plus className="w-4 h-4" />
+                                    Add
+                                </button>
+                            </div>
+
+                            <p className="text-xs text-zinc-500 mt-3">
+                                Note: For this whitelist to enforce access control, integrate with your authentication provider.
+                            </p>
                         </div>
                     </div>
                 )}

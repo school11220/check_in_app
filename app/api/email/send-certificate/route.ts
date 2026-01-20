@@ -6,12 +6,13 @@ export interface CertificateEmailRequestBody {
   recipientName: string;
   eventName: string;
   pdfBase64: string; // Base64 encoded PDF content
+  customMessage?: string;
 }
 
 export async function POST(request: NextRequest) {
   try {
     const body: CertificateEmailRequestBody = await request.json();
-    const { to, recipientName, eventName, pdfBase64 } = body;
+    const { to, recipientName, eventName, pdfBase64, customMessage } = body;
 
     if (!to || !recipientName || !pdfBase64) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
@@ -26,6 +27,9 @@ export async function POST(request: NextRequest) {
     }
 
     const subject = `🎓 Your Certificate for ${eventName}`;
+
+    // Default message if not provided
+    const messageBody = customMessage || `Thank you for your participation in <strong>${eventName}</strong>. We are proud to present you with this certificate of achievement.`;
 
     // Simple HTML email for certificate
     const emailHtml = `
@@ -44,9 +48,9 @@ export async function POST(request: NextRequest) {
                   <tr>
                     <td style="padding: 30px;">
                       <p style="font-size: 16px; color: #333333; margin-bottom: 20px;">Dear <strong>${recipientName}</strong>,</p>
-                      <p style="font-size: 16px; color: #333333; line-height: 1.5; margin-bottom: 20px;">
-                        Thank you for your participation in <strong>${eventName}</strong>. We are proud to present you with this certificate of achievement.
-                      </p>
+                      <div style="font-size: 16px; color: #333333; line-height: 1.5; margin-bottom: 20px;">
+                        ${messageBody.replace(/\n/g, '<br>')}
+                      </div>
                       <p style="font-size: 16px; color: #333333; margin-bottom: 30px;">
                         Your certificate is attached to this email as a PDF.
                       </p>
@@ -78,21 +82,34 @@ export async function POST(request: NextRequest) {
       ],
     });
 
+    // Log payload size for debugging
+    const payloadSize = JSON.stringify(body).length;
+    console.log(`Processing certificate email for ${to}. Payload size: ${(payloadSize / 1024).toFixed(2)} KB`);
+
     if (result.success) {
       return NextResponse.json({
         success: true,
         message: 'Email sent successfully',
       });
     } else {
+      console.error('Email sending failed in API:', result.error);
       return NextResponse.json(
-        { error: result.error || 'Failed to send email' },
+        {
+          success: false,
+          error: result.error || 'Failed to send email',
+          details: result.error
+        },
         { status: 500 }
       );
     }
   } catch (error: any) {
     console.error('Certificate email error:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to send email' },
+      {
+        success: false,
+        error: error.message || 'Failed to send email',
+        details: error.toString()
+      },
       { status: 500 }
     );
   }

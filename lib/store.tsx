@@ -304,6 +304,20 @@ export interface SiteSettings {
     globalSalesPaused: boolean;
     maintenanceMessage: string;
     scheduledMaintenance: { start: string; end: string } | null;
+    // Brand Assets
+    logoUrl: string;
+    faviconUrl: string;
+    // Admin Access Control
+    adminEmails: string[];
+    // Legal Pages (IDs of custom pages)
+    legalPages: {
+        privacyPolicy: string;
+        termsOfService: string;
+        refundPolicy: string;
+        cookiePolicy: string;
+    };
+    // Cookie Consent
+    showCookieBanner: boolean;
     // Custom Pages & Theme
     customPages: CustomPage[];
     theme: ThemeSettings;
@@ -382,6 +396,20 @@ export const DEFAULT_SITE_SETTINGS: SiteSettings = {
     globalSalesPaused: false,
     maintenanceMessage: 'Sales are temporarily paused. Please check back soon!',
     scheduledMaintenance: null,
+    // Brand Assets
+    logoUrl: '',
+    faviconUrl: '',
+    // Admin Access Control
+    adminEmails: [],
+    // Legal Pages
+    legalPages: {
+        privacyPolicy: '',
+        termsOfService: '',
+        refundPolicy: '',
+        cookiePolicy: '',
+    },
+    // Cookie Consent
+    showCookieBanner: false,
     // Custom Pages & Theme
     customPages: [],
     theme: DEFAULT_THEME,

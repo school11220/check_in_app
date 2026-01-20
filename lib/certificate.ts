@@ -163,6 +163,8 @@ export async function generateCertificate(
     }
 
     // Save and return the modified PDF
+
+    // Save and return the modified PDF
     return await pdfDoc.save();
 }
 
