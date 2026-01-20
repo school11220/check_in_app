@@ -58,10 +58,14 @@ export default function AdminPage() {
     const totalTickets = filteredTickets.length;
     const paidTickets = filteredTickets.filter(t => t.status === 'paid').length;
     const checkedIn = filteredTickets.filter(t => t.checkedIn).length;
-    const totalRevenue = filteredTickets.filter(t => t.status === 'paid').reduce((sum, t) => {
-        const event = events.find(e => e.id === t.eventId);
-        return sum + (event?.price || 0);
-    }, 0);
+
+    // Calculate revenue from PAID tickets only
+    const totalRevenue = filteredTickets
+        .filter(t => t.status === 'paid')
+        .reduce((sum, t) => {
+            const event = events.find(e => e.id === t.eventId);
+            return sum + (event?.price || 0);
+        }, 0);
 
     const salesByEvent = events.map(event => ({
         name: (event?.name || 'Unknown').split(' ')[0],
@@ -1301,7 +1305,7 @@ export default function AdminPage() {
                                         'Venue': event.venue || '',
                                         'Price (₹)': ((event.price || 0) / 100).toFixed(2),
                                         'Capacity': event.capacity || 'Unlimited',
-                                        'Sold': event.soldCount || 0,
+                                        'Sold': tickets.filter(t => t.eventId === event.id && t.status === 'paid').length,
                                         'Featured': event.isFeatured ? 'Yes' : 'No',
                                     }))}
                                     filename={`events-${new Date().toISOString().split('T')[0]}`}
@@ -1322,7 +1326,8 @@ export default function AdminPage() {
                             {events.filter(e => e && e.id).map(event => {
                                 const categoryStyle = CATEGORY_COLORS[event.category] || CATEGORY_COLORS.other;
                                 const capacity = event.capacity || 1; // Prevent division by zero
-                                const soldCount = event.soldCount || 0;
+                                // Calculate sold count from verified paid tickets only
+                                const soldCount = tickets.filter(t => t.eventId === event.id && t.status === 'paid').length;
                                 const capacityPercent = Math.min(Math.round((soldCount / capacity) * 100), 100);
                                 const eventDate = event.date ? new Date(event.date) : null;
                                 const dateStr = eventDate && !isNaN(eventDate.getTime())
@@ -2110,7 +2115,7 @@ export default function AdminPage() {
                                             <div>
                                                 <p className="font-medium text-white">{event.name}</p>
                                                 <p className="text-xs text-zinc-500">
-                                                    {new Date(event.date).toLocaleDateString()} • {event.soldCount}/{event.capacity} sold
+                                                    {new Date(event.date).toLocaleDateString()} • {tickets.filter(t => t.eventId === event.id && t.status === 'paid').length}/{event.capacity} sold
                                                 </p>
                                             </div>
                                         </div>
@@ -2888,7 +2893,7 @@ export default function AdminPage() {
                                     </div>
                                     <span className="text-blue-300 text-sm">Tickets Sold</span>
                                 </div>
-                                <p className="text-3xl font-bold text-white">{events.filter(e => e).reduce((sum, e) => sum + e.soldCount, 0)}</p>
+                                <p className="text-3xl font-bold text-white">{tickets.filter(t => t.status === 'paid').length}</p>
                                 <p className="text-blue-400 text-sm mt-1">Across {events.length} events</p>
                             </div>
 
@@ -2901,7 +2906,7 @@ export default function AdminPage() {
                                     </div>
                                     <span className="text-purple-300 text-sm">Avg. Ticket Price</span>
                                 </div>
-                                <p className="text-3xl font-bold text-white">₹{Math.round(events.filter(e => e).reduce((s, e) => s + e.price, 0) / events.length / 100).toLocaleString()}</p>
+                                <p className="text-3xl font-bold text-white">₹{Math.round(events.filter(e => e).reduce((s, e) => s + e.price, 0) / events.filter(e => e).length / 100).toLocaleString()}</p>
                                 <p className="text-purple-400 text-sm mt-1">Per ticket</p>
                             </div>
 
@@ -2914,7 +2919,9 @@ export default function AdminPage() {
                                     </div>
                                     <span className="text-orange-300 text-sm">Sell-Through Rate</span>
                                 </div>
-                                <p className="text-3xl font-bold text-white">{Math.round((events.filter(e => e).reduce((s, e) => s + e.soldCount, 0) / events.filter(e => e).reduce((s, e) => s + e.capacity, 0)) * 100)}%</p>
+                                <p className="text-3xl font-bold text-white">
+                                    {Math.round((tickets.filter(t => t.status === 'paid').length / events.reduce((acc, e) => acc + (e.capacity || 0), 0)) * 100) || 0}%
+                                </p>
                                 <p className="text-orange-400 text-sm mt-1">Capacity utilization</p>
                             </div>
                         </div>
@@ -2923,7 +2930,10 @@ export default function AdminPage() {
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                             {/* Revenue by Event */}
                             <ChartCard title="Revenue by Event">
-                                <BarChart data={events.filter(e => e).slice(0, 5).map(e => ({ name: e.name.slice(0, 15) + '...', revenue: Math.round((e.soldCount * e.price) / 100) }))}>
+                                <BarChart data={events.filter(e => e).slice(0, 5).map(e => ({
+                                    name: e.name.slice(0, 15) + '...',
+                                    revenue: Math.round((tickets.filter(t => t.eventId === e.id && t.status === 'paid').length * e.price) / 100)
+                                }))}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                                     <XAxis dataKey="name" tick={{ fill: '#9ca3af', fontSize: 12 }} />
                                     <YAxis tick={{ fill: '#9ca3af' }} />
@@ -2938,7 +2948,7 @@ export default function AdminPage() {
                                     <Pie
                                         data={Object.keys(CATEGORY_COLORS).filter(c => c !== 'other').map(cat => ({
                                             name: cat.charAt(0).toUpperCase() + cat.slice(1),
-                                            value: events.filter(e => e && e.category === cat).reduce((s, e) => s + e.soldCount, 0)
+                                            value: events.filter(e => e && e.category === cat).reduce((s, e) => s + tickets.filter(t => t.eventId === e.id && t.status === 'paid').length, 0)
                                         })).filter(c => c.value > 0)}
                                         cx="50%" cy="50%" outerRadius={80} dataKey="value" label
                                     >
@@ -2971,18 +2981,22 @@ export default function AdminPage() {
                                             <tr key={event.id} className="hover:bg-zinc-800/30">
                                                 <td className="px-4 py-3 text-sm text-white">{event.name}</td>
                                                 <td className="px-4 py-3 text-sm text-zinc-300">₹{(event.price / 100).toLocaleString()}</td>
-                                                <td className="px-4 py-3 text-sm text-zinc-300">{event.soldCount}</td>
+                                                <td className="px-4 py-3 text-sm text-zinc-300">
+                                                    {tickets.filter(t => t.eventId === event.id && t.status === 'paid').length}
+                                                </td>
                                                 <td className="px-4 py-3 text-sm text-zinc-300">{event.capacity}</td>
-                                                <td className="px-4 py-3 text-sm text-green-400 font-medium">₹{((event.soldCount * event.price) / 100).toLocaleString()}</td>
+                                                <td className="px-4 py-3 text-sm text-green-400 font-medium">
+                                                    ₹{((tickets.filter(t => t.eventId === event.id && t.status === 'paid').length * event.price) / 100).toLocaleString()}
+                                                </td>
                                                 <td className="px-4 py-3">
                                                     <div className="flex items-center gap-2">
                                                         <div className="w-20 h-2 bg-zinc-700 rounded-full overflow-hidden">
                                                             <div
-                                                                className={`h-full rounded-full ${(event.soldCount / event.capacity) >= 0.9 ? 'bg-red-500' : (event.soldCount / event.capacity) >= 0.7 ? 'bg-yellow-500' : 'bg-green-500'}`}
-                                                                style={{ width: `${Math.min((event.soldCount / event.capacity) * 100, 100)}%` }}
+                                                                className={`h-full rounded-full ${(tickets.filter(t => t.eventId === event.id && t.status === 'paid').length / event.capacity) >= 0.9 ? 'bg-red-500' : (tickets.filter(t => t.eventId === event.id && t.status === 'paid').length / event.capacity) >= 0.7 ? 'bg-yellow-500' : 'bg-green-500'}`}
+                                                                style={{ width: `${Math.min((tickets.filter(t => t.eventId === event.id && t.status === 'paid').length / event.capacity) * 100, 100)}%` }}
                                                             />
                                                         </div>
-                                                        <span className="text-xs text-zinc-400">{Math.round((event.soldCount / event.capacity) * 100)}%</span>
+                                                        <span className="text-xs text-zinc-400">{Math.round((tickets.filter(t => t.eventId === event.id && t.status === 'paid').length / event.capacity) * 100)}%</span>
                                                     </div>
                                                 </td>
                                             </tr>

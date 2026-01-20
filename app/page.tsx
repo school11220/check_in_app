@@ -2,7 +2,7 @@
 
 import { useApp, CATEGORY_COLORS } from '@/lib/store';
 import { useState, useEffect } from 'react';
-import { Calendar, MapPin, ScanLine, LayoutDashboard, LogIn, X, Menu, Ticket, LogOut, Search, Clock } from 'lucide-react';
+import { Calendar, MapPin, ScanLine, LayoutDashboard, LogIn, X, Menu, Ticket, LogOut, Search, Clock, Home as HomeIcon } from 'lucide-react';
 
 export default function Home() {
   const { events, siteSettings } = useApp();
@@ -43,8 +43,13 @@ export default function Home() {
     4: 'lg:grid-cols-4',
   }[siteSettings.eventsGridColumns || 3];
 
+  const scrollToSection = (id: string) => {
+    const el = document.getElementById(id);
+    if (el) el.scrollIntoView({ behavior: 'smooth' });
+  };
+
   return (
-    <main className="min-h-screen bg-[#0B0B0B] flex flex-col">
+    <main className="min-h-screen bg-[#0B0B0B] flex flex-col pb-20 md:pb-0">
       {/* Announcement Banner */}
       {siteSettings.announcement?.isActive && siteSettings.announcement?.message && (
         <div
@@ -60,8 +65,8 @@ export default function Home() {
         </div>
       )}
 
-      {/* Floating Menu Button */}
-      <div className="fixed bottom-6 right-6 z-50">
+      {/* Floating Menu Button (Desktop Only) */}
+      <div className="hidden md:block fixed bottom-6 right-6 z-50">
         <div className={`absolute bottom-16 right-0 glass rounded-xl overflow-hidden shadow-2xl transition-all duration-300 ${showMenu ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}>
           {isLoggedIn && (
             <>
@@ -104,6 +109,80 @@ export default function Home() {
           )}
         </button>
       </div>
+
+      {/* Mobile Bottom Navigation Bar */}
+      {/* Mobile Bottom Navigation Bar */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-[#0B0B0B]/95 backdrop-blur-lg border-t border-white/10 z-50 flex items-center justify-around px-8">
+        <button
+          onClick={() => scrollToSection('search')}
+          className="flex flex-col items-center justify-center w-16 h-full text-[#B3B3B3] hover:text-white transition-colors"
+        >
+          <Search className="w-6 h-6 mb-1" />
+          <span className="text-[10px] font-medium">Search</span>
+        </button>
+
+        <div className="relative -top-5">
+          <a
+            href="/register"
+            className="flex items-center justify-center w-14 h-14 bg-gradient-to-r from-[#E11D2E] to-[#B91C1C] rounded-full shadow-lg shadow-red-900/40 border-4 border-[#0B0B0B]"
+          >
+            <Ticket className="w-6 h-6 text-white" />
+          </a>
+        </div>
+
+        <button
+          onClick={() => setShowMenu(true)}
+          className="flex flex-col items-center justify-center w-16 h-full text-[#B3B3B3] hover:text-white transition-colors"
+        >
+          <Menu className="w-6 h-6 mb-1" />
+          <span className="text-[10px] font-medium">Menu</span>
+        </button>
+      </div>
+
+      {/* Mobile Menu Drawer (Simplified) */}
+      {showMenu && (
+        <div className="md:hidden fixed inset-0 z-[60] bg-black/80 backdrop-blur-md flex items-end animate-fade-in-up">
+          <div className="w-full bg-[#141414] rounded-t-2xl p-6 border-t border-[#1F1F1F]">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-bold text-white">Menu</h3>
+              <button onClick={() => setShowMenu(false)} className="p-2 bg-zinc-800 rounded-full text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="space-y-2">
+              {isLoggedIn ? (
+                <>
+                  <a href="/admin" className="flex items-center gap-4 p-4 bg-zinc-900 rounded-xl text-white">
+                    <LayoutDashboard className="w-5 h-5 text-[#E11D2E]" />
+                    <span className="font-medium">Admin Dashboard</span>
+                  </a>
+                  <a href="/checkin" className="flex items-center gap-4 p-4 bg-zinc-900 rounded-xl text-white">
+                    <ScanLine className="w-5 h-5 text-[#E11D2E]" />
+                    <span className="font-medium">Staff Check-In</span>
+                  </a>
+                  <button
+                    onClick={async () => {
+                      await fetch('/api/auth/logout', { method: 'POST' });
+                      setIsLoggedIn(false);
+                      setShowMenu(false);
+                    }}
+                    className="w-full flex items-center gap-4 p-4 bg-red-900/20 text-red-500 rounded-xl mt-4"
+                  >
+                    <LogOut className="w-5 h-5" />
+                    <span className="font-medium">Logout</span>
+                  </button>
+                </>
+              ) : (
+                <a href="/login" className="flex items-center gap-4 p-4 bg-zinc-900 rounded-xl text-white">
+                  <LogIn className="w-5 h-5 text-[#E11D2E]" />
+                  <span className="font-medium">Login</span>
+                </a>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
 
       {/* Header with Logo */}
       <header className="sticky top-0 z-40 bg-[#0B0B0B]/90 backdrop-blur-md border-b border-white/5">
@@ -152,7 +231,8 @@ export default function Home() {
 
 
         {/* Search & Filter Section */}
-        <section className="px-4 py-8 sticky top-0 z-40 backdrop-blur-xl bg-[#0B0B0B]/80 border-b border-white/5">
+        <section id="search" className="px-4 py-8 sticky top-0 z-40 backdrop-blur-xl bg-[#0B0B0B]/80 border-b border-white/5">
+
           <div className="max-w-6xl mx-auto space-y-6">
             {/* Search Bar */}
             <div className="relative max-w-xl mx-auto">
@@ -164,13 +244,14 @@ export default function Home() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search events by name or venue..."
-                className="block w-full pl-11 pr-4 py-3 bg-[#141414] border border-[#1F1F1F] rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#E11D2E] focus:border-transparent transition-all shadow-lg"
+                className="block w-full pl-11 pr-4 py-3 bg-[#141414] border border-[#1F1F1F] rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#E11D2E] focus:border-transparent transition-all shadow-lg text-base"
               />
+
             </div>
 
             {/* Category Pills */}
 
-            <div className="flex gap-3 overflow-x-auto pb-2 pt-1 scrollbar-hide snap-x justify-center">
+            <div className="flex gap-3 overflow-x-auto pb-2 pt-1 scrollbar-hide snap-x">
               {categories.map(cat => (
                 <button
                   key={cat}
@@ -225,7 +306,7 @@ export default function Home() {
         <section className="px-4 pb-32 pt-8">
 
           <div className="max-w-6xl mx-auto">
-            <div className={`grid grid-cols-1 md:grid-cols-2 ${gridColsClass} gap-6 md:gap-8`}>
+            <div className={`grid grid-cols-1 md:grid-cols-2 ${gridColsClass} gap-6 md:gap-8 pb-10 md:pb-0`}>
               {filteredEvents.slice(0, siteSettings.eventsPerPage || 12).map((event, index) => {
                 const categoryStyle = CATEGORY_COLORS[event.category] || CATEGORY_COLORS.other;
                 const isSoldOut = event.soldCount >= event.capacity;
@@ -296,7 +377,7 @@ export default function Home() {
                       <div className="flex flex-col">
                         <span className="text-[#B3B3B3] text-xs uppercase tracking-wider font-medium mb-0.5">Price</span>
                         <span className="text-white font-bold text-lg">
-                          {event.price === 0 ? 'Free' : `₹${event.price.toLocaleString()}`}
+                          {event.price === 0 ? 'Free' : `₹${(event.price / 100).toLocaleString()}`}
                         </span>
                       </div>
                       <button
