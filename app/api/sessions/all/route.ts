@@ -16,8 +16,8 @@ export async function GET() {
                         name: true,
                         id: true
                     }
-                },
-                slot: true
+                }
+
             },
             orderBy: [
                 { date: 'asc' },

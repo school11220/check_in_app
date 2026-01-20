@@ -40,25 +40,9 @@ export async function POST(
         // Or we might have passed slotId in body?
         // Let's assume we find the slot by startTime and eventId.
 
-        const slot = await prisma.timeSlot.findFirst({
-            where: {
-                eventId: id,
-                startTime: { lte: body.startTime },
-                endTime: { gt: body.startTime } // basic slot matching
-            }
-        });
-
-        // If no slot found, we might need to handle it. 
-        // For now, let's create without slotId if optional? Schema says it links to TimeSlot.
-        // Let's check schema assumption. 
-        // Ideally we should pass slotId. But the UI passes startTime.
-        // Let's try to find exact start match or just create.
-        // Pending logic verification. For now fix the params type.
-
         const session = await prisma.session.create({
             data: {
                 eventId: id,
-                slotId: slot?.id || null, // Allow null if no matching slot found
                 ...body
             }
         });

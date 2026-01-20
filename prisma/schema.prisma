@@ -94,11 +94,12 @@ model Event {
 
   tickets     Ticket[]
   polls       Question[]
-  photos      Photo[]
+  // photos      Photo[] // Removed in favor of gallery JSON
+  gallery     Json     @default("[]") // Stores { imageUrl, uploaderName, caption, approved, likes }[]
   reviews     Review[]
   pricingRules PricingRule[]
-  timeSlots   TimeSlot[]
-  sessions    Session[]
+  sessions    Session[] // TimeSlots merged into sessions or removed
+
   
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -160,22 +161,7 @@ model Question {
   @@index([approved])
 }
 
-model Photo {
-  id           String   @id @default(uuid())
-  eventId      String
-  event        Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  imageUrl     String
-  uploaderName String
-  caption      String?
-  approved     Boolean  @default(false)
-  likes        Int      @default(0)
-  
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
 
-  @@index([eventId])
-  @@index([approved])
-}
 
 model Review {
   id        String   @id @default(uuid())
@@ -192,28 +178,12 @@ model Review {
 
 
 
-model TimeSlot {
-  id        String   @id @default(uuid())
-  eventId   String
-  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  startTime String   // "09:00"
-  endTime   String   // "10:00"
-  label     String?  // "Monitor 1"
-  
-  sessions  Session[]
-  
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
 
-  @@index([eventId])
-}
 
 model Session {
   id          String   @id @default(uuid())
   eventId     String
   event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  slotId      String?
-  slot        TimeSlot? @relation(fields: [slotId], references: [id])
   
   title       String
   description String?
@@ -233,7 +203,7 @@ model Session {
   updatedAt   DateTime @updatedAt
 
   @@index([eventId])
-  @@index([slotId])
+
 }
 
 model AuditLog {
@@ -271,5 +241,14 @@ model Integration {
   
   @@unique([provider])
 }
+
+model SiteConfig {
+  id        String   @id @default("default")
+  settings  Json     @default("{}") // Stores SiteSettings including customPages
+  templates Json     @default("[]") // Stores EmailTemplates
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 
 
