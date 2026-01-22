@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
 import { auth, clerkClient } from '@clerk/nextjs/server';
 
+// This endpoint is called by SessionScheduler but slots don't exist as a model
+// Return empty array for now to prevent 404 errors
 export async function GET() {
     try {
         const { userId } = await auth();
@@ -18,25 +19,10 @@ export async function GET() {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const sessions = await prisma.session.findMany({
-            include: {
-                event: {
-                    select: {
-                        name: true,
-                        id: true
-                    }
-                }
-
-            },
-            orderBy: [
-                { date: 'asc' },
-                { startTime: 'asc' }
-            ]
-        });
-
-        return NextResponse.json(sessions);
+        // Slots don't exist as a separate model, return empty array
+        return NextResponse.json([]);
     } catch (error) {
-        console.error('Failed to fetch all sessions:', error);
-        return NextResponse.json({ error: 'Failed to fetch sessions' }, { status: 500 });
+        console.error('Failed to fetch slots:', error);
+        return NextResponse.json({ error: 'Failed to fetch slots' }, { status: 500 });
     }
 }

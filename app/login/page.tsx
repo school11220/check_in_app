@@ -30,6 +30,23 @@ export default function LoginPage() {
         setLoading(true);
 
         try {
+            // Step 1: Check if user exists in local DB and migrate to Clerk if needed
+            const legacyRes = await fetch('/api/auth/legacy-login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password })
+            });
+
+            const legacyData = await legacyRes.json();
+
+            if (!legacyRes.ok && legacyRes.status !== 404) {
+                // Password wrong or other error from legacy check
+                showToast(legacyData.error || 'Login failed', 'error');
+                setLoading(false);
+                return;
+            }
+
+            // Step 2: Now sign in with Clerk (user should exist in Clerk now after migration)
             const result = await signIn.create({
                 identifier: email,
                 password: password,
@@ -38,19 +55,21 @@ export default function LoginPage() {
             if (result.status === 'complete') {
                 await setActive({ session: result.createdSessionId });
                 showToast('Login successful! Redirecting...', 'success');
-
-                // Role-based redirect will be handled by middleware
                 router.push('/admin');
                 router.refresh();
             } else {
-                // Handle additional steps (e.g., 2FA)
                 console.log('Additional steps required:', result);
                 showToast('Additional verification required', 'info');
             }
 
         } catch (error: any) {
             console.error('Login error:', error);
-            const errorMessage = error.errors?.[0]?.message || error.message || 'Login failed';
+            let errorMessage = error.errors?.[0]?.message || error.message || 'Login failed';
+
+            if (errorMessage.toLowerCase().includes("couldn't find") || errorMessage.toLowerCase().includes('not found')) {
+                errorMessage = "Account not found. Try 'Continue with Google' or contact admin.";
+            }
+
             showToast(errorMessage, 'error');
         } finally {
             setLoading(false);
@@ -180,10 +199,16 @@ export default function LoginPage() {
                     </button>
                 </form>
 
-                <div className="mt-8 text-center">
+                <div className="mt-8 text-center space-y-4">
                     <p className="text-zinc-500 text-xs">
                         Don't have an account? <span className="text-red-400">Contact your admin to get added</span>
                     </p>
+                    <a
+                        href="/"
+                        className="inline-flex items-center gap-2 text-zinc-400 hover:text-white text-sm transition-colors"
+                    >
+                        ← Go back to home
+                    </a>
                 </div>
             </div>
         </main>

@@ -3,6 +3,7 @@
 import { useApp, CATEGORY_COLORS, Event, SiteSettings } from '@/lib/store';
 import { useState, useEffect } from 'react';
 import { Calendar, MapPin, ScanLine, LayoutDashboard, LogIn, X, Menu, Ticket, LogOut, Search, Clock, Home as HomeIcon } from 'lucide-react';
+import { useAuth, useClerk } from '@clerk/nextjs';
 
 interface HomeClientProps {
     initialEvents: Event[];
@@ -10,38 +11,22 @@ interface HomeClientProps {
 }
 
 export default function HomeClient({ initialEvents, initialSettings }: HomeClientProps) {
-    // We prioritize the context data if available (for client-side updates), otherwise fall back to initial props
-    // However, for the home page list, initial props are usually fresher on first load.
-    // Let's use local state initialized with props, but allow context to override if managing complex state?
-    // Simpler approach: Use local state for UI, but data from props.
-    // Actually, useApp() is good for *syncing* across pages, but typically for a public landing page, 
-    // the data needed for display is static for that session.
-    // Let's use initialProps as the primary source to ensure immediate render.
-
     const [events, setEvents] = useState<Event[]>(initialEvents);
     const [siteSettings, setSiteSettings] = useState<SiteSettings>(initialSettings);
-
-    // Optional: Sync with context if you want client-side navigation updates to reflect immediately
-    // const { events: contextEvents, siteSettings: contextSettings } = useApp();
-    // useEffect(() => { if(contextEvents.length) setEvents(contextEvents); }, [contextEvents]);
 
     const [selectedCategory, setSelectedCategory] = useState<string>('all');
     const [searchQuery, setSearchQuery] = useState('');
     const [showMenu, setShowMenu] = useState(false);
-    const [isLoggedIn, setIsLoggedIn] = useState(false);
 
-    // Check actual auth state from API
+    // Prevent hydration mismatch by waiting for client mount
+    const [mounted, setMounted] = useState(false);
     useEffect(() => {
-        const checkAuth = async () => {
-            try {
-                const res = await fetch('/api/auth/me');
-                setIsLoggedIn(res.ok);
-            } catch {
-                setIsLoggedIn(false);
-            }
-        };
-        checkAuth();
+        setMounted(true);
     }, []);
+
+    // Use Clerk's auth hooks directly
+    const { isSignedIn } = useAuth();
+    const { signOut } = useClerk();
 
     // Filter categories based on admin settings
     const categories = siteSettings.enabledCategories || ['all', 'music', 'tech', 'art', 'sports', 'food', 'gaming', 'business'];
@@ -67,6 +52,11 @@ export default function HomeClient({ initialEvents, initialSettings }: HomeClien
         if (el) el.scrollIntoView({ behavior: 'smooth' });
     };
 
+    const handleLogout = async () => {
+        await signOut({ redirectUrl: '/' });
+        setShowMenu(false);
+    };
+
     return (
         <main className="min-h-screen bg-[#0B0B0B] flex flex-col pb-20 md:pb-0">
             {/* Announcement Banner */}
@@ -74,20 +64,19 @@ export default function HomeClient({ initialEvents, initialSettings }: HomeClien
                 <div
                     className="w-full py-2.5 px-4 text-center text-sm font-medium"
                     style={{ backgroundColor: siteSettings.announcement.bgColor, color: siteSettings.announcement.textColor }}
-                >
-                    {siteSettings.announcement.message}
-                    {siteSettings.announcement.linkText && siteSettings.announcement.linkUrl && (
-                        <a href={siteSettings.announcement.linkUrl} className="ml-2 underline hover:no-underline">
-                            {siteSettings.announcement.linkText}
-                        </a>
-                    )}
-                </div>
+                    dangerouslySetInnerHTML={{
+                        __html: siteSettings.announcement.message +
+                            (siteSettings.announcement.linkText && siteSettings.announcement.linkUrl
+                                ? ` <a href="${siteSettings.announcement.linkUrl}" class="ml-2 underline hover:no-underline">${siteSettings.announcement.linkText}</a>`
+                                : '')
+                    }}
+                />
             )}
 
             {/* Floating Menu Button (Desktop Only) */}
             <div className="hidden md:block fixed bottom-6 right-6 z-50">
                 <div className={`absolute bottom-16 right-0 glass rounded-xl overflow-hidden shadow-2xl transition-all duration-300 ${showMenu ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}>
-                    {isLoggedIn && (
+                    {mounted && isSignedIn && (
                         <>
                             <a href="/checkin" className="flex items-center gap-3 px-5 py-3.5 text-zinc-300 hover:bg-white/5 hover:text-white whitespace-nowrap transition-colors">
                                 <ScanLine className="w-5 h-5" />
@@ -98,11 +87,7 @@ export default function HomeClient({ initialEvents, initialSettings }: HomeClien
                                 Dashboard
                             </a>
                             <button
-                                onClick={async () => {
-                                    await fetch('/api/auth/logout', { method: 'POST' });
-                                    setIsLoggedIn(false);
-                                    setShowMenu(false);
-                                }}
+                                onClick={handleLogout}
                                 className="flex items-center gap-3 px-5 py-3.5 text-red-400 hover:bg-red-500/10 hover:text-red-300 whitespace-nowrap border-t border-white/5 transition-colors w-full"
                             >
                                 <LogOut className="w-5 h-5" />
@@ -110,7 +95,7 @@ export default function HomeClient({ initialEvents, initialSettings }: HomeClien
                             </button>
                         </>
                     )}
-                    {!isLoggedIn && (
+                    {mounted && !isSignedIn && (
                         <a href="/login" className="flex items-center gap-3 px-5 py-3.5 text-zinc-300 hover:bg-white/5 hover:text-white whitespace-nowrap transition-colors">
                             <LogIn className="w-5 h-5" />
                             Login
@@ -168,7 +153,7 @@ export default function HomeClient({ initialEvents, initialSettings }: HomeClien
                             </button>
                         </div>
                         <div className="space-y-2">
-                            {isLoggedIn ? (
+                            {mounted && isSignedIn ? (
                                 <>
                                     <a href="/admin" className="flex items-center gap-4 p-4 bg-zinc-900 rounded-xl text-white">
                                         <LayoutDashboard className="w-5 h-5 text-[#E11D2E]" />
@@ -179,23 +164,19 @@ export default function HomeClient({ initialEvents, initialSettings }: HomeClien
                                         <span className="font-medium">Staff Check-In</span>
                                     </a>
                                     <button
-                                        onClick={async () => {
-                                            await fetch('/api/auth/logout', { method: 'POST' });
-                                            setIsLoggedIn(false);
-                                            setShowMenu(false);
-                                        }}
+                                        onClick={handleLogout}
                                         className="w-full flex items-center gap-4 p-4 bg-red-900/20 text-red-500 rounded-xl mt-4"
                                     >
                                         <LogOut className="w-5 h-5" />
                                         <span className="font-medium">Logout</span>
                                     </button>
                                 </>
-                            ) : (
+                            ) : mounted ? (
                                 <a href="/login" className="flex items-center gap-4 p-4 bg-zinc-900 rounded-xl text-white">
                                     <LogIn className="w-5 h-5 text-[#E11D2E]" />
                                     <span className="font-medium">Login</span>
                                 </a>
-                            )}
+                            ) : null}
                         </div>
                     </div>
                 </div>
