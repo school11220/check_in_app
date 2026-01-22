@@ -15,16 +15,20 @@ const FALLBACK_EVENTS: Record<string, { name: string; price: number }> = {
 const ticketOrders: Map<string, { ticketId: string; orderId: string; ticketIds?: string[] }> = new Map();
 
 // Validate Razorpay credentials on startup
-const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID;
-const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET;
+// Validate Razorpay credentials on startup
+const ENV_RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID;
+const ENV_RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET;
 
-function getRazorpayInstance() {
-    if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
-        throw new Error('RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET must be set');
+function getRazorpayInstance(keyId?: string, keySecret?: string) {
+    const finalKeyId = keyId || ENV_RAZORPAY_KEY_ID;
+    const finalKeySecret = keySecret || ENV_RAZORPAY_KEY_SECRET;
+
+    if (!finalKeyId || !finalKeySecret) {
+        throw new Error('Razorpay credentials not found');
     }
     return new Razorpay({
-        key_id: RAZORPAY_KEY_ID,
-        key_secret: RAZORPAY_KEY_SECRET,
+        key_id: finalKeyId,
+        key_secret: finalKeySecret,
     });
 }
 
@@ -84,7 +88,12 @@ export async function POST(request: NextRequest) {
 
         console.log('Creating Razorpay order with amount:', orderAmount);
 
+        // Fetch Dynamic Config
+        let razorpayKeyId = ENV_RAZORPAY_KEY_ID;
+        let razorpayKeySecret = ENV_RAZORPAY_KEY_SECRET;
+
         // Create Razorpay order with the correct total amount
+        // We use env vars directly now, removing the db-switch logic
         const razorpay = getRazorpayInstance();
         const order = await razorpay.orders.create({
             amount: orderAmount,
@@ -121,7 +130,7 @@ export async function POST(request: NextRequest) {
             orderId: order.id,
             amount: order.amount,
             currency: order.currency,
-            keyId: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || RAZORPAY_KEY_ID,
+            keyId: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || razorpayKeyId,
             quantity: quantity || 1,
         });
     } catch (error) {

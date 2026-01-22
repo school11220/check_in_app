@@ -112,11 +112,76 @@ export interface TeamMember {
     lastActive?: string;
 }
 
-export const ROLE_PERMISSIONS: Record<TeamRole, { label: string; description: string; color: string }> = {
-    admin: { label: 'Admin', description: 'Full access to all features', color: 'text-red-400' },
-    manager: { label: 'Manager', description: 'Manage events, view analytics, manage tickets', color: 'text-purple-400' },
-    staff: { label: 'Staff', description: 'View events, manage attendees', color: 'text-blue-400' },
-    scanner: { label: 'Scanner', description: 'Check-in attendees only', color: 'text-green-400' },
+export const ROLE_PERMISSIONS: Record<TeamRole, {
+    label: string;
+    description: string;
+    color: string;
+    permissions: {
+        canManageEvents: boolean;
+        canManageTickets: boolean;
+        canViewAnalytics: boolean;
+        canManageTeam: boolean;
+        canManageSettings: boolean;
+        canScanTickets: boolean;
+        canManageFinancials: boolean;
+    };
+}> = {
+    admin: {
+        label: 'Admin',
+        description: 'Full access to all features',
+        color: 'text-red-400',
+        permissions: {
+            canManageEvents: true,
+            canManageTickets: true,
+            canViewAnalytics: true,
+            canManageTeam: true,
+            canManageSettings: true,
+            canScanTickets: true,
+            canManageFinancials: true,
+        },
+    },
+    manager: {
+        label: 'Manager',
+        description: 'Manage events, view analytics, manage tickets',
+        color: 'text-purple-400',
+        permissions: {
+            canManageEvents: true,
+            canManageTickets: true,
+            canViewAnalytics: true,
+            canManageTeam: false,
+            canManageSettings: false,
+            canScanTickets: true,
+            canManageFinancials: false,
+        },
+    },
+    staff: {
+        label: 'Staff',
+        description: 'View events, manage attendees',
+        color: 'text-blue-400',
+        permissions: {
+            canManageEvents: false,
+            canManageTickets: true,
+            canViewAnalytics: false,
+            canManageTeam: false,
+            canManageSettings: false,
+            canScanTickets: true,
+            canManageFinancials: false,
+        },
+    },
+    scanner: {
+        label: 'Scanner',
+        description: 'Check-in attendees only',
+        color: 'text-green-400',
+        permissions: {
+            canManageEvents: false,
+            canManageTickets: false,
+            canViewAnalytics: false,
+            canManageTeam: false,
+            canManageSettings: false,
+            canScanTickets: true,
+            canManageFinancials: false,
+        },
+    },
 };
 
 export const DEFAULT_TEAM_MEMBERS: TeamMember[] = [];
@@ -505,7 +570,7 @@ The {{siteName}} Team`,
 export interface SurveyQuestion {
     id: string;
     question: string;
-    type: 'rating' | 'text' | 'multipleChoice';
+    type: 'rating' | 'text' | 'longText' | 'multipleChoice';
     options?: string[];
     required: boolean;
 }
@@ -633,6 +698,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
                         else setSiteSettings({ ...DEFAULT_SITE_SETTINGS, ...data });
 
                         if (data.emailTemplates) setEmailTemplates(data.emailTemplates);
+                        if (data.surveys) setSurveys(data.surveys);
                     }
                 }
             } catch (error) {
@@ -894,11 +960,37 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
     };
 
-    const addSurvey = (survey: Survey) => setSurveys([survey, ...surveys]);
-    const updateSurvey = (id: string, data: Partial<Survey>) => {
-        setSurveys(surveys.map(s => s.id === id ? { ...s, ...data } : s));
+    const persistSurveys = async (newSurveys: Survey[]) => {
+        try {
+            await fetch('/api/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    siteSettings: siteSettings,
+                    emailTemplates: emailTemplates,
+                    surveys: newSurveys
+                })
+            });
+        } catch (err) {
+            console.error('Failed to save surveys to API', err);
+        }
     };
-    const deleteSurvey = (id: string) => setSurveys(surveys.filter(s => s.id !== id));
+
+    const addSurvey = (survey: Survey) => {
+        const newSurveys = [survey, ...surveys];
+        setSurveys(newSurveys);
+        persistSurveys(newSurveys);
+    };
+    const updateSurvey = (id: string, data: Partial<Survey>) => {
+        const newSurveys = surveys.map(s => s.id === id ? { ...s, ...data } : s);
+        setSurveys(newSurveys);
+        persistSurveys(newSurveys);
+    };
+    const deleteSurvey = (id: string) => {
+        const newSurveys = surveys.filter(s => s.id !== id);
+        setSurveys(newSurveys);
+        persistSurveys(newSurveys);
+    };
     const addSurveyResponse = (response: SurveyResponse) => setSurveyResponses([response, ...surveyResponses]);
 
     // Promo Code Functions

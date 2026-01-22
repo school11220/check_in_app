@@ -260,11 +260,18 @@ export default function TicketForm() {
       });
 
       if (!orderRes.ok) {
+        // Special case for payments disabled
+        if (orderRes.status === 403) {
+          throw new Error('Payments are currently paused. Please try again later.');
+        }
+
         const errorText = await orderRes.text();
         try {
           const errorJson = JSON.parse(errorText);
           throw new Error(errorJson.error || 'Failed to create payment order');
-        } catch (e) {
+        } catch (e: any) {
+          // If we already threw above, rethrow
+          if (e.message === 'Failed to create payment order' || e.message === 'Payments are currently paused. Please try again later.') throw e;
           throw new Error(errorText || 'Failed to create payment order');
         }
       }
@@ -330,6 +337,12 @@ export default function TicketForm() {
       const razorpay = new window.Razorpay(options);
       razorpay.open();
     } catch (err: any) {
+      // Avoid console.error for expected business errors to prevent Next.js overlay
+      if (err.message === 'Payments are currently paused. Please try again later.') {
+        showToast(err.message, 'error');
+        return;
+      }
+
       console.error('Ticket purchase error:', err);
       // Check for fetch/network errors
       if (err.message && (err.message.includes('fetch') || err.message.includes('Network'))) {

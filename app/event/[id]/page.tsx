@@ -4,7 +4,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useApp, CATEGORY_COLORS, type Event } from '@/lib/store';
 import { useToast } from '@/components/Toaster';
 import { useState, useEffect } from 'react';
-import EventPolls from '@/components/EventPolls';
+
 import { Calendar, MapPin, Share2, ArrowLeft, Clock, Users, Trophy, Map, ShieldCheck, Mail, Phone, ExternalLink, Ticket, Info, Globe } from 'lucide-react';
 
 // Countdown Timer Component
@@ -713,10 +713,6 @@ END:VCALENDAR`;
                                     </div>
                                 )}
 
-                                {/* Live Polls & Q&A */}
-                                <div className="glass rounded-2xl p-6 hover-lift">
-                                    <EventPolls eventId={event.id} />
-                                </div>
                             </div>
                         )}
 

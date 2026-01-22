@@ -7,6 +7,7 @@ import { useToast } from '@/components/Toaster';
 import SessionScheduler from '@/components/admin/SessionScheduler';
 import EventIntegrations from '@/components/organizer/EventIntegrations';
 import EventAttendees from '@/components/organizer/EventAttendees';
+import { useClerk } from '@clerk/nextjs';
 
 interface Event {
     id: string;
@@ -100,9 +101,10 @@ export default function OrganizerDashboard() {
         }
     };
 
+    const { signOut } = useClerk();
+
     const handleLogout = async () => {
-        await fetch('/api/auth/logout', { method: 'POST' });
-        router.push('/login');
+        await signOut({ redirectUrl: '/login' });
     };
 
     const handleSaveEvent = async () => {

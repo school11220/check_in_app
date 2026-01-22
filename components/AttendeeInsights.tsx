@@ -119,7 +119,7 @@ export default function AttendeeInsights({ eventId }: AttendeeInsightsProps) {
                 {/* Sales Trend */}
                 <div className="bg-zinc-800/50 border border-zinc-700 rounded-xl p-4">
                     <h3 className="text-sm font-semibold text-zinc-300 mb-4">Sales Trend</h3>
-                    <div className="h-64">
+                    <div className="h-64 min-h-[256px]">
                         {analytics.salesTrendData.length > 0 ? (
                             <ResponsiveContainer width="100%" height="100%">
                                 <AreaChart data={analytics.salesTrendData}>
@@ -148,7 +148,7 @@ export default function AttendeeInsights({ eventId }: AttendeeInsightsProps) {
                 {/* Sales by Event */}
                 <div className="bg-zinc-800/50 border border-zinc-700 rounded-xl p-4">
                     <h3 className="text-sm font-semibold text-zinc-300 mb-4">Sales by Event</h3>
-                    <div className="h-64">
+                    <div className="h-64 min-h-[256px]">
                         {analytics.salesByEventData.length > 0 ? (
                             <ResponsiveContainer width="100%" height="100%">
                                 <BarChart data={analytics.salesByEventData} layout="vertical">
@@ -170,7 +170,7 @@ export default function AttendeeInsights({ eventId }: AttendeeInsightsProps) {
                 {/* Peak Booking Hours */}
                 <div className="bg-zinc-800/50 border border-zinc-700 rounded-xl p-4">
                     <h3 className="text-sm font-semibold text-zinc-300 mb-4">Peak Booking Hours</h3>
-                    <div className="h-64">
+                    <div className="h-64 min-h-[256px]">
                         <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={analytics.peakHoursData}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
@@ -188,7 +188,7 @@ export default function AttendeeInsights({ eventId }: AttendeeInsightsProps) {
                 {/* Check-in Status */}
                 <div className="bg-zinc-800/50 border border-zinc-700 rounded-xl p-4">
                     <h3 className="text-sm font-semibold text-zinc-300 mb-4">Check-in Status</h3>
-                    <div className="h-64 flex items-center justify-center">
+                    <div className="h-64 min-h-[256px] flex items-center justify-center">
                         {analytics.totalTickets > 0 ? (
                             <ResponsiveContainer width="100%" height="100%">
                                 <PieChart>

@@ -12,7 +12,8 @@ export async function GET() {
 
         return NextResponse.json({
             siteSettings: config.settings,
-            emailTemplates: config.templates
+            emailTemplates: config.templates,
+            surveys: config.surveys
         });
     } catch (error) {
         console.error('Failed to read settings:', error);
@@ -23,7 +24,7 @@ export async function GET() {
 export async function POST(request: Request) {
     try {
         const body = await request.json();
-        const { siteSettings, emailTemplates } = body;
+        const { siteSettings, emailTemplates, surveys } = body;
 
         // Need to fetch existing config first to merge if only partial data sent,
         // although currently the frontend sends everything.
@@ -34,11 +35,13 @@ export async function POST(request: Request) {
             create: {
                 id: 'default',
                 settings: siteSettings || {},
-                templates: emailTemplates || []
+                templates: emailTemplates || [],
+                surveys: surveys || []
             },
             update: {
                 settings: siteSettings || undefined,
-                templates: emailTemplates || undefined
+                templates: emailTemplates || undefined,
+                surveys: surveys || undefined
             }
         });
 

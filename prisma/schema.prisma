@@ -93,7 +93,7 @@ model Event {
 
 
   tickets     Ticket[]
-  polls       Question[]
+
   // photos      Photo[] // Removed in favor of gallery JSON
   gallery     Json     @default("[]") // Stores { imageUrl, uploaderName, caption, approved, likes }[]
   reviews     Review[]
@@ -138,28 +138,7 @@ model Ticket {
   @@index([razorpayOrderId])
 }
 
-model Question {
-  id          String   @id @default(uuid())
-  eventId     String
-  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  question    String
-  askerName   String
-  askerEmail  String?
-  type        String   @default("poll") // poll or qna
-  options     String[] // Poll options
-  votes       Int[]    // Vote counts matching options index
-  answers     Json     @default("[]") // For Q&A: {text, authorName, createdAt}[]
-  approved    Boolean  @default(false)
-  featured    Boolean  @default(false)
-  answered    Boolean  @default(false)
-  upvotes     Int      @default(0)
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
 
-  @@index([eventId])
-  @@index([approved])
-}
 
 
 
@@ -246,6 +225,7 @@ model SiteConfig {
   id        String   @id @default("default")
   settings  Json     @default("{}") // Stores SiteSettings including customPages
   templates Json     @default("[]") // Stores EmailTemplates
+  surveys   Json     @default("[]") // Stores Surveys
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

@@ -3,6 +3,7 @@ import { Inter, Space_Grotesk, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { ToastProvider } from "@/components/Toaster";
 import { AppProvider } from "@/lib/store";
+import { ClerkProvider } from "@clerk/nextjs";
 
 
 // Typography System
@@ -48,36 +49,50 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
-      <body
-        className={`
-          ${inter.variable} 
-          ${spaceGrotesk.variable} 
-          ${jetbrainsMono.variable} 
-          antialiased 
-          bg-[#0B0B0B]
-          min-h-screen 
-          selection:bg-red-500/30
-        `}
-        style={{
-          fontFamily: 'var(--font-inter), system-ui, sans-serif',
-        }}
-      >
-        {/* Ambient background glow */}
-        <div className="fixed inset-0 pointer-events-none z-0">
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(225,29,46,0.12),transparent_70%)]" />
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,rgba(20,20,20,0.8),transparent_60%)]" />
-        </div>
+    <ClerkProvider
+      appearance={{
+        variables: {
+          colorPrimary: '#E11D2E',
+          colorBackground: '#0B0B0B',
+        },
+        elements: {
+          formButtonPrimary: 'bg-red-600 hover:bg-red-700',
+          card: 'bg-zinc-900',
+        }
+      }}
+    >
+      <html lang="en" className="dark">
+        <body
+          className={`
+            ${inter.variable} 
+            ${spaceGrotesk.variable} 
+            ${jetbrainsMono.variable} 
+            antialiased 
+            bg-[#0B0B0B]
+            min-h-screen 
+            selection:bg-red-500/30
+          `}
+          style={{
+            fontFamily: 'var(--font-inter), system-ui, sans-serif',
+          }}
+        >
+          {/* Ambient background glow */}
+          <div className="fixed inset-0 pointer-events-none z-0">
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(225,29,46,0.12),transparent_70%)]" />
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,rgba(20,20,20,0.8),transparent_60%)]" />
+          </div>
 
-        <AppProvider>
+          <AppProvider>
 
-          <ToastProvider>
-            <div className="relative z-10">
-              {children}
-            </div>
-          </ToastProvider>
-        </AppProvider>
-      </body>
-    </html>
+            <ToastProvider>
+              <div className="relative z-10">
+                {children}
+              </div>
+            </ToastProvider>
+          </AppProvider>
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }
+

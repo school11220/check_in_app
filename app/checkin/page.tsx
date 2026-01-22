@@ -7,6 +7,7 @@ import QRScanner from '@/components/QRScanner';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ScanLine, LogOut, Ticket, Lock, CheckCircle, XCircle, Radio, Calendar, X } from 'lucide-react';
 import SessionScheduler from '@/components/admin/SessionScheduler';
+import { useClerk } from '@clerk/nextjs';
 
 
 function CheckinPageContent() {
@@ -15,6 +16,7 @@ function CheckinPageContent() {
   const { showToast } = useToast();
   const searchParams = useSearchParams();
   const eventId = searchParams.get('event');
+  const { signOut } = useClerk();
 
   const [showSchedule, setShowSchedule] = useState(false);
 
@@ -26,8 +28,7 @@ function CheckinPageContent() {
   const [isProcessing, setIsProcessing] = useState(false);
 
   const handleLogout = async () => {
-    await fetch('/api/auth/logout', { method: 'POST' });
-    router.push('/login');
+    await signOut({ redirectUrl: '/login' });
   };
 
   const handleScan = async (code: string) => {

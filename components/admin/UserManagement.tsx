@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Trash2, Users, UserCheck } from 'lucide-react';
+import { Plus, Trash2, Users, UserCheck, Shield, Check } from 'lucide-react';
 import { useToast } from '@/components/Toaster';
+import { ROLE_PERMISSIONS } from '@/lib/store';
 
 interface User {
     id: string;
@@ -101,79 +102,84 @@ export default function UserManagement({ events }: { events: Event[] }) {
     };
 
     return (
-        <div className="space-y-6 animate-fade-in-up">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                    <Users className="text-blue-500" />
-                    User Management
-                </h2>
-                <button
-                    onClick={() => setShowModal(true)}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 shadow-lg shadow-blue-900/20 flex items-center gap-2 w-full md:w-auto justify-center"
-                >
-                    <Plus className="w-4 h-4" /> Add User
-                </button>
+        <div className="space-y-8 animate-fade-in-up">
+            {/* User Management Section */}
+            <div className="space-y-6">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                        <Users className="text-blue-500" />
+                        User Management
+                    </h2>
+                    <button
+                        onClick={() => setShowModal(true)}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 shadow-lg shadow-blue-900/20 flex items-center gap-2 w-full md:w-auto justify-center"
+                    >
+                        <Plus className="w-4 h-4" /> Add User
+                    </button>
+                </div>
+
+                {loading ? (
+                    <div className="text-center py-10 text-zinc-500">Loading users...</div>
+                ) : (
+                    <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
+                        <div className="overflow-x-auto">
+                            <table className="w-full">
+                                <thead className="bg-zinc-800/50 border-b border-zinc-800">
+                                    <tr>
+                                        <th className="text-left py-4 px-6 text-zinc-400 font-medium text-sm whitespace-nowrap">User</th>
+                                        <th className="text-left py-4 px-6 text-zinc-400 font-medium text-sm whitespace-nowrap">Role</th>
+                                        <th className="text-left py-4 px-6 text-zinc-400 font-medium text-sm whitespace-nowrap">Assigned Events</th>
+                                        <th className="text-right py-4 px-6 text-zinc-400 font-medium text-sm whitespace-nowrap">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-zinc-800">
+                                    {users.map(user => (
+                                        <tr key={user.id} className="hover:bg-zinc-800/50 transition-colors">
+                                            <td className="py-4 px-6">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center text-zinc-300 font-bold border border-zinc-700 shrink-0">
+                                                        {user.name?.charAt(0) || 'U'}
+                                                    </div>
+                                                    <div className="min-w-0">
+                                                        <p className="text-white font-medium truncate">{user.name}</p>
+                                                        <p className="text-zinc-500 text-xs truncate">{user.email}</p>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="py-4 px-6 whitespace-nowrap">
+                                                {getRoleBadge(user.role)}
+                                            </td>
+                                            <td className="py-4 px-6">
+                                                {user.assignedEventIds.length > 0 ? (
+                                                    <div className="flex flex-wrap gap-1">
+                                                        {user.assignedEventIds.map(eid => {
+                                                            const evt = events.find(e => e.id === eid);
+                                                            return evt ? (
+                                                                <span key={eid} className="text-[10px] bg-zinc-800 text-zinc-300 px-2 py-0.5 rounded-sm whitespace-nowrap">
+                                                                    {evt.name.substring(0, 15)}...
+                                                                </span>
+                                                            ) : null;
+                                                        })}
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-zinc-600 text-xs italic">All Events (Admin)</span>
+                                                )}
+                                            </td>
+                                            <td className="py-4 px-6 text-right whitespace-nowrap">
+                                                <button onClick={() => handleDelete(user.id)} className="text-zinc-500 hover:text-red-500 transition-colors p-2">
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                )}
             </div>
 
-            {loading ? (
-                <div className="text-center py-10 text-zinc-500">Loading users...</div>
-            ) : (
-                <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
-                    <div className="overflow-x-auto">
-                        <table className="w-full">
-                            <thead className="bg-zinc-800/50 border-b border-zinc-800">
-                                <tr>
-                                    <th className="text-left py-4 px-6 text-zinc-400 font-medium text-sm whitespace-nowrap">User</th>
-                                    <th className="text-left py-4 px-6 text-zinc-400 font-medium text-sm whitespace-nowrap">Role</th>
-                                    <th className="text-left py-4 px-6 text-zinc-400 font-medium text-sm whitespace-nowrap">Assigned Events</th>
-                                    <th className="text-right py-4 px-6 text-zinc-400 font-medium text-sm whitespace-nowrap">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-zinc-800">
-                                {users.map(user => (
-                                    <tr key={user.id} className="hover:bg-zinc-800/50 transition-colors">
-                                        <td className="py-4 px-6">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center text-zinc-300 font-bold border border-zinc-700 shrink-0">
-                                                    {user.name?.charAt(0) || 'U'}
-                                                </div>
-                                                <div className="min-w-0">
-                                                    <p className="text-white font-medium truncate">{user.name}</p>
-                                                    <p className="text-zinc-500 text-xs truncate">{user.email}</p>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td className="py-4 px-6 whitespace-nowrap">
-                                            {getRoleBadge(user.role)}
-                                        </td>
-                                        <td className="py-4 px-6">
-                                            {user.assignedEventIds.length > 0 ? (
-                                                <div className="flex flex-wrap gap-1">
-                                                    {user.assignedEventIds.map(eid => {
-                                                        const evt = events.find(e => e.id === eid);
-                                                        return evt ? (
-                                                            <span key={eid} className="text-[10px] bg-zinc-800 text-zinc-300 px-2 py-0.5 rounded-sm whitespace-nowrap">
-                                                                {evt.name.substring(0, 15)}...
-                                                            </span>
-                                                        ) : null;
-                                                    })}
-                                                </div>
-                                            ) : (
-                                                <span className="text-zinc-600 text-xs italic">All Events (Admin)</span>
-                                            )}
-                                        </td>
-                                        <td className="py-4 px-6 text-right whitespace-nowrap">
-                                            <button onClick={() => handleDelete(user.id)} className="text-zinc-500 hover:text-red-500 transition-colors p-2">
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            )}
+
 
             {/* Modal - Standardized Style */}
             {showModal && (

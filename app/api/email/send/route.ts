@@ -79,22 +79,33 @@ export async function POST(request: NextRequest) {
       })
       : 'TBA';
 
-    // Load settings from JSON
+    // Load settings from Database (Prisma) to ensure we use the latest Admin edits
     let settings: any = {};
     let template: any = null;
+
     try {
-      const path = (await import('path')).default;
-      const fs = (await import('fs')).default;
-      const settingsPath = path.join(process.cwd(), 'data', 'settings.json');
-      if (fs.existsSync(settingsPath)) {
-        settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+      // Import prisma dynamically if not available globally in this scope or use the global one if imported
+      // We'll assume we need to import it or use the one we add to imports
+      const config = await import('@/lib/prisma').then(m => m.prisma.siteConfig.findUnique({
+        where: { id: 'default' }
+      }));
+
+      if (config) {
+        settings = {
+          siteSettings: config.settings,
+          emailTemplates: config.templates
+        };
+
         // Find confirmation template
         if (settings.emailTemplates) {
-          template = settings.emailTemplates.find((t: any) => t.type === 'confirmation' && t.isActive);
+          // Allow 'any' cast for the template array items as their type is JSON in Prisma
+          const templates = settings.emailTemplates as any[];
+          template = templates.find((t: any) => t.type === 'confirmation' && t.isActive);
         }
       }
     } catch (err) {
-      console.error('Failed to load settings for email:', err);
+      console.error('Failed to load settings from DB:', err);
+      // Fallback to defaults (empty settings object)
     }
 
     // Merge styles: Request > Settings > Defaults
@@ -127,7 +138,7 @@ export async function POST(request: NextRequest) {
       '{{ticketLink}}': `<a href="${ticketUrl}" style="color: ${s.accentColor}">View Ticket</a>`,
     };
 
-    let subjectLine = subject || (template ? template.subject : `🎫 Your ticket for ${eventName} - Confirmed!`);
+    let subjectLine = subject || (template ? template.subject : `Your ticket for ${eventName} - Confirmed!`);
     let bodyContent = template ? template.body : '';
 
     // Replace variables in subject
@@ -165,7 +176,7 @@ export async function POST(request: NextRequest) {
                   <tr>
                     <td style="background: ${s.accentColor}; background: linear-gradient(135deg, ${s.accentColor}, ${s.gradientColor}); padding: 30px; text-align: center;">
                        ${emailStyles?.logoUrl || siteSettings.ticketLogoUrl ? `<img src="${emailStyles?.logoUrl || siteSettings.ticketLogoUrl}" alt="Logo" style="height: 40px; margin-bottom: 10px; opacity: 0.9;">` : ''}
-                      <h1 style="color: #ffffff; margin: 0; font-size: 24px;">${template ? 'Ticket Confirmed' : '🎫 Your Ticket is Confirmed!'}</h1>
+                      <h1 style="color: #ffffff; margin: 0; font-size: 24px;">${template ? 'Ticket Confirmed' : 'Your Ticket is Confirmed!'}</h1>
                     </td>
                   </tr>
                   
@@ -267,7 +278,7 @@ export async function POST(request: NextRequest) {
     const result = await sendTransactionalEmail({
       to,
       toName: attendeeName || undefined,
-      subject: subject || `🎫 Your ticket for ${eventName} - Confirmed!`,
+      subject: subject || `Your ticket for ${eventName} - Confirmed!`,
       htmlContent: emailHtml,
       attachments: pdfBase64
         ? [
