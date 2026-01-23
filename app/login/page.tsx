@@ -30,7 +30,7 @@ export default function LoginPage() {
         setLoading(true);
 
         try {
-            // Step 1: Check if user exists in local DB and migrate to Clerk if needed
+            // Step 1: Check credentials against local database
             const legacyRes = await fetch('/api/auth/legacy-login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -39,27 +39,61 @@ export default function LoginPage() {
 
             const legacyData = await legacyRes.json();
 
-            if (!legacyRes.ok && legacyRes.status !== 404) {
-                // Password wrong or other error from legacy check
+            if (!legacyRes.ok) {
+                // Handle specific error cases
+                if (legacyData.unauthorized) {
+                    router.push('/unauthorized');
+                    return;
+                }
                 showToast(legacyData.error || 'Login failed', 'error');
                 setLoading(false);
                 return;
             }
 
-            // Step 2: Now sign in with Clerk (user should exist in Clerk now after migration)
-            const result = await signIn.create({
-                identifier: email,
-                password: password,
-            });
+            // Step 2: If Clerk auth is available, use it
+            if (legacyData.useClerkAuth) {
+                const result = await signIn.create({
+                    identifier: email,
+                    password: password,
+                });
 
-            if (result.status === 'complete') {
-                await setActive({ session: result.createdSessionId });
-                showToast('Login successful! Redirecting...', 'success');
-                router.push('/admin');
-                router.refresh();
+                if (result.status === 'complete') {
+                    await setActive({ session: result.createdSessionId });
+                    showToast('Login successful! Redirecting...', 'success');
+
+                    // Redirect based on role
+                    const role = legacyData.user?.role;
+                    if (role === 'ADMIN') {
+                        router.push('/admin');
+                    } else if (role === 'ORGANIZER') {
+                        router.push('/organizer');
+                    } else if (role === 'SCANNER') {
+                        router.push('/checkin');
+                    } else {
+                        router.push('/unauthorized');
+                    }
+                    router.refresh();
+                } else {
+                    showToast('Additional verification required', 'info');
+                }
             } else {
-                console.log('Additional steps required:', result);
-                showToast('Additional verification required', 'info');
+                // DB-only auth (short password that can't be migrated to Clerk)
+                // Store session info and redirect
+                showToast('Login successful! Redirecting...', 'success');
+
+                // Store user info in localStorage for session (temporary solution)
+                localStorage.setItem('dbUser', JSON.stringify(legacyData.user));
+
+                const role = legacyData.user?.role;
+                if (role === 'ADMIN') {
+                    router.push('/admin');
+                } else if (role === 'ORGANIZER') {
+                    router.push('/organizer');
+                } else if (role === 'SCANNER') {
+                    router.push('/checkin');
+                } else {
+                    router.push('/unauthorized');
+                }
             }
 
         } catch (error: any) {
