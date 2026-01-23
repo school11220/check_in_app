@@ -259,6 +259,9 @@ export default function AdminPage() {
                         <img src="/logo.png" alt="EventHub" className="w-12 h-12 rounded-xl shadow-lg shadow-red-900/30" />
                         <div>
                             <h1 className="font-heading text-2xl font-bold text-white">EventHub Dashboard</h1>
+                            <div className="mt-2 p-2 bg-red-900/30 border border-red-500/30 rounded text-xs font-mono text-red-200">
+                                DEBUG: Events: {events?.length || 0} | Admin: {isAdminLoggedIn ? 'Yes' : 'No'}
+                            </div>
                             <div className="flex items-center gap-4 text-sm mt-1">
                                 <span className="flex items-center gap-1.5 text-[#22C55E]"><span className="w-2 h-2 bg-[#22C55E] rounded-full animate-pulse"></span>{events.filter(e => e.isActive).length} active events</span>
                                 <span className="text-[#737373] font-mono">{dailyCheckIns} check-ins today</span>
