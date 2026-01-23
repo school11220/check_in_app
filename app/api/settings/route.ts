@@ -36,7 +36,8 @@ export async function POST(request: Request) {
                 id: 'default',
                 settings: siteSettings || {},
                 templates: emailTemplates || [],
-                surveys: surveys || []
+                surveys: surveys || [],
+                updatedAt: new Date()
             },
             update: {
                 settings: siteSettings || undefined,

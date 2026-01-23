@@ -53,7 +53,7 @@ export async function GET(
     try {
       ticket = await prisma.ticket.findUnique({
         where: { id },
-        include: { event: true },
+        include: { Event: true },
       });
       if (ticket) {
         console.log('Ticket found in database:', ticket.id);

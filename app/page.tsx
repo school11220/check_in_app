@@ -14,7 +14,7 @@ export default async function Home() {
     }),
     prisma.event.findMany({
       where: { isActive: true },
-      include: { pricingRules: true },
+      include: { PricingRule: true },
       orderBy: { date: 'asc' }
     })
   ]);

@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
             // Find one ticket to get the event details
             ticket = await prisma.ticket.findUnique({
                 where: { id: ticketId },
-                include: { event: { include: { pricingRules: true } } },
+                include: { Event: { include: { PricingRule: true } } },
             });
 
             if (ticket?.event) {

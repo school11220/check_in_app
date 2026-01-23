@@ -9,7 +9,7 @@ export async function GET() {
     }
 
     const rules = await prisma.pricingRule.findMany({
-        include: { event: { select: { name: true } } },
+        include: { Event: { select: { name: true } } },
         orderBy: { createdAt: 'desc' },
     });
 
@@ -28,12 +28,14 @@ export async function POST(request: Request) {
 
         const rule = await prisma.pricingRule.create({
             data: {
-                eventId,
+                id: crypto.randomUUID(),
+                Event: { connect: { id: eventId } },
                 triggerType, // TIME_BASED, DEMAND_BASED
                 triggerValue: Number(triggerValue),
                 adjustmentType, // PERCENTAGE, FIXED
                 adjustmentValue: Number(adjustmentValue),
                 active: true,
+                updatedAt: new Date(),
             },
         });
 

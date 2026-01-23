@@ -23,6 +23,7 @@ export default function LoginPage() {
         }
     }, [authLoaded, isSignedIn, router]);
 
+    // Pure Clerk email/password login
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!isLoaded) return;
@@ -30,78 +31,44 @@ export default function LoginPage() {
         setLoading(true);
 
         try {
-            // Step 1: Check credentials against local database
-            const legacyRes = await fetch('/api/auth/legacy-login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, password })
+            const result = await signIn.create({
+                identifier: email,
+                password: password,
             });
 
-            const legacyData = await legacyRes.json();
-
-            if (!legacyRes.ok) {
-                // Handle specific error cases
-                if (legacyData.unauthorized) {
-                    router.push('/unauthorized');
-                    return;
-                }
-                showToast(legacyData.error || 'Login failed', 'error');
-                setLoading(false);
-                return;
-            }
-
-            // Step 2: If Clerk auth is available, use it
-            if (legacyData.useClerkAuth) {
-                const result = await signIn.create({
-                    identifier: email,
-                    password: password,
-                });
-
-                if (result.status === 'complete') {
-                    await setActive({ session: result.createdSessionId });
-                    showToast('Login successful! Redirecting...', 'success');
-
-                    // Redirect based on role
-                    const role = legacyData.user?.role;
-                    if (role === 'ADMIN') {
-                        router.push('/admin');
-                    } else if (role === 'ORGANIZER') {
-                        router.push('/organizer');
-                    } else if (role === 'SCANNER') {
-                        router.push('/checkin');
-                    } else {
-                        router.push('/unauthorized');
-                    }
-                    router.refresh();
-                } else {
-                    showToast('Additional verification required', 'info');
-                }
-            } else {
-                // DB-only auth (short password that can't be migrated to Clerk)
-                // Store session info and redirect
+            if (result.status === 'complete') {
+                await setActive({ session: result.createdSessionId });
                 showToast('Login successful! Redirecting...', 'success');
 
-                // Store user info in localStorage for session (temporary solution)
-                localStorage.setItem('dbUser', JSON.stringify(legacyData.user));
-
-                const role = legacyData.user?.role;
-                if (role === 'ADMIN') {
-                    router.push('/admin');
-                } else if (role === 'ORGANIZER') {
-                    router.push('/organizer');
-                } else if (role === 'SCANNER') {
-                    router.push('/checkin');
-                } else {
-                    router.push('/unauthorized');
-                }
+                // Let middleware handle role-based redirect
+                setTimeout(() => {
+                    window.location.href = '/admin';
+                }, 500);
+            } else {
+                console.log('Sign in result:', result);
+                showToast(`Login incomplete. Status: ${result.status}`, 'info');
             }
 
         } catch (error: any) {
             console.error('Login error:', error);
             let errorMessage = error.errors?.[0]?.message || error.message || 'Login failed';
 
-            if (errorMessage.toLowerCase().includes("couldn't find") || errorMessage.toLowerCase().includes('not found')) {
-                errorMessage = "Account not found. Try 'Continue with Google' or contact admin.";
+            // Provide helpful error messages
+            // Provide helpful error messages
+            const errString = errorMessage.toLowerCase();
+            const errCode = error.errors?.[0]?.code || '';
+
+            if (
+                errString.includes("couldn't find") ||
+                errString.includes('identifier') ||
+                errCode === 'form_identifier_not_found' ||
+                errCode === 'authorization_invalid'
+            ) {
+                errorMessage = "Account not found or access denied. Please contact the administrator.";
+            } else if (errString.includes('password') || errCode === 'form_password_incorrect') {
+                errorMessage = "Invalid password. Please try again.";
+            } else if (errString.includes('too many requests')) {
+                errorMessage = "Too many attempts. Please try again later.";
             }
 
             showToast(errorMessage, 'error');
@@ -139,7 +106,7 @@ export default function LoginPage() {
 
     return (
         <main className="min-h-screen flex items-center justify-center p-4 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-zinc-900 via-[#050505] to-black">
-            {/* Background Particles/Effects */}
+            {/* Background Effects */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
                 <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-red-600/10 rounded-full blur-[100px]" />
                 <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-600/10 rounded-full blur-[100px]" />

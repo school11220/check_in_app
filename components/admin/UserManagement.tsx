@@ -39,7 +39,7 @@ export default function UserManagement({ events }: { events: Event[] }) {
 
     const fetchUsers = async () => {
         try {
-            const res = await fetch('/api/admin/users');
+            const res = await fetch('/api/admin/clerk-users');
             if (res.ok) {
                 const data = await res.json();
                 setUsers(data);
@@ -54,7 +54,7 @@ export default function UserManagement({ events }: { events: Event[] }) {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
-            const res = await fetch('/api/admin/users', {
+            const res = await fetch('/api/admin/clerk-users', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(formData),
@@ -65,7 +65,8 @@ export default function UserManagement({ events }: { events: Event[] }) {
                 fetchUsers();
                 setFormData({ name: '', email: '', password: '', role: 'SCANNER', assignedEventIds: [] });
             } else {
-                showToast('Failed to create user', 'error');
+                const data = await res.json();
+                showToast(data.error || 'Failed to create user', 'error');
             }
         } catch (error) {
             showToast('Error creating user', 'error');
@@ -75,9 +76,14 @@ export default function UserManagement({ events }: { events: Event[] }) {
     const handleDelete = async (id: string) => {
         if (!confirm('Are you sure?')) return;
         try {
-            await fetch(`/api/admin/users/${id}`, { method: 'DELETE' });
-            showToast('User deleted', 'success');
-            setUsers(users.filter(u => u.id !== id));
+            const res = await fetch(`/api/admin/clerk-users?userId=${id}`, { method: 'DELETE' });
+            if (res.ok) {
+                showToast('User deleted', 'success');
+                setUsers(users.filter(u => u.id !== id));
+            } else {
+                const data = await res.json();
+                showToast(data.error || 'Failed to delete user', 'error');
+            }
         } catch (error) {
             showToast('Error deleting user', 'error');
         }

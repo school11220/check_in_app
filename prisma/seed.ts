@@ -1,43 +1,18 @@
 
 import { PrismaClient } from '@prisma/client';
-import * as bcrypt from 'bcryptjs';
+
 
 const prisma = new PrismaClient();
 
 async function main() {
     console.log('Seeding database...');
 
-    // 1. Demo Admin
-    const demoPassword = await bcrypt.hash('demo123', 10);
-    await prisma.user.upsert({
-        where: { email: 'demo@eventhub.com' },
-        update: { password: demoPassword, role: 'ADMIN' },
-        create: {
-            email: 'demo@eventhub.com',
-            name: 'Demo Admin',
-            password: demoPassword,
-            role: 'ADMIN',
-        },
-    });
-
-    // 2. User Requested Admin
-    const adminPassword = await bcrypt.hash('admin123', 10);
-    await prisma.user.upsert({
-        where: { email: 'admin@gmail.com' },
-        update: { password: adminPassword, role: 'ADMIN' },
-        create: {
-            email: 'admin@gmail.com',
-            name: 'Main Admin',
-            password: adminPassword,
-            role: 'ADMIN',
-        },
-    });
-
     // 3. Default Events
     const existingEvents = await prisma.event.count();
     if (existingEvents === 0) {
         await prisma.event.create({
             data: {
+                id: crypto.randomUUID(),
                 name: "Tech Conference 2025",
                 description: "The biggest tech conference of the year.",
                 date: new Date('2025-06-15'),
@@ -58,30 +33,10 @@ async function main() {
                 earlyBirdPrice: 40000,
                 earlyBirdDeadline: new Date('2025-05-01').toISOString(),
                 sendReminders: true,
+                updatedAt: new Date(),
             }
         });
         console.log('Seeded default event.');
-    }
-
-    // 4. Demo Organizer
-    const event = await prisma.event.findFirst();
-    if (event) {
-        const organizerPassword = await bcrypt.hash('organizer123', 10);
-        await prisma.user.upsert({
-            where: { email: 'organizer@eventhub.com' },
-            update: {
-                password: organizerPassword,
-                role: 'ORGANIZER',
-                assignedEventIds: [event.id]
-            },
-            create: {
-                email: 'organizer@eventhub.com',
-                name: 'Demo Organizer',
-                password: organizerPassword,
-                role: 'ORGANIZER',
-                assignedEventIds: [event.id]
-            },
-        });
     }
 
     console.log('Seed completed successfully.');

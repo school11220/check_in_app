@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
         try {
             ticket = await prisma.ticket.findUnique({
                 where: { id: ticketId },
-                include: { event: true },
+                include: { Event: true },
             });
         } catch (e) {
             console.log('Database not available, checking memory storage');

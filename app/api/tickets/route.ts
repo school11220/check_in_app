@@ -79,12 +79,14 @@ export async function POST(req: NextRequest) {
 
       const ticket = await prisma.ticket.create({
         data: {
+          id: crypto.randomUUID(),
           name: attendee.name,
           email: attendee.email || body.email || null,
           phone: attendee.phone || body.phone || null,
-          eventId: body.eventId,
+          Event: { connect: { id: body.eventId } },
           status: 'pending',
           customAnswers: body.customAnswers || {},
+          updatedAt: new Date(),
         },
       });
 
@@ -120,7 +122,7 @@ export async function GET(req: NextRequest) {
     try {
       tickets = await prisma.ticket.findMany({
         where: eventId ? { eventId } : {},
-        include: { event: true },
+        include: { Event: true },
         orderBy: { createdAt: 'desc' },
       });
     } catch (e) {

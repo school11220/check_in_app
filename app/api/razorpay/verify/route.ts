@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
             // First try to find the ticket
             const existingTicket = await prisma.ticket.findUnique({
                 where: { id: ticketId },
-                include: { event: true },
+                include: { Event: true },
             });
 
             if (existingTicket) {
@@ -68,9 +68,9 @@ export async function POST(request: NextRequest) {
                         razorpayOrderId: razorpay_order_id,
                         token: token,
                     },
-                    include: { event: true },
+                    include: { Event: true },
                 });
-                amountPaid = ticketData.event?.price || 0;
+                amountPaid = ticketData.Event?.price || 0;
                 console.log('Ticket updated in database:', ticketId);
             } else {
                 // Ticket doesn't exist in DB - check in-memory and create in DB
@@ -88,15 +88,16 @@ export async function POST(request: NextRequest) {
                             name: memoryTicket.name || name || 'Guest',
                             email: memoryTicket.email || email,
                             phone: memoryTicket.phone || null,
-                            eventId: memoryTicket.eventId,
+                            Event: { connect: { id: memoryTicket.eventId } },
                             status: 'paid',
                             razorpayPaymentId: razorpay_payment_id,
                             razorpayOrderId: razorpay_order_id,
                             token: token,
+                            updatedAt: new Date(),
                         },
-                        include: { event: true },
+                        include: { Event: true },
                     });
-                    amountPaid = ticketData.event?.price || 0;
+                    amountPaid = ticketData.Event?.price || 0;
                     console.log('Ticket created in database from memory:', ticketId);
                     // Clean up memory storage
                     ticketStorage.delete(ticketId);

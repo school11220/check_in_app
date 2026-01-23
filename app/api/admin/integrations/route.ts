@@ -83,11 +83,13 @@ export async function POST(request: Request) {
         const integration = await prisma.integration.upsert({
             where: { provider },
             create: {
+                id: crypto.randomUUID(),
                 provider,
                 name,
                 type,
                 isEnabled: isEnabled ?? false,
-                config: finalConfig
+                config: finalConfig,
+                updatedAt: new Date()
             },
             update: {
                 isEnabled: isEnabled,

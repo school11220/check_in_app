@@ -28,7 +28,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "EventHub | Secure Check-In System",
+  title: "EventHub",
   description: "Secure event ticketing with QR code verification and instant check-in. Powered by EventHub.",
   keywords: ["event", "ticketing", "check-in", "QR code", "tickets"],
   authors: [{ name: "Event Ticketing" }],
@@ -37,7 +37,7 @@ export const metadata: Metadata = {
     apple: "/favicon.png",
   },
   openGraph: {
-    title: "Event Ticketing | Secure Check-In System",
+    title: "EventHub",
     description: "Secure event ticketing with QR code verification and instant check-in",
     type: "website",
   },

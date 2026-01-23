@@ -44,6 +44,7 @@ export async function logAudit({
     try {
         await prisma.auditLog.create({
             data: {
+                id: crypto.randomUUID(),
                 action,
                 resource,
                 resourceId,

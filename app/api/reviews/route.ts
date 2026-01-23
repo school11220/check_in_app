@@ -25,7 +25,8 @@ export async function POST(request: NextRequest) {
 
         const review = await prisma.review.create({
             data: {
-                eventId,
+                id: crypto.randomUUID(),
+                Event: { connect: { id: eventId } },
                 userName,
                 rating,
                 comment,

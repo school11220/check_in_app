@@ -20,7 +20,7 @@ export async function GET() {
 
         const sessions = await prisma.session.findMany({
             include: {
-                event: {
+                Event: {
                     select: {
                         name: true,
                         id: true

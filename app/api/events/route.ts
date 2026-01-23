@@ -7,7 +7,7 @@ import { logAudit } from '@/lib/logger';
 export async function GET() {
     try {
         const events = await prisma.event.findMany({
-            include: { pricingRules: true },
+            include: { PricingRule: true },
             orderBy: { date: 'asc' },
         });
 

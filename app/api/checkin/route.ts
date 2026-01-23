@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
     // Fetch ticket from database with event details
     const ticket = await prisma.ticket.findUnique({
       where: { id: ticketId },
-      include: { event: true },
+      include: { Event: true },
     });
 
     if (!ticket) {
@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
             eventId: ticket.eventId,
             checkedIn: ticket.checkedIn,
             event: {
-              name: ticket.event.name
+              name: ticket.Event.name
             }
           }
         },
@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
     const updatedTicket = await prisma.ticket.update({
       where: { id: ticketId },
       data: { checkedIn: true },
-      include: { event: true },
+      include: { Event: true },
     });
 
     return NextResponse.json<CheckInResponse>({
@@ -95,7 +95,7 @@ export async function POST(req: NextRequest) {
         eventId: updatedTicket.eventId,
         checkedIn: updatedTicket.checkedIn,
         event: {
-          name: updatedTicket.event.name
+          name: updatedTicket.Event.name
         }
       },
     });

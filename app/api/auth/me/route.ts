@@ -19,19 +19,8 @@ export async function GET() {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        // Try to get additional info from our database
-        let assignedEventIds: string[] = [];
-        try {
-            const dbUser = await prisma.user.findUnique({
-                where: { id: userId },
-                select: { assignedEventIds: true }
-            });
-            if (dbUser) {
-                assignedEventIds = dbUser.assignedEventIds || [];
-            }
-        } catch (e) {
-            // User might not exist in DB yet, that's okay
-        }
+        // Get additional info from Clerk metadata
+        const assignedEventIds = (clerkUser.publicMetadata?.assignedEventIds as string[]) || [];
 
         return NextResponse.json({
             id: userId,

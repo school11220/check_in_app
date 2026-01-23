@@ -8,7 +8,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         const { id } = await params;
         const event = await prisma.event.findUnique({
             where: { id },
-            include: { pricingRules: true },
+            include: { PricingRule: true },
         });
 
         if (!event) {
