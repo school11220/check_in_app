@@ -21,12 +21,24 @@ import SessionScheduler from '@/components/admin/SessionScheduler';
 import RegistrationFormBuilder from '@/components/admin/RegistrationFormBuilder';
 import LayoutManager from '@/components/admin/LayoutManager';
 import RichTextEditor from '@/components/admin/RichTextEditor';
-import { useClerk } from '@clerk/nextjs';
+import { useClerk, useUser } from '@clerk/nextjs';
+import { useDraggable } from '@/hooks/useDraggable';
 
 export default function AdminPage() {
     const router = useRouter();
-    const { events, tickets, teamMembers, siteSettings, festivals, emailTemplates, surveys, promoCodes, waitlist, addEvent, updateEvent, deleteEvent, duplicateEvent, addTicket, updateTicket, deleteTicket, addTeamMember, updateTeamMember, removeTeamMember, updateSiteSettings, addFestival, updateFestival, deleteFestival, updateEmailTemplate, addSurvey, updateSurvey, deleteSurvey, addPromoCode, updatePromoCode, deletePromoCode, addToWaitlist, removeFromWaitlist, notifyWaitlist } = useApp();
+    const { user } = useUser();
+    const { events: allEvents, tickets, teamMembers, siteSettings, festivals, emailTemplates, surveys, promoCodes, waitlist, addEvent, updateEvent, deleteEvent, duplicateEvent, addTicket, updateTicket, deleteTicket, addTeamMember, updateTeamMember, removeTeamMember, updateSiteSettings, addFestival, updateFestival, deleteFestival, updateEmailTemplate, addSurvey, updateSurvey, deleteSurvey, addPromoCode, updatePromoCode, deletePromoCode, addToWaitlist, removeFromWaitlist, notifyWaitlist } = useApp();
+
+    // Filter events based on role
+    const role = (user?.publicMetadata?.role as string) || 'UNAUTHORIZED';
+    const assignedIds = (user?.publicMetadata?.assignedEventIds as string[]) || [];
+
+    const events = (role === 'ADMIN')
+        ? allEvents
+        : allEvents.filter(e => assignedIds.includes(e.id));
+
     const { showToast } = useToast();
+    const { ref: scrollRef, events: dragEvents, isDragging } = useDraggable();
 
     const [activeTab, setActiveTab] = useState<'overview' | 'events' | 'attendees' | 'team' | 'festivals' | 'emails' | 'surveys' | 'settings' | 'layout' | 'growth' | 'analytics' | 'history' | 'certificates' | 'sessions' | 'tickets' | 'audit' | 'integrations' | 'sales' | 'pages' | 'theme'>('overview');
     const [sessionEventId, setSessionEventId] = useState<string>('');
@@ -279,8 +291,11 @@ export default function AdminPage() {
                 </div>
 
                 {/* Tabs */}
-                {/* Tabs */}
-                <div className="flex gap-2 mb-6 sm:mb-8 overflow-x-auto pb-2 scrollbar-hide scroll-smooth-mobile -mx-4 px-4 sm:mx-0 sm:px-0">
+                <div
+                    {...dragEvents}
+                    ref={scrollRef}
+                    className={`flex gap-2 mb-6 sm:mb-8 overflow-x-auto pb-2 scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0 cursor-grab active:cursor-grabbing ${isDragging ? 'pointer-events-none' : ''}`}
+                >
                     {[
                         { id: 'overview', label: 'Overview', icon: LayoutDashboard },
                         { id: 'events', label: 'Events', icon: Calendar },

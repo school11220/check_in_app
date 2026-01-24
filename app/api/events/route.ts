@@ -4,6 +4,8 @@ import { calculateDynamicPrice } from '@/lib/pricing';
 import { getSession } from '@/lib/auth';
 import { logAudit } from '@/lib/logger';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
     try {
         const events = await prisma.event.findMany({
