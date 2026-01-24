@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
+import { randomUUID } from 'crypto';
 import { prisma } from '@/lib/prisma';
 import { getSession } from '@/lib/auth';
+
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
     const session = await getSession();
@@ -13,7 +16,13 @@ export async function GET() {
         orderBy: { createdAt: 'desc' },
     });
 
-    return NextResponse.json(rules);
+    // Map Prisma Relation 'Event' to frontend expectation 'event'
+    const formattedRules = rules.map(r => ({
+        ...r,
+        event: r.Event
+    }));
+
+    return NextResponse.json(formattedRules);
 }
 
 export async function POST(request: Request) {
@@ -28,18 +37,24 @@ export async function POST(request: Request) {
 
         const rule = await prisma.pricingRule.create({
             data: {
-                id: crypto.randomUUID(),
+                id: randomUUID(),
                 Event: { connect: { id: eventId } },
-                triggerType, // TIME_BASED, DEMAND_BASED
+                triggerType,
                 triggerValue: Number(triggerValue),
-                adjustmentType, // PERCENTAGE, FIXED
+                adjustmentType,
                 adjustmentValue: Number(adjustmentValue),
                 active: true,
                 updatedAt: new Date(),
             },
+            include: {
+                Event: { select: { name: true } }
+            }
         });
 
-        return NextResponse.json(rule);
+        return NextResponse.json({
+            ...rule,
+            event: rule.Event
+        });
     } catch (error) {
         return NextResponse.json({ error: 'Failed to create rule' }, { status: 500 });
     }

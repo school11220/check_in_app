@@ -23,18 +23,24 @@ export async function POST(request: Request) {
         const body = await request.json();
         const { email, password, name, role, assignedEventIds } = body;
 
-        if (!email || !password || !role) {
-            return NextResponse.json({ error: 'Email, password, and role are required' }, { status: 400 });
-        }
-
-        if (password.length < 8) {
-            return NextResponse.json({ error: 'Password must be at least 8 characters' }, { status: 400 });
+        if (!email || !role) {
+            return NextResponse.json({ error: 'Email and role are required' }, { status: 400 });
         }
 
         // Check if user already exists in Clerk
         const existingUsers = await client.users.getUserList({ emailAddress: [email] });
+
         if (existingUsers.data.length > 0) {
             // Update existing user's role
+            // Only update password if provided
+            if (password && password.length >= 8) {
+                await client.users.updateUser(existingUsers.data[0].id, {
+                    password: password
+                });
+            } else if (password && password.length < 8) {
+                return NextResponse.json({ error: 'Password must be at least 8 characters' }, { status: 400 });
+            }
+
             await client.users.updateUser(existingUsers.data[0].id, {
                 publicMetadata: { role, assignedEventIds: assignedEventIds || [] }
             });
@@ -43,6 +49,15 @@ export async function POST(request: Request) {
                 message: 'User role updated',
                 userId: existingUsers.data[0].id
             });
+        }
+
+        // New User Validation
+        if (!password) {
+            return NextResponse.json({ error: 'Password is required for new users' }, { status: 400 });
+        }
+
+        if (password.length < 8) {
+            return NextResponse.json({ error: 'Password must be at least 8 characters' }, { status: 400 });
         }
 
         // Generate unique username

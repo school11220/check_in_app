@@ -23,6 +23,7 @@ export default function UserManagement({ events }: { events: Event[] }) {
     const [users, setUsers] = useState<User[]>([]);
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
+    const [isEditing, setIsEditing] = useState(false);
     const { showToast } = useToast();
 
     const [formData, setFormData] = useState({
@@ -51,6 +52,18 @@ export default function UserManagement({ events }: { events: Event[] }) {
         }
     };
 
+    const handleEdit = (user: User) => {
+        setFormData({
+            name: user.name,
+            email: user.email,
+            password: '', // Leave empty to keep existing
+            role: user.role,
+            assignedEventIds: user.assignedEventIds || [],
+        });
+        setIsEditing(true);
+        setShowModal(true);
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
@@ -60,16 +73,17 @@ export default function UserManagement({ events }: { events: Event[] }) {
                 body: JSON.stringify(formData),
             });
             if (res.ok) {
-                showToast('User created successfully', 'success');
+                showToast(isEditing ? 'User updated successfully' : 'User created successfully', 'success');
                 setShowModal(false);
                 fetchUsers();
                 setFormData({ name: '', email: '', password: '', role: 'SCANNER', assignedEventIds: [] });
+                setIsEditing(false);
             } else {
                 const data = await res.json();
-                showToast(data.error || 'Failed to create user', 'error');
+                showToast(data.error || 'Operation failed', 'error');
             }
         } catch (error) {
-            showToast('Error creating user', 'error');
+            showToast('Error processing request', 'error');
         }
     };
 
@@ -118,7 +132,11 @@ export default function UserManagement({ events }: { events: Event[] }) {
                         User Management
                     </h2>
                     <button
-                        onClick={() => setShowModal(true)}
+                        onClick={() => {
+                            setFormData({ name: '', email: '', password: '', role: 'SCANNER', assignedEventIds: [] });
+                            setIsEditing(false);
+                            setShowModal(true);
+                        }}
                         className="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 shadow-lg shadow-blue-900/20 flex items-center gap-2 w-full md:w-auto justify-center"
                     >
                         <Plus className="w-4 h-4" /> Add User
@@ -169,13 +187,20 @@ export default function UserManagement({ events }: { events: Event[] }) {
                                                         })}
                                                     </div>
                                                 ) : (
-                                                    <span className="text-zinc-600 text-xs italic">All Events (Admin)</span>
+                                                    <span className="text-zinc-600 text-xs italic">
+                                                        {user.role === 'ADMIN' ? 'All Events (Admin)' : 'No assigned events'}
+                                                    </span>
                                                 )}
                                             </td>
                                             <td className="py-4 px-6 text-right whitespace-nowrap">
-                                                <button onClick={() => handleDelete(user.id)} className="text-zinc-500 hover:text-red-500 transition-colors p-2">
-                                                    <Trash2 className="w-4 h-4" />
-                                                </button>
+                                                <div className="flex items-center justify-end gap-2">
+                                                    <button onClick={() => handleEdit(user)} className="text-zinc-500 hover:text-blue-500 transition-colors p-2">
+                                                        <UserCheck className="w-4 h-4" />
+                                                    </button>
+                                                    <button onClick={() => handleDelete(user.id)} className="text-zinc-500 hover:text-red-500 transition-colors p-2">
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                </div>
                                             </td>
                                         </tr>
                                     ))}
@@ -192,7 +217,7 @@ export default function UserManagement({ events }: { events: Event[] }) {
             {showModal && (
                 <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
                     <div className="bg-zinc-900 border border-zinc-700 w-full max-w-lg rounded-2xl p-6 animate-scale-in max-h-[90vh] overflow-y-auto shadow-2xl">
-                        <h3 className="text-xl font-bold text-white mb-6">Add New User</h3>
+                        <h3 className="text-xl font-bold text-white mb-6">{isEditing ? 'Edit User' : 'Add New User'}</h3>
                         <form onSubmit={handleSubmit} className="space-y-4">
                             <div>
                                 <label className="block text-sm text-zinc-400 mb-1">Full Name</label>
@@ -212,16 +237,19 @@ export default function UserManagement({ events }: { events: Event[] }) {
                                     value={formData.email}
                                     onChange={e => setFormData({ ...formData, email: e.target.value })}
                                     required
+                                    disabled={isEditing} // Email is key, probably shouldn't edit freely? Or API allows it? API uses email to find user. Disable for now.
                                 />
+                                {isEditing && <p className="text-xs text-zinc-600 mt-1">Email cannot be changed.</p>}
                             </div>
                             <div>
-                                <label className="block text-sm text-zinc-400 mb-1">Password</label>
+                                <label className="block text-sm text-zinc-400 mb-1">Password {isEditing && '(Leave blank to keep current)'}</label>
                                 <input
                                     type="password"
                                     className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-white placeholder-zinc-600 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
                                     value={formData.password}
                                     onChange={e => setFormData({ ...formData, password: e.target.value })}
-                                    required
+                                    required={!isEditing}
+                                    minLength={8}
                                 />
                             </div>
                             <div>
@@ -261,7 +289,9 @@ export default function UserManagement({ events }: { events: Event[] }) {
 
                             <div className="flex gap-3 mt-6">
                                 <button type="button" onClick={() => setShowModal(false)} className="flex-1 py-3 bg-zinc-800 text-zinc-300 rounded-xl font-medium hover:bg-zinc-700 border border-zinc-700">Cancel</button>
-                                <button type="submit" className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700">Create User</button>
+                                <button type="submit" className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700">
+                                    {isEditing ? 'Update User' : 'Create User'}
+                                </button>
                             </div>
                         </form>
                     </div>

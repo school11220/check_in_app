@@ -12,7 +12,7 @@ interface PricingRule {
     adjustmentType: 'PERCENTAGE' | 'FIXED';
     adjustmentValue: number;
     active: boolean;
-    event: { name: string };
+    event?: { name: string };
 }
 
 interface Event {
@@ -117,7 +117,7 @@ export default function PricingRules({ events }: { events: Event[] }) {
                             </button>
 
                             <div className="badge bg-zinc-800 text-zinc-400 text-xs px-3 py-1 rounded-full w-fit mb-3 border border-zinc-700">
-                                {rule.event.name}
+                                {rule.event && rule.event.name ? rule.event.name : 'Unknown Event'}
                             </div>
 
                             <div className="flex items-start gap-3 mb-4">

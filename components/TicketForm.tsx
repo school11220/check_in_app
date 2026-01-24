@@ -633,7 +633,7 @@ export default function TicketForm() {
             </div>
 
             {/* Custom Registration Questions */}
-            {selectedEventData?.registrationFields && selectedEventData.registrationFields.length > 0 && (
+            {selectedEventData?.registrationFields && selectedEventData.registrationFields.filter((f: any) => f.label && f.label.trim() !== '').length > 0 && (
               <div className="space-y-4 pt-4 border-t border-[#1F1F1F]">
                 <label className="block text-sm font-semibold text-[#B3B3B3]">
                   Additional Information
