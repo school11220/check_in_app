@@ -4,7 +4,7 @@ import { getSession } from '@/lib/auth';
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
     const session = await getSession();
-    if (!session || (session.user.role !== 'ADMIN' && session.user.role !== 'ORGANIZER')) {
+    if (!session || (session.user.role !== 'ADMIN' && session.user.role !== 'ORGANIZER' && session.user.role !== 'ORGANISER')) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -19,7 +19,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
     const session = await getSession();
-    if (!session || (session.user.role !== 'ADMIN' && session.user.role !== 'ORGANIZER')) {
+    if (!session || (session.user.role !== 'ADMIN' && session.user.role !== 'ORGANIZER' && session.user.role !== 'ORGANISER')) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

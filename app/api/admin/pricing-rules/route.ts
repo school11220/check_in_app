@@ -4,7 +4,7 @@ import { getSession } from '@/lib/auth';
 
 export async function GET() {
     const session = await getSession();
-    if (!session || (session.user.role !== 'ADMIN' && session.user.role !== 'ORGANIZER')) {
+    if (!session || (session.user.role !== 'ADMIN' && session.user.role !== 'ORGANIZER' && session.user.role !== 'ORGANISER')) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -18,7 +18,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
     const session = await getSession();
-    if (!session || (session.user.role !== 'ADMIN' && session.user.role !== 'ORGANIZER')) {
+    if (!session || (session.user.role !== 'ADMIN' && session.user.role !== 'ORGANIZER' && session.user.role !== 'ORGANISER')) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

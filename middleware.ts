@@ -51,14 +51,14 @@ export default clerkMiddleware(async (auth, request) => {
     // If logged in and on login/unauthorized page, redirect to dashboard
     if (isLoginRoute(request) || isUnauthorizedRoute(request)) {
         if (role === 'ADMIN') return NextResponse.redirect(new URL('/admin', request.url));
-        if (role === 'ORGANIZER') return NextResponse.redirect(new URL('/organizer', request.url));
+        if (role === 'ORGANIZER' || role === 'ORGANISER') return NextResponse.redirect(new URL('/organizer', request.url));
         return NextResponse.redirect(new URL('/checkin', request.url));
     }
 
     // Role-based access control
     if (isAdminRoute(request)) {
         if (role !== 'ADMIN') {
-            if (role === 'ORGANIZER') {
+            if (role === 'ORGANIZER' || role === 'ORGANISER') {
                 return NextResponse.redirect(new URL('/organizer', request.url));
             }
             return NextResponse.redirect(new URL('/checkin', request.url));
@@ -66,7 +66,7 @@ export default clerkMiddleware(async (auth, request) => {
     }
 
     if (isOrganizerRoute(request)) {
-        if (role !== 'ADMIN' && role !== 'ORGANIZER') {
+        if (role !== 'ADMIN' && role !== 'ORGANIZER' && role !== 'ORGANISER') {
             return NextResponse.redirect(new URL('/checkin', request.url));
         }
     }

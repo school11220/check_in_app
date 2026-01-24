@@ -32,7 +32,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         const { id } = await params;
 
         // Check permissions: Admin can edit any, Organizer can only edit assigned
-        if (session.user.role === 'ORGANIZER') {
+        if (session.user.role === 'ORGANIZER' || session.user.role === 'ORGANISER') {
             const assignedIds = session.user.assignedEventIds || [];
             if (!assignedIds.includes(id)) {
                 return NextResponse.json({ error: 'Forbidden: Not assigned to this event' }, { status: 403 });

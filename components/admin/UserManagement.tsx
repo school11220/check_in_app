@@ -101,7 +101,8 @@ export default function UserManagement({ events }: { events: Event[] }) {
     const getRoleBadge = (role: string) => {
         switch (role) {
             case 'ADMIN': return <span className="bg-red-900/30 text-red-400 text-xs px-2 py-1 rounded border border-red-900/50">Admin</span>;
-            case 'ORGANIZER': return <span className="bg-purple-900/30 text-purple-400 text-xs px-2 py-1 rounded border border-purple-900/50">Organizer</span>;
+            case 'ORGANIZER':
+            case 'ORGANISER': return <span className="bg-purple-900/30 text-purple-400 text-xs px-2 py-1 rounded border border-purple-900/50">Organizer</span>;
             case 'SCANNER': return <span className="bg-green-900/30 text-green-400 text-xs px-2 py-1 rounded border border-green-900/50">Scanner</span>;
             default: return <span className="bg-zinc-800 text-zinc-400 text-xs px-2 py-1 rounded">User</span>;
         }
