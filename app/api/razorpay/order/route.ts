@@ -38,6 +38,16 @@ export async function POST(request: NextRequest) {
         const body = await request.json();
         const { ticketId, ticketIds, amount, quantity } = body;
 
+        // Check Global Sales Pause
+        const siteConfig = await prisma.siteConfig.findUnique({ where: { id: 'default' } });
+        const settings = siteConfig?.settings as any;
+        if (settings?.globalSalesPaused) {
+            return NextResponse.json(
+                { error: 'Ticket sales are currently paused globally.' },
+                { status: 403 }
+            );
+        }
+
         console.log('Razorpay order request:', { ticketId, ticketIds, amount, quantity });
 
         // Use the amount passed from frontend if available (for multi-ticket support)

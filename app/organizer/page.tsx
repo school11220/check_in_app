@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Calendar, Users, BarChart3, LogOut, Globe, Edit3, Save, Loader2, LayoutDashboard, Home, Ticket, CheckCircle, Power, Play, Pause, AlertTriangle } from 'lucide-react';
+import { Calendar, Users, BarChart3, LogOut, Globe, Edit3, Save, Loader2, LayoutDashboard, Home, Ticket, CheckCircle, Power, Play, Pause, AlertTriangle, History } from 'lucide-react';
 import { useToast } from '@/components/Toaster';
 import SessionScheduler from '@/components/admin/SessionScheduler';
 import EventIntegrations from '@/components/organizer/EventIntegrations';
@@ -37,7 +37,7 @@ interface User {
     assignedEventIds: string[];
 }
 
-type TabId = 'overview' | 'events' | 'edit' | 'schedule' | 'attendees' | 'integrations' | 'sales';
+type TabId = 'overview' | 'events' | 'edit' | 'schedule' | 'attendees' | 'integrations' | 'sales' | 'history';
 
 export default function OrganizerDashboard() {
     const router = useRouter();
@@ -143,6 +143,7 @@ export default function OrganizerDashboard() {
         { id: 'schedule' as TabId, label: 'Schedule', icon: Calendar },
         { id: 'sales' as TabId, label: 'Sales', icon: Power },
         { id: 'attendees' as TabId, label: 'Attendees', icon: Users },
+        { id: 'history' as TabId, label: 'History', icon: History },
         { id: 'integrations' as TabId, label: 'Integrations', icon: Globe },
     ];
 
@@ -615,6 +616,23 @@ export default function OrganizerDashboard() {
                                     <span className={`text-sm font-medium ${selectedEvent.isActive ? 'text-white' : 'text-[#737373]'}`}>Active</span>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* History Tab */}
+                {activeTab === 'history' && (
+                    <div className="bg-[#141414] border border-[#1F1F1F] rounded-2xl p-6">
+                        <div className="text-center py-20">
+                            <div className="w-16 h-16 bg-[#1A1A1A] rounded-2xl flex items-center justify-center mx-auto mb-4 border border-[#1F1F1F]">
+                                <History className="w-8 h-8 text-[#E11D2E]" />
+                            </div>
+                            <h3 className="text-xl font-bold text-white mb-2">Activity History</h3>
+                            <p className="text-[#737373] max-w-sm mx-auto">
+                                View log of check-ins, ticket sales, and event updates.
+                                <br />
+                                <span className="text-sm text-[#555] mt-2 block">(Feature logged for V2)</span>
+                            </p>
                         </div>
                     </div>
                 )}

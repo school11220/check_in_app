@@ -683,24 +683,7 @@ END:VCALENDAR`;
 
 
 
-                                {/* Event Reminders */}
-                                <div className="glass rounded-2xl p-5 hover-lift">
-                                    <h4 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
-                                        <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                                        </svg>
-                                        Get Reminders
-                                    </h4>
-                                    <p className="text-sm text-zinc-400 mb-4">
-                                        We'll remind you 24 hours before the event starts.
-                                    </p>
-                                    <button
-                                        onClick={() => showToast('Reminder set for 24h before event!', 'success')}
-                                        className="w-full py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl text-sm font-medium transition-colors border border-zinc-700 hover:border-zinc-600"
-                                    >
-                                        Notify Me
-                                    </button>
-                                </div>
+
 
                                 {/* Terms */}
                                 {event.termsAndConditions && (

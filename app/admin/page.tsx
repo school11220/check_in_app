@@ -315,8 +315,6 @@ export default function AdminPage() {
                         { id: 'history', label: 'History', icon: History },
                         { id: 'sales', label: 'Sales Control', icon: Power },
                         { id: 'pages', label: 'Pages', icon: FileText },
-                        { id: 'theme', label: 'Theme', icon: Palette },
-                        { id: 'settings', label: 'Settings', icon: Settings },
                     ].map(tab => {
                         const Icon = tab.icon;
                         return (
@@ -2555,9 +2553,9 @@ export default function AdminPage() {
 
                                 <div className="space-y-3">
                                     {events.map(event => (
-                                        <div key={event.id} className="flex items-center justify-between p-4 bg-zinc-800/50 rounded-xl">
+                                        <div key={event.id} className={`flex items-center justify-between p-4 rounded-xl border ${siteSettings.globalSalesPaused ? 'bg-zinc-900 border-red-500/20 opacity-75' : 'bg-zinc-800/50 border-transparent'}`}>
                                             <div className="flex items-center gap-3">
-                                                <div className={`w-3 h-3 rounded-full ${event.isActive ? 'bg-green-500' : 'bg-red-500'}`} />
+                                                <div className={`w-3 h-3 rounded-full ${event.isActive && !siteSettings.globalSalesPaused ? 'bg-green-500' : 'bg-red-500'}`} />
                                                 <div>
                                                     <p className="font-medium text-white">{event.name}</p>
                                                     <p className="text-xs text-zinc-500">
@@ -2566,8 +2564,8 @@ export default function AdminPage() {
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-3">
-                                                <span className={`text-xs font-medium ${event.isActive ? 'text-green-400' : 'text-red-400'}`}>
-                                                    {event.isActive ? 'ON SALE' : 'PAUSED'}
+                                                <span className={`text-xs font-medium ${event.isActive && !siteSettings.globalSalesPaused ? 'text-green-400' : 'text-red-400'}`}>
+                                                    {siteSettings.globalSalesPaused ? 'PAUSED (GLOBAL)' : (event.isActive ? 'ON SALE' : 'PAUSED')}
                                                 </span>
                                                 <button
                                                     onClick={async () => {
@@ -2813,197 +2811,11 @@ export default function AdminPage() {
                 }
 
                 {/* Theme Builder */}
-                {
-                    activeTab === 'theme' && (
-                        <div className="space-y-6">
-                            <div className="flex justify-between items-center">
-                                <div>
-                                    <h2 className="text-xl font-semibold text-white flex items-center gap-2">
-                                        <Palette className="w-6 h-6 text-red-500" />
-                                        Theme Builder
-                                    </h2>
-                                    <p className="text-zinc-400 text-sm">Customize colors, fonts, and styling</p>
-                                </div>
-                                <button
-                                    onClick={() => {
-                                        updateSiteSettings({ theme: DEFAULT_THEME });
-                                        showToast('Theme reset to defaults', 'success');
-                                    }}
-                                    className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-xl text-sm"
-                                >
-                                    Reset to Default
-                                </button>
-                            </div>
 
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                {/* Color Settings */}
-                                <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
-                                    <h3 className="text-lg font-medium text-white mb-4">Color Palette</h3>
-                                    <div className="space-y-4">
-                                        {[
-                                            { key: 'primaryColor', label: 'Primary Color', desc: 'Buttons, links, accents' },
-                                            { key: 'secondaryColor', label: 'Secondary Color', desc: 'Hover states, gradients' },
-                                            { key: 'backgroundColor', label: 'Background', desc: 'Page background' },
-                                            { key: 'cardBackground', label: 'Card Background', desc: 'Cards, panels' },
-                                            { key: 'textColor', label: 'Text Color', desc: 'Primary text' },
-                                            { key: 'mutedTextColor', label: 'Muted Text', desc: 'Secondary text' },
-                                            { key: 'borderColor', label: 'Border Color', desc: 'Borders, dividers' },
-                                        ].map(item => (
-                                            <div key={item.key} className="flex items-center justify-between">
-                                                <div>
-                                                    <p className="text-sm font-medium text-white">{item.label}</p>
-                                                    <p className="text-xs text-zinc-500">{item.desc}</p>
-                                                </div>
-                                                <div className="flex items-center gap-2">
-                                                    <input
-                                                        type="color"
-                                                        value={(siteSettings.theme as any)[item.key]}
-                                                        onChange={(e) => updateSiteSettings({
-                                                            theme: { ...siteSettings.theme, [item.key]: e.target.value }
-                                                        })}
-                                                        className="w-10 h-10 rounded-lg border border-zinc-700 cursor-pointer bg-transparent"
-                                                    />
-                                                    <input
-                                                        type="text"
-                                                        value={(siteSettings.theme as any)[item.key]}
-                                                        onChange={(e) => updateSiteSettings({
-                                                            theme: { ...siteSettings.theme, [item.key]: e.target.value }
-                                                        })}
-                                                        className="w-24 px-2 py-1 bg-zinc-800 border border-zinc-700 rounded-lg text-white text-xs font-mono"
-                                                    />
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
 
-                                {/* Typography & Style */}
-                                <div className="space-y-6">
-                                    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
-                                        <h3 className="text-lg font-medium text-white mb-4">Typography</h3>
-                                        <div className="space-y-4">
-                                            <div>
-                                                <label className="block text-sm text-zinc-400 mb-2">Header Font</label>
-                                                <select
-                                                    value={siteSettings.theme.headerFont}
-                                                    onChange={(e) => updateSiteSettings({
-                                                        theme: { ...siteSettings.theme, headerFont: e.target.value as any }
-                                                    })}
-                                                    className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white"
-                                                >
-                                                    <option value="inter">Inter</option>
-                                                    <option value="roboto">Roboto</option>
-                                                    <option value="playfair">Playfair Display</option>
-                                                    <option value="montserrat">Montserrat</option>
-                                                    <option value="outfit">Outfit</option>
-                                                </select>
-                                            </div>
-                                            <div>
-                                                <label className="block text-sm text-zinc-400 mb-2">Body Font</label>
-                                                <select
-                                                    value={siteSettings.theme.bodyFont}
-                                                    onChange={(e) => updateSiteSettings({
-                                                        theme: { ...siteSettings.theme, bodyFont: e.target.value as any }
-                                                    })}
-                                                    className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white"
-                                                >
-                                                    <option value="inter">Inter</option>
-                                                    <option value="roboto">Roboto</option>
-                                                    <option value="playfair">Playfair Display</option>
-                                                    <option value="montserrat">Montserrat</option>
-                                                    <option value="outfit">Outfit</option>
-                                                </select>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
-                                        <h3 className="text-lg font-medium text-white mb-4">Style</h3>
-                                        <div className="space-y-4">
-                                            <div>
-                                                <label className="block text-sm text-zinc-400 mb-2">Border Radius</label>
-                                                <div className="flex gap-2">
-                                                    {['none', 'sm', 'md', 'lg', 'xl'].map(radius => (
-                                                        <button
-                                                            key={radius}
-                                                            onClick={() => updateSiteSettings({
-                                                                theme: { ...siteSettings.theme, borderRadius: radius as any }
-                                                            })}
-                                                            className={`px-4 py-2 rounded-lg text-sm font-medium capitalize ${siteSettings.theme.borderRadius === radius
-                                                                ? 'bg-red-600 text-white'
-                                                                : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
-                                                                }`}
-                                                        >
-                                                            {radius}
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                            <div className="flex items-center justify-between">
-                                                <div>
-                                                    <p className="text-sm font-medium text-white">Dark Mode</p>
-                                                    <p className="text-xs text-zinc-500">Use dark theme colors</p>
-                                                </div>
-                                                <button
-                                                    onClick={() => updateSiteSettings({
-                                                        theme: { ...siteSettings.theme, darkMode: !siteSettings.theme.darkMode }
-                                                    })}
-                                                    className={`w-12 h-6 rounded-full transition-colors relative ${siteSettings.theme.darkMode ? 'bg-green-600' : 'bg-zinc-700'}`}
-                                                >
-                                                    <span className={`absolute w-5 h-5 bg-white rounded-full top-0.5 transition-all ${siteSettings.theme.darkMode ? 'left-6' : 'left-0.5'}`} />
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Live Preview */}
-                                    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
-                                        <h3 className="text-lg font-medium text-white mb-4">Live Preview</h3>
-                                        <div
-                                            className="p-4 rounded-xl"
-                                            style={{
-                                                backgroundColor: siteSettings.theme.cardBackground,
-                                                borderRadius: { none: '0', sm: '4px', md: '8px', lg: '12px', xl: '16px' }[siteSettings.theme.borderRadius]
-                                            }}
-                                        >
-                                            <h4 style={{ color: siteSettings.theme.textColor, fontFamily: siteSettings.theme.headerFont }}>
-                                                Sample Header
-                                            </h4>
-                                            <p style={{ color: siteSettings.theme.mutedTextColor, fontFamily: siteSettings.theme.bodyFont }} className="text-sm mt-1">
-                                                This is how your text will look.
-                                            </p>
-                                            <button
-                                                style={{
-                                                    backgroundColor: siteSettings.theme.primaryColor,
-                                                    borderRadius: { none: '0', sm: '4px', md: '8px', lg: '12px', xl: '16px' }[siteSettings.theme.borderRadius]
-                                                }}
-                                                className="mt-3 px-4 py-2 text-white text-sm font-medium"
-                                            >
-                                                Sample Button
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    )
-                }
 
                 {/* Settings */}
-                {
-                    activeTab === 'settings' && (
-                        <div className="space-y-6">
-                            <h2 className="text-xl font-semibold text-white">Site Settings</h2>
 
-
-
-
-
-
-
-                        </div>
-                    )
-                }
 
                 {/* Layout Tab */}
                 {

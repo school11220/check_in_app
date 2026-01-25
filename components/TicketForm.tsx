@@ -46,7 +46,11 @@ export default function TicketForm() {
   const [loadingEvents, setLoadingEvents] = useState(true);
   const { showToast } = useToast();
 
+
+
   const MAX_TICKETS = 10;
+
+
 
   // Update attendees array when quantity changes
   const handleQuantityChange = (newQty: number) => {
@@ -358,6 +362,25 @@ export default function TicketForm() {
   const isEarlyBird = selectedEventData?.earlyBirdEnabled &&
     selectedEventData?.earlyBirdDeadline &&
     new Date(selectedEventData.earlyBirdDeadline) > new Date();
+
+  // Global Sales Pause Check (After hooks)
+  if (siteSettings?.globalSalesPaused) {
+    return (
+      <div className="w-full max-w-2xl mx-auto">
+        <div className="glass rounded-2xl shadow-2xl overflow-hidden border border-red-500/30 p-12 text-center">
+          <div className="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
+            <svg className="w-10 h-10 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+          <h2 className="text-2xl font-bold text-white mb-3">Sales Temporarily Paused</h2>
+          <p className="text-zinc-400 max-w-md mx-auto">
+            {siteSettings.maintenanceMessage || "We are currently performing maintenance. Ticket sales will resume shortly. Please check back later."}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full max-w-2xl mx-auto">

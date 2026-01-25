@@ -48,6 +48,16 @@ export async function POST(req: NextRequest) {
     }
 
     // Check if event is active or global sales paused
+    // Check Global Sales Pause
+    const siteConfig = await prisma.siteConfig.findUnique({ where: { id: 'default' } });
+    const settings = siteConfig?.settings as any;
+    if (settings?.globalSalesPaused) {
+      return NextResponse.json(
+        { error: 'Ticket sales are currently paused globally.' },
+        { status: 403 }
+      );
+    }
+
     // Note: We need to get global settings from DB or assume active. 
     // Since we don't have easy access to store settings here, we rely on event.isActive for now.
     // Ideally, global settings should be in DB. 
