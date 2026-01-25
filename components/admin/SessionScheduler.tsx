@@ -21,7 +21,7 @@ export interface Session {
     startTime: string; // HH:MM
     endTime: string; // HH:MM
     date: string; // YYYY-MM-DD format
-    type: 'talk' | 'workshop' | 'panel' | 'break' | 'networking';
+    type: string;
     capacity?: number;
     registeredCount?: number;
     event?: { name: string; id: string };
@@ -49,12 +49,35 @@ const DEFAULT_TIME_SLOTS: TimeSlot[] = [
 ];
 
 // Session type colors
-const SESSION_TYPE_COLORS: Record<Session['type'], { bg: string; text: string }> = {
-    talk: { bg: 'bg-blue-600/20', text: 'text-blue-400' },
-    workshop: { bg: 'bg-purple-600/20', text: 'text-purple-400' },
-    panel: { bg: 'bg-amber-600/20', text: 'text-amber-400' },
-    break: { bg: 'bg-gray-600/20', text: 'text-gray-400' },
-    networking: { bg: 'bg-green-600/20', text: 'text-green-400' },
+// Session type colors
+const getColorForType = (type: string) => {
+    const normalizedType = type.toLowerCase();
+
+    // Predefined colors
+    const colors: Record<string, { bg: string; text: string }> = {
+        talk: { bg: 'bg-blue-600/20', text: 'text-blue-400' },
+        workshop: { bg: 'bg-purple-600/20', text: 'text-purple-400' },
+        panel: { bg: 'bg-amber-600/20', text: 'text-amber-400' },
+        break: { bg: 'bg-gray-600/20', text: 'text-gray-400' },
+        networking: { bg: 'bg-green-600/20', text: 'text-green-400' },
+        lunch: { bg: 'bg-orange-600/20', text: 'text-orange-400' },
+        hackathon: { bg: 'bg-rose-600/20', text: 'text-rose-400' },
+    };
+
+    if (colors[normalizedType]) return colors[normalizedType];
+
+    // Generate consistent color for custom types
+    const hash = normalizedType.split('').reduce((acc, char) => char.charCodeAt(0) + ((acc << 5) - acc), 0);
+    const hues = [
+        { bg: 'bg-pink-600/20', text: 'text-pink-400' },
+        { bg: 'bg-indigo-600/20', text: 'text-indigo-400' },
+        { bg: 'bg-cyan-600/20', text: 'text-cyan-400' },
+        { bg: 'bg-teal-600/20', text: 'text-teal-400' },
+        { bg: 'bg-lime-600/20', text: 'text-lime-400' },
+        { bg: 'bg-fuchsia-600/20', text: 'text-fuchsia-400' },
+    ];
+
+    return hues[Math.abs(hash) % hues.length];
 };
 
 export default function SessionScheduler({ eventId, eventDate, showToast, readOnly = false, globalView = false }: SessionSchedulerProps) {
@@ -465,10 +488,10 @@ export default function SessionScheduler({ eventId, eventDate, showToast, readOn
                                                     }
                                                 }}
 
-                                                className={`p-3 rounded-xl border border-[#2A2A2A] cursor-pointer transition-all hover:scale-[1.02] hover:border-[#E11D2E]/50 group/session ${SESSION_TYPE_COLORS[session.type].bg}`}
+                                                className={`p-3 rounded-xl border border-[#2A2A2A] cursor-pointer transition-all hover:scale-[1.02] hover:border-[#E11D2E]/50 group/session ${getColorForType(session.type).bg}`}
                                             >
                                                 <div className="flex justify-between items-start mb-2">
-                                                    <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full bg-black/20 ${SESSION_TYPE_COLORS[session.type].text} uppercase tracking-wide`}>
+                                                    <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full bg-black/20 ${getColorForType(session.type).text} uppercase tracking-wide`}>
                                                         {session.type}
                                                     </span>
                                                     {!readOnly && (
@@ -594,16 +617,27 @@ export default function SessionScheduler({ eventId, eventDate, showToast, readOn
                             </div>
                             <div>
                                 <label className="block text-sm text-[#B3B3B3] mb-2">Session Type</label>
-                                <div className="flex flex-wrap gap-2">
-                                    {(['talk', 'workshop', 'panel', 'break', 'networking'] as Session['type'][]).map(type => (
-                                        <button
-                                            key={type}
-                                            onClick={() => setNewSession(prev => ({ ...prev, type }))}
-                                            className={`px-3 py-1.5 rounded-lg text-sm capitalize transition-colors ${newSession.type === type ? `${SESSION_TYPE_COLORS[type].bg} ${SESSION_TYPE_COLORS[type].text} border border-current` : 'bg-[#1F1F1F] text-[#737373] hover:text-white'}`}
-                                        >
-                                            {type}
-                                        </button>
-                                    ))}
+                                <div className="space-y-3">
+                                    {/* Quick Select */}
+                                    <div className="flex flex-wrap gap-2">
+                                        {['talk', 'workshop', 'panel', 'break', 'networking', 'lunch'].map(type => (
+                                            <button
+                                                key={type}
+                                                onClick={() => setNewSession(prev => ({ ...prev, type }))}
+                                                className={`px-3 py-1.5 rounded-lg text-sm capitalize transition-colors ${newSession.type === type ? `${getColorForType(type).bg} ${getColorForType(type).text} border border-current` : 'bg-[#1F1F1F] text-[#737373] hover:text-white'}`}
+                                            >
+                                                {type}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    {/* Custom Input */}
+                                    <input
+                                        type="text"
+                                        value={newSession.type || ''}
+                                        onChange={(e) => setNewSession(prev => ({ ...prev, type: e.target.value }))}
+                                        className="w-full px-4 py-3 bg-[#0D0D0D] border border-[#2A2A2A] rounded-xl text-white focus:border-[#E11D2E]/50 focus:outline-none placeholder-[#737373]"
+                                        placeholder="Or type custom category..."
+                                    />
                                 </div>
                             </div>
                             <div>

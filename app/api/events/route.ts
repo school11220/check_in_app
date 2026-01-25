@@ -14,10 +14,17 @@ export async function GET() {
         });
 
         // Calculate dynamic price for each event
-        const eventsWithPrice = events.map(event => ({
-            ...event,
-            currentPrice: calculateDynamicPrice(event as any)
-        }));
+        // Calculate dynamic price for each event
+        const eventsWithPrice = events.map(event => {
+            const eventForPricing = {
+                ...event,
+                pricingRules: event.PricingRule // Map Prisma relation name to expected interface property
+            };
+            return {
+                ...event,
+                currentPrice: calculateDynamicPrice(eventForPricing as any)
+            };
+        });
 
         return NextResponse.json(eventsWithPrice);
     } catch (error) {

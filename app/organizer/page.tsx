@@ -2,11 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Calendar, Users, BarChart3, LogOut, Globe, Edit3, Save, Loader2, LayoutDashboard, Home, Ticket, CheckCircle, Power, Play, Pause, AlertTriangle, History } from 'lucide-react';
+import { Calendar, Users, BarChart3, LogOut, Globe, Edit3, Save, Loader2, LayoutDashboard, Home, Ticket, CheckCircle, Power, Play, Pause, AlertTriangle, History, MessageSquare } from 'lucide-react';
 import { useToast } from '@/components/Toaster';
 import SessionScheduler from '@/components/admin/SessionScheduler';
 import EventIntegrations from '@/components/organizer/EventIntegrations';
 import EventAttendees from '@/components/organizer/EventAttendees';
+import EventReviews from '@/components/organizer/EventReviews';
 import { useClerk } from '@clerk/nextjs';
 
 interface Event {
@@ -37,7 +38,7 @@ interface User {
     assignedEventIds: string[];
 }
 
-type TabId = 'overview' | 'events' | 'edit' | 'schedule' | 'attendees' | 'integrations' | 'sales' | 'history';
+type TabId = 'overview' | 'events' | 'edit' | 'schedule' | 'attendees' | 'integrations' | 'sales' | 'history' | 'reviews';
 
 export default function OrganizerDashboard() {
     const router = useRouter();
@@ -143,6 +144,7 @@ export default function OrganizerDashboard() {
         { id: 'schedule' as TabId, label: 'Schedule', icon: Calendar },
         { id: 'sales' as TabId, label: 'Sales', icon: Power },
         { id: 'attendees' as TabId, label: 'Attendees', icon: Users },
+        { id: 'reviews' as TabId, label: 'Reviews', icon: MessageSquare },
         { id: 'history' as TabId, label: 'History', icon: History },
         { id: 'integrations' as TabId, label: 'Integrations', icon: Globe },
     ];
@@ -634,6 +636,16 @@ export default function OrganizerDashboard() {
                                 <span className="text-sm text-[#555] mt-2 block">(Feature logged for V2)</span>
                             </p>
                         </div>
+                    </div>
+                )}
+                {/* Reviews Tab */}
+                {activeTab === 'reviews' && selectedEvent && (
+                    <div className="bg-[#141414] border border-[#1F1F1F] rounded-2xl p-4 sm:p-6">
+                        <div className="flex items-center justify-between mb-6">
+                            <h2 className="text-xl font-bold text-white">Event Feedback</h2>
+                            <span className="text-sm text-[#737373]">Live user reviews</span>
+                        </div>
+                        <EventReviews eventId={selectedEvent.id} />
                     </div>
                 )}
             </main>
