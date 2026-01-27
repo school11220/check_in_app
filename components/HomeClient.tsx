@@ -78,11 +78,11 @@ export default function HomeClient({ initialEvents, initialSettings }: HomeClien
                 <div className={`absolute bottom-16 right-0 glass rounded-xl overflow-hidden shadow-2xl transition-all duration-300 ${showMenu ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}>
                     {mounted && isSignedIn && (
                         <>
-                            <a href="/checkin" className="flex items-center gap-3 px-5 py-3.5 text-zinc-300 hover:bg-white/5 hover:text-white whitespace-nowrap transition-colors">
+                            <a href="/checkin" target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 px-5 py-3.5 text-zinc-300 hover:bg-white/5 hover:text-white whitespace-nowrap transition-colors">
                                 <ScanLine className="w-5 h-5" />
                                 Staff Check-In
                             </a>
-                            <a href="/admin" className="flex items-center gap-3 px-5 py-3.5 text-zinc-300 hover:bg-white/5 hover:text-white whitespace-nowrap border-t border-white/5 transition-colors">
+                            <a href="/admin" target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 px-5 py-3.5 text-zinc-300 hover:bg-white/5 hover:text-white whitespace-nowrap border-t border-white/5 transition-colors">
                                 <LayoutDashboard className="w-5 h-5" />
                                 Dashboard
                             </a>
@@ -127,6 +127,8 @@ export default function HomeClient({ initialEvents, initialSettings }: HomeClien
                 <div className="relative -top-5">
                     <a
                         href="/register"
+                        target="_blank"
+                        rel="noopener noreferrer"
                         className="flex items-center justify-center w-14 h-14 bg-gradient-to-r from-[#E11D2E] to-[#B91C1C] rounded-full shadow-lg shadow-red-900/40 border-4 border-[#0B0B0B]"
                     >
                         <Ticket className="w-6 h-6 text-white" />
@@ -155,11 +157,11 @@ export default function HomeClient({ initialEvents, initialSettings }: HomeClien
                         <div className="space-y-2">
                             {mounted && isSignedIn ? (
                                 <>
-                                    <a href="/admin" className="flex items-center gap-4 p-4 bg-zinc-900 rounded-xl text-white">
+                                    <a href="/admin" target="_blank" rel="noopener noreferrer" className="flex items-center gap-4 p-4 bg-zinc-900 rounded-xl text-white">
                                         <LayoutDashboard className="w-5 h-5 text-[#E11D2E]" />
                                         <span className="font-medium">Admin Dashboard</span>
                                     </a>
-                                    <a href="/checkin" className="flex items-center gap-4 p-4 bg-zinc-900 rounded-xl text-white">
+                                    <a href="/checkin" target="_blank" rel="noopener noreferrer" className="flex items-center gap-4 p-4 bg-zinc-900 rounded-xl text-white">
                                         <ScanLine className="w-5 h-5 text-[#E11D2E]" />
                                         <span className="font-medium">Staff Check-In</span>
                                     </a>
@@ -190,7 +192,7 @@ export default function HomeClient({ initialEvents, initialSettings }: HomeClien
                         <img src="/logo.png" alt="EventHub" className="w-10 h-10 rounded-xl" />
                         <span className="font-heading text-lg font-bold text-white hidden sm:block">EventHub</span>
                     </div>
-                    <a href="/register" className="px-4 py-2 bg-[#E11D2E] text-white text-sm font-medium rounded-xl hover:bg-[#B91C1C] transition-colors flex items-center gap-2">
+                    <a href="/register" target="_blank" rel="noopener noreferrer" className="px-4 py-2 bg-[#E11D2E] text-white text-sm font-medium rounded-xl hover:bg-[#B91C1C] transition-colors flex items-center gap-2">
                         <Ticket className="w-4 h-4" />
                         Get Tickets
                     </a>
@@ -315,6 +317,8 @@ export default function HomeClient({ initialEvents, initialSettings }: HomeClien
                                     <a
                                         key={event.id}
                                         href={`/event/${event.id}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
                                         className="glass-card rounded-2xl overflow-hidden border border-[#1F1F1F] hover:border-[#E11D2E]/30 transition-all duration-500 group relative card-hover animate-fade-in-up"
                                         style={{ animationDelay: `${index * 80}ms`, opacity: 0 }}
                                     >
@@ -444,6 +448,8 @@ export default function HomeClient({ initialEvents, initialSettings }: HomeClien
                         </p>
                         <a
                             href="/register"
+                            target="_blank"
+                            rel="noopener noreferrer"
                             className="inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-[#E11D2E] to-[#B91C1C] text-white font-semibold rounded-xl hover:scale-105 transition-transform shadow-lg shadow-red-900/30 glow-hover"
                         >
                             <Ticket className="w-5 h-5" />

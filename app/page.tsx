@@ -8,16 +8,23 @@ export const revalidate = 60;
 
 export default async function Home() {
   // Parallel data fetching for maximum speed
-  const [siteConfig, events] = await Promise.all([
-    prisma.siteConfig.findUnique({
-      where: { id: 'default' }
-    }),
-    prisma.event.findMany({
-      where: { isActive: true },
-      include: { PricingRule: true },
-      orderBy: { date: 'asc' }
-    })
-  ]);
+  // Parallel data fetching with error handling
+  let siteConfig: any = null;
+  let events: any[] = [];
+  try {
+    [siteConfig, events] = await Promise.all([
+      prisma.siteConfig.findUnique({ where: { id: 'default' } }),
+      prisma.event.findMany({
+        where: { isActive: true },
+        include: { PricingRule: true },
+        orderBy: { date: 'asc' }
+      })
+    ]);
+  } catch (error) {
+    console.error("Database connection failed:", error);
+    siteConfig = null;
+    events = [];
+  }
 
   // Process Settings
   let settings = DEFAULT_SITE_SETTINGS;

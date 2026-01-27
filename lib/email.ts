@@ -13,14 +13,14 @@ function createTransporter() {
         });
     }
 
-    // Fallback: Custom SMTP (Brevo, SendGrid, etc.)
+    // Fallback: Generic Custom SMTP
     return nodemailer.createTransport({
-        host: process.env.SMTP_HOST || 'smtp-relay.brevo.com',
+        host: process.env.SMTP_HOST || 'smtp.gmail.com',
         port: Number(process.env.SMTP_PORT) || 587,
         secure: false, // true for 465, false for other ports
         auth: {
-            user: process.env.SMTP_USER || process.env.BREVO_SMTP_LOGIN || '',
-            pass: process.env.SMTP_PASS || process.env.BREVO_API_KEY || '',
+            user: process.env.SMTP_USER || '',
+            pass: process.env.SMTP_PASS || '',
         },
     });
 }
@@ -50,8 +50,8 @@ export async function sendEmail(
     const transporter = createTransporter();
 
     // Determine sender
-    const senderEmail = process.env.SENDER_EMAIL || process.env.GMAIL_USER || process.env.BREVO_SENDER_EMAIL || 'noreply@eventhub.com';
-    const senderName = process.env.SENDER_NAME || process.env.BREVO_SENDER_NAME || 'EventHub';
+    const senderEmail = process.env.SENDER_EMAIL || process.env.GMAIL_USER || 'noreply@eventhub.com';
+    const senderName = process.env.SENDER_NAME || 'EventHub';
 
     const mailOptions: nodemailer.SendMailOptions = {
         from: `"${senderName}" <${senderEmail}>`,
@@ -101,7 +101,7 @@ export async function sendEmail(
  */
 export function isEmailConfigured(): boolean {
     const gmailConfigured = !!(process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD);
-    const smtpConfigured = !!((process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) || (process.env.BREVO_API_KEY));
+    const smtpConfigured = !!(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
 
     console.log('Email configured check:', 'Gmail:', gmailConfigured, 'SMTP:', smtpConfigured);
     return gmailConfigured || smtpConfigured;

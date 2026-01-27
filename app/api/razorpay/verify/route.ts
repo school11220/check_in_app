@@ -8,7 +8,7 @@ const FALLBACK_EVENTS: Record<string, { name: string; price: number }> = {
     'event-1': { name: 'Tech Conference 2025', price: 50000 },
     'event-2': { name: 'Music Festival Night', price: 200000 },
     'event-3': { name: 'Startup Meetup', price: 20000 },
-    'event-4': { name: 'Art Exhibition Opening', price: 30000 },
+    'event-4': { name: 'Art Exhibition Opening', price: 10000 },
 };
 
 function generateToken(ticketId: string): string {

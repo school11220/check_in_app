@@ -8,7 +8,7 @@ const FALLBACK_EVENTS: Record<string, { name: string; price: number }> = {
     'event-1': { name: 'Tech Conference 2025', price: 50000 },
     'event-2': { name: 'Music Festival Night', price: 200000 },
     'event-3': { name: 'Startup Meetup', price: 20000 },
-    'event-4': { name: 'Art Exhibition Opening', price: 30000 },
+    'event-4': { name: 'Art Exhibition Opening', price: 10000 },
 };
 
 // In-memory ticket storage
@@ -81,15 +81,15 @@ export async function POST(request: NextRequest) {
                 // Start of fallback logic if DB fails or ticket not found? 
                 // But we rely on DB for security. If DB fails, we should fail.
                 // But for demo app robustness:
-                if (FALLBACK_EVENTS['event-1']) { // Just dummy
-                    eventPrice = 30000;
+                if (FALLBACK_EVENTS['event-4']) { // Just dummy
+                    eventPrice = 10000;
                 }
             }
         } catch (e) {
             console.log('Database error/warning:', e);
             // Fail secure or assume fallback? 
             // Given previous code had fallback, I'll keep it but typically we should fail.
-            eventPrice = 30000;
+            eventPrice = 10000;
         }
 
         // Calculate total amount

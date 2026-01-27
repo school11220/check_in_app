@@ -28,7 +28,7 @@ const FALLBACK_EVENTS: Record<string, { name: string; price: number; date: strin
   },
   'event-4': {
     name: 'Art Exhibition Opening',
-    price: 30000,
+    price: 10000,
     date: '2025-02-01T17:00:00Z',
     venue: 'Art Gallery, Chennai',
     description: 'Exclusive preview of contemporary art'

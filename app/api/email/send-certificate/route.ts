@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sendTransactionalEmail, isBrevoConfigured } from '@/lib/email';
+import { sendTransactionalEmail, isEmailConfigured } from '@/lib/email';
 
 export interface CertificateEmailRequestBody {
   to: string;
@@ -18,8 +18,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    // Check if Brevo is configured
-    if (!isBrevoConfigured()) {
+    // Check if Email is configured
+    if (!isEmailConfigured()) {
       return NextResponse.json({
         success: false,
         error: 'Email service not configured',

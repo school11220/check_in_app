@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sendTransactionalEmail, isBrevoConfigured } from '@/lib/email';
+import { sendTransactionalEmail, isEmailConfigured } from '@/lib/email';
 import { generateTicketPDF } from '@/lib/pdf-generator';
 import { generateQRCodeBase64 } from '@/lib/qr-generator';
 
@@ -54,12 +54,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    // Check if Brevo is configured
-    if (!isBrevoConfigured()) {
-      console.warn('Brevo not configured - email will not be sent');
+    // Check if Email is configured
+    if (!isEmailConfigured()) {
+      console.warn('Email service not configured - email will not be sent');
       return NextResponse.json({
         success: true,
-        message: 'Email skipped (Brevo not configured)',
+        message: 'Email skipped (Email service not configured)',
         demo: true,
       });
     }
@@ -274,7 +274,7 @@ export async function POST(request: NextRequest) {
       // Continue without PDF if generation fails
     }
 
-    // Send email via Brevo
+    // Send email via SMTP
     const result = await sendTransactionalEmail({
       to,
       toName: attendeeName || undefined,

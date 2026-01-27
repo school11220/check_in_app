@@ -5,7 +5,7 @@ import { Shield, Mail, CheckCircle, Smartphone } from 'lucide-react';
 export default function UnauthorizedPage() {
     return (
         <main className="min-h-screen bg-[#0B0B0B] flex items-center justify-center p-4">
-            <div className="max-w-md w-full glass p-8 rounded-3xl border border-[#1F1F1F] animate-scale-in text-center relative overflow-hidden">
+            <div className="max-w-md w-full glass p-6 md:p-8 rounded-3xl border border-[#1F1F1F] animate-scale-in text-center relative overflow-hidden">
                 <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-[#E11D2E] to-transparent opacity-50" />
 
                 <div className="w-20 h-20 bg-[#E11D2E]/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-[#E11D2E]/20">

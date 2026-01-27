@@ -6,7 +6,7 @@ This application is built with Next.js 15, Prisma, and PostgreSQL. It is ready f
 
 - A **Vercel** account
 - A **GitHub/GitLab/Bitbucket** repository with this code
-- A **Brevo** account (for emails)
+- A **Gmail** account (with App Password generated)
 - A **Razorpay** account (for payments)
 - A **Fast2SMS** account (optional, for SMS)
 - A **Meta Developer** account (optional, for WhatsApp)
@@ -24,10 +24,11 @@ Configure the following Environment Variables in your Vercel Project Settings:
 - `RAZORPAY_KEY_SECRET`
 - `NEXT_PUBLIC_RAZORPAY_KEY_ID`
 
-### Email (Brevo)
-- `BREVO_API_KEY`
-- `BREVO_SENDER_EMAIL`
-- `BREVO_SENDER_NAME`
+### Email (Gmail / SMTP)
+- `GMAIL_USER` (Your Gmail address)
+- `GMAIL_APP_PASSWORD` (App Password, NOT your login password)
+- `SENDER_NAME` (Optional, defaults to EventHub)
+- `SENDER_EMAIL` (Optional, defaults to GMAIL_USER)
 
 ### Security
 - `TICKET_SECRET_KEY` (Generate a random UUID or string)
@@ -59,4 +60,4 @@ Configure the following Environment Variables in your Vercel Project Settings:
 ## 5. Troubleshooting
 
 - **"Failed to fetch events"**: Ensure the database is connected and schema is pushed (`npx prisma db push`).
-- **Email not sending**: Verify Brevo API key and Sender Email (must be verified in Brevo).
+- **Email not sending**: Verify Gmail App Password and User settings. Ensure 2FA is enabled on Gmail to generate an App Password.

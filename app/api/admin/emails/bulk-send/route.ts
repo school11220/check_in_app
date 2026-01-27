@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { sendTransactionalEmail, isBrevoConfigured } from '@/lib/email';
+import { sendTransactionalEmail, isEmailConfigured } from '@/lib/email';
 import { auth } from '@clerk/nextjs/server';
 
 export async function POST(request: NextRequest) {
