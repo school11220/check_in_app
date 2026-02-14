@@ -140,27 +140,90 @@ model SiteConfig {
 }
 
 model Ticket {
-  id                String    @id
+  id                String       @id
   name              String
   email             String?
   phone             String?
   eventId           String
-  status            String    @default("pending")
+  status            String       @default("pending")
   token             String?
   razorpayOrderId   String?
   razorpayPaymentId String?
-  checkedIn         Boolean   @default(false)
+  checkedIn         Boolean      @default(false)
   checkedInAt       DateTime?
+  checkedInBy       String?
   purchaseGroupId   String?
-  createdAt         DateTime  @default(now())
+  createdAt         DateTime     @default(now())
   updatedAt         DateTime
-  customAnswers     Json      @default("{}")
-  Event             Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  customAnswers     Json         @default("{}")
+  promoCodeId       String?
+  Event             Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  CheckInLogs       CheckInLog[]
 
   @@index([email])
   @@index([eventId])
   @@index([razorpayOrderId])
   @@index([status])
+  @@index([token])
+}
+
+model CheckInLog {
+  id            String   @id @default(uuid())
+  ticketId      String
+  eventId       String
+  action        String   // "checkin" | "undo_checkin" | "manual_checkin"
+  performedBy   String   // userId or scanner name
+  performedRole String   // "ADMIN" | "ORGANIZER" | "SCANNER"
+  ipAddress     String?
+  userAgent     String?
+  deviceId      String?  // for offline sync identification
+  checksum      String   // HMAC of ticketId+action+timestamp for tamper evidence
+  syncedAt      DateTime? // null if created online, set when offline record syncs
+  createdAt     DateTime @default(now())
+  ticket        Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+  @@index([eventId])
+  @@index([createdAt])
+  @@index([performedBy])
+}
+
+model PromoCodeRecord {
+  id              String    @id @default(uuid())
+  code            String
+  discountType    String    // "percentage" | "fixed"
+  discountValue   Int       // percentage (0-100) or fixed amount in paise
+  maxUses         Int       @default(100)
+  usedCount       Int       @default(0)
+  maxUsesPerUser  Int       @default(1)
+  minTickets      Int       @default(1)
+  stackable       Boolean   @default(false)
+  eventIds        String[]  @default([])
+  expiresAt       DateTime
+  startsAt        DateTime  @default(now())
+  isActive        Boolean   @default(true)
+  createdBy       String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@unique([code])
+  @@index([code])
+  @@index([isActive])
+  @@index([expiresAt])
+}
+
+model PromoUsage {
+  id          String   @id @default(uuid())
+  promoCode   String
+  ticketId    String
+  userId      String?  // email or clerk userId
+  eventId     String
+  discount    Int      // discount amount applied in paise
+  createdAt   DateTime @default(now())
+
+  @@index([promoCode])
+  @@index([userId])
+  @@index([eventId])
 }
 
 

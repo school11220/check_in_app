@@ -43,6 +43,11 @@ export default function TicketPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [downloading, setDownloading] = useState(false);
+  const [sendingEmail, setSendingEmail] = useState(false);
+  const [downloadingServerPdf, setDownloadingServerPdf] = useState(false);
+  const [qrExpiresAt, setQrExpiresAt] = useState<string | null>(null);
+  const [qrCountdown, setQrCountdown] = useState<number>(0);
+  const [useTimedQR, setUseTimedQR] = useState(true);
 
   // Calendar event data helper
   const getEventDate = () => {
@@ -100,11 +105,87 @@ export default function TicketPage() {
     }
   };
 
+  // Email me ticket handler
+  const handleEmailTicket = async () => {
+    if (!ticket) return;
+    setSendingEmail(true);
+    try {
+      const res = await fetch('/api/tickets/deliver', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ticketId: ticket.id }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(data.emailSent ? 'Ticket sent to your email!' : 'Ticket delivery initiated', 'success');
+      } else {
+        showToast(data.error || 'Failed to send ticket', 'error');
+      }
+    } catch {
+      showToast('Failed to send ticket email', 'error');
+    } finally {
+      setSendingEmail(false);
+    }
+  };
+
+  // Server-side PDF download
+  const handleServerPdfDownload = async () => {
+    if (!ticket) return;
+    setDownloadingServerPdf(true);
+    try {
+      const res = await fetch(`/api/tickets/${ticket.id}/pdf`);
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `ticket-${ticket.event?.name || 'event'}-${ticket.id.slice(-8)}.pdf`;
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast('PDF downloaded!', 'success');
+      } else {
+        showToast('PDF generation failed', 'error');
+      }
+    } catch {
+      showToast('PDF download failed', 'error');
+    } finally {
+      setDownloadingServerPdf(false);
+    }
+  };
+
   useEffect(() => {
     if (ticketId) { // Ensure ticketId is available before fetching
       fetchTicket();
     }
   }, [ticketId]);
+
+  // Auto-refresh timed QR code every 4 minutes (it expires in 5)
+  useEffect(() => {
+    if (!ticket || ticket.checkedIn || !useTimedQR) return;
+    const refreshQR = async () => {
+      try {
+        const res = await fetch(`/api/tickets/${ticket.id}/qr`);
+        if (res.ok) {
+          const data = await res.json();
+          setQrCode(data.qrCode);
+          setQrExpiresAt(data.expiresAt);
+        }
+      } catch { /* fall back to static QR */ }
+    };
+    refreshQR();
+    const interval = setInterval(refreshQR, 4 * 60 * 1000); // refresh every 4 min
+    return () => clearInterval(interval);
+  }, [ticket, useTimedQR]);
+
+  // Countdown timer for QR expiry
+  useEffect(() => {
+    if (!qrExpiresAt) return;
+    const interval = setInterval(() => {
+      const remaining = Math.max(0, Math.floor((new Date(qrExpiresAt).getTime() - Date.now()) / 1000));
+      setQrCountdown(remaining);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [qrExpiresAt]);
 
   const fetchTicket = async () => {
     try {
@@ -114,7 +195,7 @@ export default function TicketPage() {
 
       if (data.ticket) {
         setTicket(data.ticket);
-        // JSON format for the separate check-in app
+        // Fallback static QR (used if timed QR fails or is disabled)
         const qrPayload = JSON.stringify({
           ticketId: data.ticket.id,
           token: data.ticket.token
@@ -470,6 +551,35 @@ export default function TicketPage() {
           </div>
 
           {/* Secondary Actions Row */}
+          <div className="flex gap-3">
+            {/* Email me ticket */}
+            <button
+              onClick={handleEmailTicket}
+              disabled={sendingEmail}
+              className="flex-1 py-3 bg-blue-600/20 text-blue-400 border border-blue-500/30 rounded-xl hover:bg-blue-600/30 font-medium flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              {sendingEmail ? (
+                <><div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></div>Sending...</>
+              ) : (
+                <><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>Email Me Ticket</>
+              )}
+            </button>
+
+            {/* Server PDF Download */}
+            <button
+              onClick={handleServerPdfDownload}
+              disabled={downloadingServerPdf}
+              className="flex-1 py-3 bg-green-600/20 text-green-400 border border-green-500/30 rounded-xl hover:bg-green-600/30 font-medium flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              {downloadingServerPdf ? (
+                <><div className="w-4 h-4 border-2 border-green-400 border-t-transparent rounded-full animate-spin"></div>Generating...</>
+              ) : (
+                <><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>PDF Ticket</>
+              )}
+            </button>
+          </div>
+
+          {/* Tertiary Actions Row */}
           <div className="flex gap-3">
             {/* Share Button */}
             <button

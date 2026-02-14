@@ -1,25 +1,58 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyTicketToken } from '@/lib/utils';
-import { CheckInRequest, CheckInResponse } from '@/types';
+import { generateAuditChecksum, verifyTimedQRToken } from '@/lib/qr-security';
+import { CheckInResponse } from '@/types';
+import { auth, clerkClient } from '@clerk/nextjs/server';
+import { fireWebhook } from '@/lib/webhooks';
+
+const ALLOWED_ROLES = ['ADMIN', 'ORGANIZER', 'ORGANISER', 'SCANNER'];
+
+// Simple in-memory nonce set to prevent replay within server lifetime
+// In production use Redis or a DB table
+const usedNonces = new Set<string>();
+const NONCE_CLEANUP_INTERVAL = 10 * 60 * 1000; // cleanup every 10 min
+setInterval(() => usedNonces.clear(), NONCE_CLEANUP_INTERVAL);
+
+async function getUserRole(userId: string): Promise<string> {
+  try {
+    const client = await clerkClient();
+    const user = await client.users.getUser(userId);
+    return (user.publicMetadata?.role as string) || 'UNAUTHORIZED';
+  } catch {
+    return 'UNAUTHORIZED';
+  }
+}
 
 export async function POST(req: NextRequest) {
   try {
-    const body: CheckInRequest = await req.json();
-
-    const { ticketId, token } = body;
-
-    if (!ticketId || !token) {
+    // Verify caller is authenticated and has check-in permission
+    const { userId } = await auth();
+    if (!userId) {
       return NextResponse.json<CheckInResponse>(
-        {
-          success: false,
-          message: 'Ticket ID and token are required'
-        },
+        { success: false, message: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
+    const role = await getUserRole(userId);
+    if (!ALLOWED_ROLES.includes(role)) {
+      return NextResponse.json<CheckInResponse>(
+        { success: false, message: 'Insufficient permissions for check-in' },
+        { status: 403 }
+      );
+    }
+
+    const body = await req.json();
+    const { ticketId, token, timedToken, deviceId, offlineTimestamp } = body;
+
+    if (!ticketId) {
+      return NextResponse.json<CheckInResponse>(
+        { success: false, message: 'Ticket ID is required' },
         { status: 400 }
       );
     }
 
-    // Fetch ticket from database with event details
     const ticket = await prisma.ticket.findUnique({
       where: { id: ticketId },
       include: { Event: true },
@@ -27,86 +60,281 @@ export async function POST(req: NextRequest) {
 
     if (!ticket) {
       return NextResponse.json<CheckInResponse>(
-        {
-          success: false,
-          message: 'Ticket not found'
-        },
+        { success: false, message: 'Ticket not found' },
         { status: 404 }
       );
     }
 
-    // Check if ticket is paid
     if (ticket.status !== 'paid') {
       return NextResponse.json<CheckInResponse>(
-        {
-          success: false,
-          message: `Ticket payment is ${ticket.status}`
-        },
+        { success: false, message: `Ticket payment is ${ticket.status}` },
         { status: 400 }
       );
     }
 
-    // Verify token
-    if (!ticket.token || !verifyTicketToken(ticketId, token)) {
+    // --- Token verification: support timed QR tokens OR plain HMAC tokens ---
+    let tokenValid = false;
+
+    if (timedToken && ticket.token) {
+      // Timed QR token (enhanced security with expiry + replay protection)
+      const qrResult = verifyTimedQRToken(timedToken, ticket.token);
+      if (!qrResult.valid) {
+        return NextResponse.json<CheckInResponse>(
+          { success: false, message: qrResult.reason || 'Invalid timed QR token' },
+          { status: 403 }
+        );
+      }
+      // Replay protection: extract nonce and check
+      const parts = timedToken.split(':');
+      const nonce = parts[3];
+      if (nonce && usedNonces.has(nonce)) {
+        return NextResponse.json<CheckInResponse>(
+          { success: false, message: 'QR code already used (replay detected)' },
+          { status: 403 }
+        );
+      }
+      if (nonce) usedNonces.add(nonce);
+      tokenValid = true;
+    } else if (token) {
+      // Plain HMAC token (backwards compatible)
+      if (!ticket.token || !verifyTicketToken(ticketId, token)) {
+        return NextResponse.json<CheckInResponse>(
+          { success: false, message: 'Invalid ticket token' },
+          { status: 403 }
+        );
+      }
+      tokenValid = true;
+    }
+
+    if (!tokenValid) {
       return NextResponse.json<CheckInResponse>(
-        {
-          success: false,
-          message: 'Invalid ticket token'
-        },
-        { status: 403 }
+        { success: false, message: 'Token is required for check-in' },
+        { status: 400 }
       );
     }
 
-    // Check if already checked in
+    // --- Check-in vs Undo ---
+    const action = body.action || 'checkin';
+
+    if (action === 'undo_checkin') {
+      if (!ticket.checkedIn) {
+        return NextResponse.json<CheckInResponse>(
+          { success: false, message: 'Ticket is not checked in' },
+          { status: 400 }
+        );
+      }
+      // Only ADMIN and ORGANIZER can undo
+      if (!['ADMIN', 'ORGANIZER', 'ORGANISER'].includes(role)) {
+        return NextResponse.json<CheckInResponse>(
+          { success: false, message: 'Only admins and organizers can undo check-ins' },
+          { status: 403 }
+        );
+      }
+
+      const undoTimestamp = new Date().toISOString();
+      const undoChecksum = generateAuditChecksum(ticketId, 'undo_checkin', undoTimestamp, userId);
+
+      const [updatedTicket] = await prisma.$transaction([
+        prisma.ticket.update({
+          where: { id: ticketId },
+          data: { checkedIn: false, checkedInAt: null, checkedInBy: null },
+          include: { Event: true },
+        }),
+        prisma.checkInLog.create({
+          data: {
+            ticketId,
+            eventId: ticket.eventId,
+            action: 'undo_checkin',
+            performedBy: userId,
+            performedRole: role,
+            ipAddress: req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown',
+            userAgent: req.headers.get('user-agent') || 'unknown',
+            checksum: undoChecksum,
+          },
+        }),
+      ]);
+
+      // Fire webhook
+      fireWebhook('checkin.undo', {
+        ticketId, attendeeName: updatedTicket.name, eventId: updatedTicket.eventId,
+        eventName: updatedTicket.Event.name, undoneBy: userId, role,
+      }).catch(() => {});
+
+      return NextResponse.json<CheckInResponse>({
+        success: true,
+        message: 'Check-in undone',
+        ticket: {
+          id: updatedTicket.id, name: updatedTicket.name, email: updatedTicket.email,
+          eventId: updatedTicket.eventId, checkedIn: updatedTicket.checkedIn,
+          event: { name: updatedTicket.Event.name },
+        },
+      });
+    }
+
+    // --- Standard check-in ---
     if (ticket.checkedIn) {
       return NextResponse.json<CheckInResponse>(
         {
           success: false,
           message: 'Ticket already checked in',
           ticket: {
-            id: ticket.id,
-            name: ticket.name,
-            email: ticket.email,
-            eventId: ticket.eventId,
-            checkedIn: ticket.checkedIn,
-            event: {
-              name: ticket.Event.name
-            }
+            id: ticket.id, name: ticket.name, email: ticket.email,
+            eventId: ticket.eventId, checkedIn: ticket.checkedIn,
+            event: { name: ticket.Event.name }
           }
         },
         { status: 400 }
       );
     }
 
-    // Mark as checked in
-    const updatedTicket = await prisma.ticket.update({
-      where: { id: ticketId },
-      data: { checkedIn: true },
-      include: { Event: true },
-    });
+    const now = new Date();
+    const actionTimestamp = offlineTimestamp || now.toISOString();
+    const checksum = generateAuditChecksum(ticketId, deviceId ? 'offline_checkin' : 'checkin', actionTimestamp, userId);
+
+    // Use transaction for atomicity
+    const [updatedTicket] = await prisma.$transaction([
+      prisma.ticket.update({
+        where: { id: ticketId },
+        data: {
+          checkedIn: true,
+          checkedInAt: now,
+          checkedInBy: userId,
+        },
+        include: { Event: true },
+      }),
+      prisma.checkInLog.create({
+        data: {
+          ticketId,
+          eventId: ticket.eventId,
+          action: deviceId ? 'offline_checkin' : 'checkin',
+          performedBy: userId,
+          performedRole: role,
+          ipAddress: req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown',
+          userAgent: req.headers.get('user-agent') || 'unknown',
+          deviceId: deviceId || null,
+          checksum,
+          syncedAt: deviceId ? now : null,
+        },
+      }),
+    ]);
+
+    // Fire webhook (non-blocking)
+    fireWebhook('ticket.checked_in', {
+      ticketId, attendeeName: updatedTicket.name, attendeeEmail: updatedTicket.email,
+      eventId: updatedTicket.eventId, eventName: updatedTicket.Event.name,
+      checkedInBy: userId, role, deviceId, offline: !!deviceId,
+    }).catch(() => {});
 
     return NextResponse.json<CheckInResponse>({
       success: true,
       message: 'Check-in successful',
       ticket: {
-        id: updatedTicket.id,
-        name: updatedTicket.name,
-        email: updatedTicket.email,
-        eventId: updatedTicket.eventId,
-        checkedIn: updatedTicket.checkedIn,
-        event: {
-          name: updatedTicket.Event.name
-        }
+        id: updatedTicket.id, name: updatedTicket.name, email: updatedTicket.email,
+        eventId: updatedTicket.eventId, checkedIn: updatedTicket.checkedIn,
+        event: { name: updatedTicket.Event.name }
       },
     });
   } catch (error) {
     console.error('Check-in error:', error);
     return NextResponse.json<CheckInResponse>(
-      {
-        success: false,
-        message: 'Failed to process check-in'
-      },
+      { success: false, message: 'Failed to process check-in' },
       { status: 500 }
     );
+  }
+}
+
+// GET: Fetch check-in history/stats/logs for an event
+export async function GET(req: NextRequest) {
+  try {
+    const { userId } = await auth();
+    if (!userId) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+
+    const role = await getUserRole(userId);
+    if (!ALLOWED_ROLES.includes(role)) {
+      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
+    }
+
+    const url = new URL(req.url);
+    const eventId = url.searchParams.get('eventId');
+    const type = url.searchParams.get('type') || 'history';
+
+    if (type === 'stats' && eventId) {
+      const [total, checkedIn, recentCheckins] = await Promise.all([
+        prisma.ticket.count({ where: { eventId, status: 'paid' } }),
+        prisma.ticket.count({ where: { eventId, status: 'paid', checkedIn: true } }),
+        prisma.ticket.findMany({
+          where: { eventId, checkedIn: true },
+          orderBy: { checkedInAt: 'desc' },
+          take: 20,
+          include: { Event: { select: { name: true } } },
+        }),
+      ]);
+
+      // Hourly breakdown for chart
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      let hourlyBreakdown = new Array(24).fill(0);
+      try {
+        const hourlyLogs = await prisma.checkInLog.findMany({
+          where: { eventId, action: { in: ['checkin', 'offline_checkin', 'manual_checkin'] }, createdAt: { gte: today } },
+          orderBy: { createdAt: 'asc' },
+        });
+        hourlyLogs.forEach((log: any) => { hourlyBreakdown[new Date(log.createdAt).getHours()]++; });
+      } catch { /* CheckInLog table may not exist yet */ }
+
+      return NextResponse.json({
+        total,
+        checkedIn,
+        pending: total - checkedIn,
+        checkInRate: total > 0 ? ((checkedIn / total) * 100).toFixed(1) : '0',
+        hourlyBreakdown: hourlyBreakdown.map((count, hour) => ({ hour: `${hour.toString().padStart(2, '0')}:00`, count })),
+        recentCheckins: recentCheckins.map((t: any) => ({
+          id: t.id,
+          name: t.name,
+          email: t.email,
+          eventName: t.Event.name,
+          checkedInAt: t.checkedInAt?.toISOString(),
+        })),
+      });
+    }
+
+    if (type === 'logs' && eventId) {
+      try {
+        const logs = await prisma.checkInLog.findMany({
+          where: { eventId },
+          orderBy: { createdAt: 'desc' },
+          take: 200,
+          include: { ticket: { select: { name: true, email: true } } },
+        });
+        return NextResponse.json(logs);
+      } catch {
+        return NextResponse.json([]);
+      }
+    }
+
+    // Default: history of checked-in tickets
+    const where: any = { checkedIn: true, status: 'paid' };
+    if (eventId) where.eventId = eventId;
+
+    const checkedInTickets = await prisma.ticket.findMany({
+      where,
+      orderBy: { checkedInAt: 'desc' },
+      take: 100,
+      include: { Event: { select: { name: true } } },
+    });
+
+    return NextResponse.json(checkedInTickets.map((t: any) => ({
+      id: t.id,
+      name: t.name,
+      email: t.email,
+      eventName: t.Event.name,
+      checkedInAt: t.checkedInAt?.toISOString(),
+      checkedInBy: t.checkedInBy,
+    })));
+  } catch (error) {
+    console.error('Check-in history error:', error);
+    return NextResponse.json({ error: 'Failed to fetch check-in data' }, { status: 500 });
   }
 }

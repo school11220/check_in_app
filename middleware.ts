@@ -11,6 +11,9 @@ const isSSOCallback = createRouteMatcher(['/sso-callback']);
 const isApiRoute = createRouteMatcher(['/api(.*)']);
 const isUnauthorizedRoute = createRouteMatcher(['/unauthorized']);
 
+// Roles allowed to access check-in page
+const CHECKIN_ALLOWED_ROLES = ['ADMIN', 'ORGANIZER', 'ORGANISER', 'SCANNER'];
+
 export default clerkMiddleware(async (auth, request) => {
     const { userId } = await auth();
 
@@ -41,8 +44,6 @@ export default clerkMiddleware(async (auth, request) => {
     // If unauthorized, redirect to unauthorized page (unless already there)
     if (role === 'UNAUTHORIZED') {
         if (!isUnauthorizedRoute(request)) {
-            // Allow them to sign out via the user button component which might be on the page, 
-            // but for now main protected routes are blocked
             return NextResponse.redirect(new URL('/unauthorized', request.url));
         }
         return NextResponse.next();
@@ -52,7 +53,8 @@ export default clerkMiddleware(async (auth, request) => {
     if (isLoginRoute(request) || isUnauthorizedRoute(request)) {
         if (role === 'ADMIN') return NextResponse.redirect(new URL('/admin', request.url));
         if (role === 'ORGANIZER' || role === 'ORGANISER') return NextResponse.redirect(new URL('/organizer', request.url));
-        return NextResponse.redirect(new URL('/checkin', request.url));
+        if (role === 'SCANNER') return NextResponse.redirect(new URL('/checkin', request.url));
+        return NextResponse.redirect(new URL('/unauthorized', request.url));
     }
 
     // Role-based access control
@@ -61,18 +63,33 @@ export default clerkMiddleware(async (auth, request) => {
             if (role === 'ORGANIZER' || role === 'ORGANISER') {
                 return NextResponse.redirect(new URL('/organizer', request.url));
             }
-            return NextResponse.redirect(new URL('/checkin', request.url));
+            if (role === 'SCANNER') {
+                return NextResponse.redirect(new URL('/checkin', request.url));
+            }
+            return NextResponse.redirect(new URL('/unauthorized', request.url));
         }
     }
 
     if (isOrganizerRoute(request)) {
         if (role !== 'ADMIN' && role !== 'ORGANIZER' && role !== 'ORGANISER') {
-            return NextResponse.redirect(new URL('/checkin', request.url));
+            if (role === 'SCANNER') {
+                return NextResponse.redirect(new URL('/checkin', request.url));
+            }
+            return NextResponse.redirect(new URL('/unauthorized', request.url));
         }
     }
 
-    // Checkin route - all authenticated (and authorized) users can access
-    return NextResponse.next();
+    // Check-in route - ONLY admin, organizer, and scanner can access
+    if (isCheckinRoute(request)) {
+        if (!CHECKIN_ALLOWED_ROLES.includes(role)) {
+            return NextResponse.redirect(new URL('/unauthorized', request.url));
+        }
+    }
+
+    // Add role header for client-side use
+    const response = NextResponse.next();
+    response.headers.set('x-user-role', role);
+    return response;
 });
 
 export const config = {
