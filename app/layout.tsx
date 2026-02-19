@@ -32,6 +32,8 @@ export const metadata: Metadata = {
   description: "Secure event ticketing with QR code verification and instant check-in. Powered by EventHub.",
   keywords: ["event", "ticketing", "check-in", "QR code", "tickets"],
   authors: [{ name: "Event Ticketing" }],
+  manifest: "/manifest.json",
+  themeColor: "#0B0B0B",
   icons: {
     icon: "/favicon.png",
     apple: "/favicon.png",
@@ -90,6 +92,19 @@ export default function RootLayout({
               </div>
             </ToastProvider>
           </AppProvider>
+
+          {/* Service Worker Registration */}
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `
+                if ('serviceWorker' in navigator) {
+                  window.addEventListener('load', function() {
+                    navigator.serviceWorker.register('/sw.js').catch(function() {});
+                  });
+                }
+              `,
+            }}
+          />
         </body>
       </html>
     </ClerkProvider>

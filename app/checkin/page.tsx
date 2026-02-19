@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, Suspense, useCallback } from 'react';
+import { useState, useEffect, useRef, Suspense, useCallback } from 'react';
 import { useApp } from '@/lib/store';
 import { useToast } from '@/components/Toaster';
 import QRScanner from '@/components/QRScanner';
@@ -9,7 +9,7 @@ import { useOfflineCheckin } from '@/hooks/useOfflineCheckin';
 import {
   ScanLine, LogOut, Ticket, Lock, CheckCircle, XCircle, Radio, Calendar, X,
   History, Users, BarChart3, Home, Download, WifiOff, Wifi, RefreshCw,
-  FileSpreadsheet, Shield, Clock, TrendingUp, AlertTriangle
+  FileSpreadsheet, Shield, Clock, TrendingUp, AlertTriangle, ToggleLeft, ToggleRight
 } from 'lucide-react';
 import SessionScheduler from '@/components/admin/SessionScheduler';
 import { useClerk, useUser } from '@clerk/nextjs';
@@ -54,11 +54,34 @@ function CheckinPageContent() {
   const [recentCheckins, setRecentCheckins] = useState<any[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
 
+  // Continuous scanning mode
+  const [continuousMode, setContinuousMode] = useState(true);
+
   // Offline support
   const { isOnline, pendingSync, isSyncing, addOfflineCheckin, syncPending } = useOfflineCheckin();
 
   // Auto-refresh interval for stats
   const [autoRefresh, setAutoRefresh] = useState(true);
+
+  // Pre-loaded error audio for failed check-ins
+  const errorAudioRef = useRef<HTMLAudioElement | null>(null);
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const audio = new Audio('/sounds/error.mp3');
+      audio.preload = 'auto';
+      errorAudioRef.current = audio;
+    }
+  }, []);
+
+  // Auto-dismiss scan result in continuous mode
+  useEffect(() => {
+    if (continuousMode && scanResult) {
+      const timer = setTimeout(() => {
+        setScanResult(null);
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [continuousMode, scanResult]);
 
   // Fetch data when tab changes
   useEffect(() => {
@@ -223,12 +246,22 @@ function CheckinPageContent() {
       } else {
         setScanResult({ success: false, message: result.message || 'Check-in failed' });
         showToast(result.message || 'Check-in failed', 'error');
+        // Error audio & haptic feedback
+        try {
+          if (errorAudioRef.current) { errorAudioRef.current.currentTime = 0; errorAudioRef.current.play().catch(() => { }); }
+          if ('vibrate' in navigator) navigator.vibrate([100, 50, 100]);
+        } catch { }
       }
     } catch (error) {
       console.error('Check-in error:', error);
       const errorMsg = error instanceof Error ? error.message : 'Failed to verify ticket';
       setScanResult({ success: false, message: errorMsg });
       showToast(errorMsg, 'error');
+      // Error audio & haptic feedback
+      try {
+        if (errorAudioRef.current) { errorAudioRef.current.currentTime = 0; errorAudioRef.current.play().catch(() => { }); }
+        if ('vibrate' in navigator) navigator.vibrate([100, 50, 100]);
+      } catch { }
     } finally {
       setIsProcessing(false);
     }
@@ -396,20 +429,34 @@ function CheckinPageContent() {
                     </span>
                     Live Scanner
                   </h2>
-                  <div className="flex items-center gap-2">
-                    {!isOnline && (
-                      <span className="text-[10px] text-yellow-400 bg-yellow-500/10 px-2 py-1 rounded-lg border border-yellow-500/20 flex items-center gap-1">
-                        <WifiOff className="w-3 h-3" /> Offline Mode
+                  <div className="flex items-center gap-3">
+                    {/* Continuous Mode Toggle */}
+                    <button
+                      onClick={() => setContinuousMode(!continuousMode)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${continuousMode
+                        ? 'bg-[#22C55E]/10 text-[#22C55E] border-[#22C55E]/20 hover:bg-[#22C55E]/20'
+                        : 'bg-[#1A1A1A] text-[#737373] border-[#1F1F1F] hover:text-white hover:border-[#2A2A2A]'
+                        }`}
+                      title={continuousMode ? 'Continuous mode: Results auto-dismiss after 1.5s' : 'Manual mode: Results stay until next scan'}
+                    >
+                      {continuousMode ? <ToggleRight className="w-4 h-4" /> : <ToggleLeft className="w-4 h-4" />}
+                      Continuous
+                    </button>
+                    <div className="flex items-center gap-2">
+                      {!isOnline && (
+                        <span className="text-[10px] text-yellow-400 bg-yellow-500/10 px-2 py-1 rounded-lg border border-yellow-500/20 flex items-center gap-1">
+                          <WifiOff className="w-3 h-3" /> Offline Mode
+                        </span>
+                      )}
+                      <span className="text-xs text-[#737373] font-mono bg-[#0D0D0D] px-3 py-1.5 rounded-lg border border-[#1F1F1F]">
+                        {isProcessing ? 'Processing...' : 'Camera Active'}
                       </span>
-                    )}
-                    <span className="text-xs text-[#737373] font-mono bg-[#0D0D0D] px-3 py-1.5 rounded-lg border border-[#1F1F1F]">
-                      {isProcessing ? 'Processing...' : 'Camera Active'}
-                    </span>
+                    </div>
                   </div>
                 </div>
 
                 <div className="relative aspect-square bg-black group overflow-hidden flex items-center justify-center">
-                  <QRScanner onScan={handleScan} />
+                  <QRScanner onScan={handleScan} continuousMode={continuousMode} />
                   <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center z-10">
                     <div className="w-64 h-64 border-2 border-white/20 rounded-3xl relative">
                       <div className="absolute top-0 left-0 w-10 h-10 border-t-4 border-l-4 border-[#E11D2E] rounded-tl-2xl -mt-1 -ml-1 animate-pulse-slow"></div>
@@ -430,7 +477,7 @@ function CheckinPageContent() {
                       <Radio className="w-4 h-4" />
                     </div>
                     <p className="text-sm text-[#B3B3B3] leading-relaxed">
-                      Position the <span className="text-white font-medium">QR code</span> within the red frame. 
+                      Position the <span className="text-white font-medium">QR code</span> within the red frame.
                       {!isOnline && <span className="text-yellow-400 ml-1">(Offline mode: check-ins will sync when back online)</span>}
                     </p>
                   </div>
@@ -589,8 +636,8 @@ function CheckinPageContent() {
                 <div className="grid gap-3">
                   {tickets
                     .filter(t =>
-                      (t.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                        t.email?.toLowerCase().includes(searchQuery.toLowerCase()))
+                    (t.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                      t.email?.toLowerCase().includes(searchQuery.toLowerCase()))
                     )
                     .map(ticket => (
                       <div key={ticket.id} className="flex items-center justify-between p-4 bg-[#141414] border border-[#1F1F1F] rounded-xl">

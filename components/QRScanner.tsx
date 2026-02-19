@@ -2,19 +2,24 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { BrowserQRCodeReader } from '@zxing/browser';
+import { Flashlight, FlashlightOff } from 'lucide-react';
 
 interface QRScannerProps {
   onScan: (data: string) => void;
   onError?: (error: string) => void;
+  onScanResult?: (success: boolean) => void; // Notify parent of scan outcome for audio
   autoStart?: boolean;
   scanCooldown?: number; // ms between scans to prevent duplicates
+  continuousMode?: boolean; // When true, auto-clear scan result for rapid scanning
 }
 
 export default function QRScanner({
   onScan,
   onError,
+  onScanResult,
   autoStart = true,
-  scanCooldown = 2000
+  scanCooldown = 2000,
+  continuousMode = false,
 }: QRScannerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isScanning, setIsScanning] = useState(false);
@@ -29,15 +34,72 @@ export default function QRScanner({
   const trackRef = useRef<MediaStreamTrack | null>(null);
   const lastScanTimeRef = useRef<number>(0);
 
-  // Haptic feedback function
-  const triggerHapticFeedback = useCallback(() => {
-    if ('vibrate' in navigator) {
-      navigator.vibrate([100, 50, 100]); // Pattern: vibrate 100ms, pause 50ms, vibrate 100ms
+  // Pre-loaded audio elements
+  const successAudioRef = useRef<HTMLAudioElement | null>(null);
+  const errorAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Pre-load audio files on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const successAudio = new Audio('/sounds/success.mp3');
+      successAudio.preload = 'auto';
+      successAudioRef.current = successAudio;
+
+      const errorAudio = new Audio('/sounds/error.mp3');
+      errorAudio.preload = 'auto';
+      errorAudioRef.current = errorAudio;
     }
   }, []);
 
-  // Play success sound
+  // Haptic feedback - success: single pulse
+  const triggerSuccessHaptic = useCallback(() => {
+    if ('vibrate' in navigator) {
+      navigator.vibrate(200);
+    }
+  }, []);
+
+  // Haptic feedback - error: double pulse
+  const triggerErrorHaptic = useCallback(() => {
+    if ('vibrate' in navigator) {
+      navigator.vibrate([100, 50, 100]);
+    }
+  }, []);
+
+  // Play success sound (audio file with oscillator fallback)
   const playSuccessSound = useCallback(() => {
+    try {
+      if (successAudioRef.current) {
+        successAudioRef.current.currentTime = 0;
+        successAudioRef.current.play().catch(() => {
+          // Fallback to oscillator
+          playOscillator(880, 0.15);
+        });
+      } else {
+        playOscillator(880, 0.15);
+      }
+    } catch {
+      // Audio not supported
+    }
+  }, []);
+
+  // Play error sound (audio file with oscillator fallback)
+  const playErrorSound = useCallback(() => {
+    try {
+      if (errorAudioRef.current) {
+        errorAudioRef.current.currentTime = 0;
+        errorAudioRef.current.play().catch(() => {
+          playOscillator(300, 0.3);
+        });
+      } else {
+        playOscillator(300, 0.3);
+      }
+    } catch {
+      // Audio not supported
+    }
+  }, []);
+
+  // Oscillator fallback
+  const playOscillator = (frequency: number, duration: number) => {
     try {
       const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
       const oscillator = audioContext.createOscillator();
@@ -46,16 +108,23 @@ export default function QRScanner({
       oscillator.connect(gainNode);
       gainNode.connect(audioContext.destination);
 
-      oscillator.frequency.value = 880; // A5 note
+      oscillator.frequency.value = frequency;
       oscillator.type = 'sine';
       gainNode.gain.value = 0.3;
 
       oscillator.start();
-      oscillator.stop(audioContext.currentTime + 0.15);
-    } catch (e) {
-      // Audio not supported
+      oscillator.stop(audioContext.currentTime + duration);
+    } catch {
+      // AudioContext not supported
     }
-  }, []);
+  };
+
+  // Public method for parent to trigger error feedback
+  // Exposed via onScanResult callback pattern instead
+  const triggerErrorFeedback = useCallback(() => {
+    playErrorSound();
+    triggerErrorHaptic();
+  }, [playErrorSound, triggerErrorHaptic]);
 
   // Handle successful scan with cooldown
   const handleSuccessfulScan = useCallback((code: string) => {
@@ -71,13 +140,13 @@ export default function QRScanner({
     setScanSuccess(true);
     setTimeout(() => setScanSuccess(false), 1500);
 
-    // Haptic & audio feedback
-    triggerHapticFeedback();
+    // Success haptic & audio feedback
+    triggerSuccessHaptic();
     playSuccessSound();
 
     // Notify parent
     onScan(code);
-  }, [lastScannedCode, scanCooldown, onScan, triggerHapticFeedback, playSuccessSound]);
+  }, [lastScannedCode, scanCooldown, onScan, triggerSuccessHaptic, playSuccessSound]);
 
   // Toggle flashlight
   const toggleFlashlight = useCallback(async () => {
@@ -234,8 +303,6 @@ export default function QRScanner({
           </div>
         )}
 
-        {/* Scanning Frame - Removed to avoid duplication with parent component */}
-
         {/* Success Overlay */}
         {scanSuccess && (
           <div className="absolute inset-0 flex items-center justify-center bg-green-900/50 pointer-events-none">
@@ -252,27 +319,35 @@ export default function QRScanner({
 
         {/* Top Controls */}
         <div className="absolute top-4 left-4 right-4 flex justify-between items-center">
-          {/* Flashlight Toggle */}
-          {flashlightSupported && (
-            <button
-              onClick={toggleFlashlight}
-              className={`p-3 rounded-full transition-colors shadow-lg ${flashlightOn
+          {/* Flashlight Toggle - Always visible */}
+          <button
+            onClick={flashlightSupported ? toggleFlashlight : undefined}
+            className={`p-3 rounded-full transition-colors shadow-lg ${flashlightOn
                 ? 'bg-yellow-500 text-black'
-                : 'bg-zinc-800/80 text-white hover:bg-zinc-700'
-                }`}
-              title={flashlightOn ? 'Turn off flashlight' : 'Turn on flashlight'}
-            >
-              <svg className="w-5 h-5" fill={flashlightOn ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-              </svg>
-            </button>
-          )}
+                : flashlightSupported
+                  ? 'bg-zinc-800/80 text-white hover:bg-zinc-700'
+                  : 'bg-zinc-800/40 text-zinc-600 cursor-not-allowed'
+              }`}
+            title={
+              flashlightOn
+                ? 'Turn off flashlight'
+                : flashlightSupported
+                  ? 'Turn on flashlight'
+                  : 'Flashlight not supported on this device'
+            }
+          >
+            {flashlightOn ? (
+              <Flashlight className="w-5 h-5" />
+            ) : (
+              <FlashlightOff className="w-5 h-5" />
+            )}
+          </button>
 
           {/* Status indicator */}
           {isScanning && (
             <div className="flex items-center gap-2 bg-red-600/90 text-white px-3 py-1.5 rounded-full text-sm font-medium shadow-lg ml-auto">
               <span className="w-2 h-2 bg-white rounded-full animate-pulse"></span>
-              Scanning
+              {continuousMode ? 'Continuous' : 'Scanning'}
             </div>
           )}
         </div>

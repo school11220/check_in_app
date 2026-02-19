@@ -165,6 +165,7 @@ model Ticket {
   @@index([razorpayOrderId])
   @@index([status])
   @@index([token])
+  @@index([eventId, status])
 }
 
 model CheckInLog {

@@ -2,23 +2,36 @@ import { prisma } from '@/lib/prisma';
 import HomeClient from '@/components/HomeClient';
 import { DEFAULT_SITE_SETTINGS, SiteSettings } from '@/lib/store';
 import { calculateDynamicPrice } from '@/lib/pricing';
+import { unstable_cache } from 'next/cache';
 
 // Revalidate every 60 seconds to keep data fresh but fast
 export const revalidate = 60;
 
+// Cached DB queries — avoids hitting Postgres on every request within the revalidation window
+const getCachedSiteConfig = unstable_cache(
+  async () => prisma.siteConfig.findUnique({ where: { id: 'default' } }),
+  ['site-config'],
+  { revalidate: 60 }
+);
+
+const getCachedEvents = unstable_cache(
+  async () => prisma.event.findMany({
+    where: { isActive: true },
+    include: { PricingRule: true },
+    orderBy: { date: 'asc' }
+  }),
+  ['active-events'],
+  { revalidate: 60 }
+);
+
 export default async function Home() {
-  // Parallel data fetching for maximum speed
-  // Parallel data fetching with error handling
+  // Parallel data fetching with caching and error handling
   let siteConfig: any = null;
   let events: any[] = [];
   try {
     [siteConfig, events] = await Promise.all([
-      prisma.siteConfig.findUnique({ where: { id: 'default' } }),
-      prisma.event.findMany({
-        where: { isActive: true },
-        include: { PricingRule: true },
-        orderBy: { date: 'asc' }
-      })
+      getCachedSiteConfig(),
+      getCachedEvents()
     ]);
   } catch (error) {
     console.error("Database connection failed:", error);

@@ -4,6 +4,7 @@ import { useApp, CATEGORY_COLORS, Event, SiteSettings } from '@/lib/store';
 import { useState, useEffect } from 'react';
 import { Calendar, MapPin, ScanLine, LayoutDashboard, LogIn, X, Menu, Ticket, LogOut, Search, Clock, Home as HomeIcon } from 'lucide-react';
 import { useAuth, useClerk } from '@clerk/nextjs';
+import Image from 'next/image';
 
 interface HomeClientProps {
     initialEvents: Event[];
@@ -189,7 +190,7 @@ export default function HomeClient({ initialEvents, initialSettings }: HomeClien
             <header className="sticky top-0 z-40 bg-[#0B0B0B]/90 backdrop-blur-md border-b border-white/5">
                 <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <img src="/logo.png" alt="EventHub" className="w-10 h-10 rounded-xl" />
+                        <Image src="/logo.png" alt="EventHub" width={40} height={40} className="rounded-xl" priority />
                         <span className="font-heading text-lg font-bold text-white hidden sm:block">EventHub</span>
                     </div>
                     <a href="/register" target="_blank" rel="noopener noreferrer" className="px-4 py-2 bg-[#E11D2E] text-white text-sm font-medium rounded-xl hover:bg-[#B91C1C] transition-colors flex items-center gap-2">
@@ -324,11 +325,21 @@ export default function HomeClient({ initialEvents, initialSettings }: HomeClien
                                     >
                                         {/* Image Container - Fixed Height */}
                                         <div className="relative h-48 overflow-hidden">
-                                            <img
-                                                src={event.imageUrl}
-                                                alt={event.name}
-                                                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ease-out"
-                                            />
+                                            {event.imageUrl ? (
+                                                <Image
+                                                    src={event.imageUrl}
+                                                    alt={event.name}
+                                                    fill
+                                                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                                                    className="object-cover group-hover:scale-110 transition-transform duration-700 ease-out"
+                                                    placeholder="blur"
+                                                    blurDataURL="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mN88P/BfwAJhAPk3KFyjQAAAABJRU5ErkJggg=="
+                                                />
+                                            ) : (
+                                                <div className="w-full h-full bg-[#1A1A1A] flex items-center justify-center">
+                                                    <Ticket className="w-12 h-12 text-[#737373]" />
+                                                </div>
+                                            )}
                                             {/* Gradient Overlay */}
                                             <div className="absolute inset-0 bg-gradient-to-t from-[#0B0B0B] via-[#0B0B0B]/40 to-transparent" />
 
