@@ -1,15 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { sendTransactionalEmail, isEmailConfigured } from '@/lib/email';
-import { auth } from '@clerk/nextjs/server';
+import { auth, clerkClient } from '@clerk/nextjs/server';
 
 export async function POST(request: NextRequest) {
     try {
         // 1. Verify Admin Session with Clerk
-        const { userId, sessionClaims } = await auth();
-        const role = (sessionClaims?.publicMetadata as { role?: string })?.role;
+        const { userId } = await auth();
 
-        if (!userId || role !== 'ADMIN') {
+        if (!userId) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        // Fetch user from Clerk to get the role from publicMetadata
+        const client = await clerkClient();
+        const user = await client.users.getUser(userId);
+        const role = (user.publicMetadata?.role as string) || '';
+
+        if (role !== 'ADMIN') {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 

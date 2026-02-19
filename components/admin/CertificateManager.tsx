@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import RichTextEditor from './RichTextEditor';
 import {
     CertificateType,
@@ -74,6 +74,60 @@ export default function CertificateManager({ eventName = 'Event', eventDate, sho
         participant: 'Thank you for your enthusiastic participation! We hope you had a great learning experience.',
         volunteer: 'Thank you for your selfless volunteering! Your support made this event possible.',
     });
+
+    // Automated Sending State
+    const [viewMode, setViewMode] = useState<'manual' | 'automated'>('manual');
+    const [events, setEvents] = useState<any[]>([]);
+    const [selectedEventId, setSelectedEventId] = useState<string>('');
+    const [isSendingBulk, setIsSendingBulk] = useState(false);
+    const [bulkResults, setBulkResults] = useState<{ total: number; sent: number; failed: number } | null>(null);
+
+    // Fetch events on mount
+    useEffect(() => {
+        fetch('/api/events')
+            .then(res => res.json())
+            .then(data => setEvents(data))
+            .catch(err => console.error('Failed to load events:', err));
+    }, []);
+
+    const handleAutomatedSend = async () => {
+        if (!selectedEventId) {
+            showToast?.('Please select an event', 'error');
+            return;
+        }
+
+        if (!confirm('Are you sure you want to send certificates to all checked-in attendees? This action cannot be undone.')) {
+            return;
+        }
+
+        setIsSendingBulk(true);
+        setBulkResults(null);
+
+        try {
+            const res = await fetch('/api/admin/certificates/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    eventId: selectedEventId,
+                    filter: 'checked-in'
+                })
+            });
+
+            const data = await res.json();
+
+            if (res.ok) {
+                setBulkResults(data.results);
+                showToast?.(`Processed ${data.results.total} tickets. Sent: ${data.results.sent}`, 'success');
+            } else {
+                showToast?.(data.error || 'Failed to send certificates', 'error');
+            }
+        } catch (error) {
+            console.error('Bulk send error:', error);
+            showToast?.('An error occurred during bulk sending', 'error');
+        } finally {
+            setIsSendingBulk(false);
+        }
+    };
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -382,297 +436,409 @@ export default function CertificateManager({ eventName = 'Event', eventDate, sho
                     </h2>
                     <p className="text-[#737373] text-sm">Generate certificates for winners, participants, and volunteers</p>
                 </div>
-            </div>
 
-            {/* Certificate Type Tabs */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {CERTIFICATE_TYPES.map(cert => (
+                {/* Mode Switcher */}
+                <div className="bg-[#141414] p-1 rounded-lg border border-[#2A2A2A] flex">
                     <button
-                        key={cert.type}
-                        onClick={() => {
-                            setActiveType(cert.type);
-                            if (templates[cert.type]) {
-                                const blob = new Blob([base64ToArrayBuffer(templates[cert.type]!.base64)], { type: 'application/pdf' });
-                                setPreviewUrl(URL.createObjectURL(blob));
-                            } else {
-                                setPreviewUrl(null);
-                            }
-                        }}
-                        className={`p-4 rounded-xl border transition-all ${activeType === cert.type
-                            ? `bg-gradient-to-br ${cert.color} border-transparent text-white shadow-lg`
-                            : 'bg-[#141414] border-[#1F1F1F] text-[#B3B3B3] hover:border-[#2A2A2A]'
+                        onClick={() => setViewMode('manual')}
+                        className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${viewMode === 'manual'
+                            ? 'bg-[#2A2A2A] text-white shadow-sm'
+                            : 'text-[#737373] hover:text-white'
                             }`}
                     >
-                        <div className="mb-2 flex justify-center">{cert.icon}</div>
-                        <span className="font-medium">{cert.label}</span>
-                        {templates[cert.type] && (
-                            <span className="flex items-center justify-center gap-1 text-xs mt-1 opacity-75">
-                                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                                </svg>
-                                Template uploaded
-                            </span>
-                        )}
+                        Manual Generator
                     </button>
-                ))}
+                    <button
+                        onClick={() => setViewMode('automated')}
+                        className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${viewMode === 'automated'
+                            ? 'bg-[#E11D2E] text-white shadow-sm'
+                            : 'text-[#737373] hover:text-white'
+                            }`}
+                    >
+                        Automated Sending
+                    </button>
+                </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Left Column - Template & Settings */}
-                <div className="space-y-6">
-                    {/* Template Upload */}
-                    <div className="bg-[#141414] border border-[#1F1F1F] rounded-2xl p-5">
-                        <h3 className="font-medium text-white mb-4 flex items-center gap-2">
-                            <svg className="w-5 h-5 text-[#737373]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                            </svg>
-                            Template Upload
-                        </h3>
-
-                        <input
-                            type="file"
-                            ref={fileInputRef}
-                            accept=".pdf"
-                            onChange={handleTemplateUpload}
-                            className="hidden"
-                        />
-
-                        <div className="flex gap-3">
-                            <button
-                                onClick={() => fileInputRef.current?.click()}
-                                className="flex-1 py-3 px-4 border-2 border-dashed border-[#2A2A2A] rounded-xl text-[#B3B3B3] hover:border-[#E11D2E] hover:text-white transition-all flex items-center justify-center gap-2"
-                            >
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                                </svg>
-                                Upload PDF Template
-                            </button>
-                            <button
-                                onClick={createBlank}
-                                className="px-4 py-3 bg-[#1F1F1F] border border-[#2A2A2A] rounded-xl text-[#B3B3B3] hover:bg-[#2A2A2A] hover:text-white transition-all"
-                                title="Create blank template"
-                            >
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                                </svg>
-                            </button>
-                        </div>
-
-                        {currentTemplate && (
-                            <p className="text-xs text-green-500 mt-2 flex items-center gap-1">
-                                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                                </svg>
-                                Template loaded for {CERTIFICATE_TYPES.find(t => t.type === activeType)?.label}
-                            </p>
-                        )}
+            {viewMode === 'automated' ? (
+                <div className="bg-[#141414] border border-[#1F1F1F] rounded-2xl p-8 max-w-2xl mx-auto text-center space-y-8">
+                    <div className="mx-auto w-16 h-16 bg-[#E11D2E]/10 rounded-full flex items-center justify-center">
+                        <svg className="w-8 h-8 text-[#E11D2E]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        </svg>
                     </div>
 
-                    {/* Email Message Editor */}
-                    <div className="bg-[#141414] border border-[#1F1F1F] rounded-2xl p-5">
-                        <h3 className="font-medium text-white mb-4 flex items-center gap-2">
-                            <svg className="w-5 h-5 text-[#737373]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                            </svg>
-                            Email Message
-                        </h3>
-                        <RichTextEditor
-                            value={emailMessages[activeType]}
-                            onChange={(value) => setEmailMessages(prev => ({ ...prev, [activeType]: value }))}
-                            placeholder="Enter the body of the email here..."
-                        />
-                        <p className="text-xs text-[#737373] mt-2">
-                            This message will be included in the email sent to recipients.
+                    <div className="space-y-2">
+                        <h3 className="text-xl font-bold text-white">Automated Certificate Distribution</h3>
+                        <p className="text-[#737373]">
+                            Select an event to automatically generate and email participation certificates to all checked-in attendees.
                         </p>
                     </div>
 
-                    {/* Text Settings */}
-                    {currentTemplate && (
-                        <div className="bg-[#141414] border border-[#1F1F1F] rounded-2xl p-5">
-                            <h3 className="font-medium text-white mb-4 flex items-center gap-2">
-                                <svg className="w-5 h-5 text-[#737373]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                </svg>
-                                Text Settings
-                            </h3>
+                    <div className="max-w-md mx-auto space-y-4 text-left">
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-[#B3B3B3]">Select Event</label>
+                            <select
+                                value={selectedEventId}
+                                onChange={(e) => setSelectedEventId(e.target.value)}
+                                className="w-full px-4 py-3 bg-[#0D0D0D] border border-[#2A2A2A] rounded-xl text-white focus:border-[#E11D2E] focus:outline-none"
+                            >
+                                <option value="">Select an event...</option>
+                                {events.map((event: any) => (
+                                    <option key={event.id} value={event.id}>
+                                        {event.name} ({new Date(event.date).toLocaleDateString()})
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
 
-                            <div className="space-y-4">
-                                {/* Font Size */}
+                        <div className="bg-[#2A2A2A]/30 rounded-xl p-4 border border-[#2A2A2A]">
+                            <h4 className="text-sm font-medium text-white mb-2">Summary</h4>
+                            <ul className="text-sm text-[#737373] space-y-1 list-disc pl-4">
+                                <li>Will check for <strong>checked-in</strong> attendees only.</li>
+                                <li>Will <strong>skip</strong> attendees who already received a certificate.</li>
+                                <li>Certificates will be attached as PDF.</li>
+                            </ul>
+                        </div>
+
+                        <button
+                            onClick={handleAutomatedSend}
+                            disabled={!selectedEventId || isSendingBulk}
+                            className="w-full py-4 bg-[#E11D2E] text-white font-bold rounded-xl hover:bg-[#C41E3A] disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#E11D2E]/20"
+                        >
+                            {isSendingBulk ? (
+                                <>
+                                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                    Processing...
+                                </>
+                            ) : (
+                                <>
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                                    </svg>
+                                    Send Certificates Now
+                                </>
+                            )}
+                        </button>
+                    </div>
+
+                    {bulkResults && (
+                        <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-6 animate-in fade-in slide-in-from-bottom-4">
+                            <h4 className="text-lg font-bold text-green-500 mb-4">Distribution Complete! 🚀</h4>
+                            <div className="grid grid-cols-3 gap-4 text-center">
                                 <div>
-                                    <label className="block text-sm text-[#B3B3B3] mb-2">Font Size: {currentConfig.fontSize}px</label>
-                                    <input
-                                        type="range"
-                                        min="24"
-                                        max="72"
-                                        value={currentConfig.fontSize}
-                                        onChange={(e) => updateConfig({ fontSize: parseInt(e.target.value) })}
-                                        className="w-full accent-[#E11D2E]"
-                                    />
+                                    <div className="text-2xl font-bold text-white">{bulkResults.total}</div>
+                                    <div className="text-xs text-[#737373] uppercase tracking-wider">Processed</div>
+                                </div>
+                                <div>
+                                    <div className="text-2xl font-bold text-green-400">{bulkResults.sent}</div>
+                                    <div className="text-xs text-green-500/70 uppercase tracking-wider">Sent</div>
+                                </div>
+                                <div>
+                                    <div className="text-2xl font-bold text-white/50">{bulkResults.failed}</div>
+                                    <div className="text-xs text-[#737373] uppercase tracking-wider">Skipped/Failed</div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            ) : (
+                <>
+
+                    {/* Certificate Type Tabs */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        {CERTIFICATE_TYPES.map(cert => (
+                            <button
+                                key={cert.type}
+                                onClick={() => {
+                                    setActiveType(cert.type);
+                                    if (templates[cert.type]) {
+                                        const blob = new Blob([base64ToArrayBuffer(templates[cert.type]!.base64)], { type: 'application/pdf' });
+                                        setPreviewUrl(URL.createObjectURL(blob));
+                                    } else {
+                                        setPreviewUrl(null);
+                                    }
+                                }}
+                                className={`p-4 rounded-xl border transition-all ${activeType === cert.type
+                                    ? `bg-gradient-to-br ${cert.color} border-transparent text-white shadow-lg`
+                                    : 'bg-[#141414] border-[#1F1F1F] text-[#B3B3B3] hover:border-[#2A2A2A]'
+                                    }`}
+                            >
+                                <div className="mb-2 flex justify-center">{cert.icon}</div>
+                                <span className="font-medium">{cert.label}</span>
+                                {templates[cert.type] && (
+                                    <span className="flex items-center justify-center gap-1 text-xs mt-1 opacity-75">
+                                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                        </svg>
+                                        Template uploaded
+                                    </span>
+                                )}
+                            </button>
+                        ))}
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {/* Left Column - Template & Settings */}
+                        <div className="space-y-6">
+                            {/* Template Upload */}
+                            <div className="bg-[#141414] border border-[#1F1F1F] rounded-2xl p-5">
+                                <h3 className="font-medium text-white mb-4 flex items-center gap-2">
+                                    <svg className="w-5 h-5 text-[#737373]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                                    </svg>
+                                    Template Upload
+                                </h3>
+
+                                <input
+                                    type="file"
+                                    ref={fileInputRef}
+                                    accept=".pdf"
+                                    onChange={handleTemplateUpload}
+                                    className="hidden"
+                                />
+
+                                <div className="flex gap-3">
+                                    <button
+                                        onClick={() => fileInputRef.current?.click()}
+                                        className="flex-1 py-3 px-4 border-2 border-dashed border-[#2A2A2A] rounded-xl text-[#B3B3B3] hover:border-[#E11D2E] hover:text-white transition-all flex items-center justify-center gap-2"
+                                    >
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                                        </svg>
+                                        Upload PDF Template
+                                    </button>
+                                    <button
+                                        onClick={createBlank}
+                                        className="px-4 py-3 bg-[#1F1F1F] border border-[#2A2A2A] rounded-xl text-[#B3B3B3] hover:bg-[#2A2A2A] hover:text-white transition-all"
+                                        title="Create blank template"
+                                    >
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                        </svg>
+                                    </button>
                                 </div>
 
-                                {/* Position Y */}
-                                <div>
-                                    <label className="block text-sm text-[#B3B3B3] mb-2">Name Position Y: {currentConfig.namePositionY}%</label>
-                                    <input
-                                        type="range"
-                                        min="10"
-                                        max="90"
-                                        value={currentConfig.namePositionY}
-                                        onChange={(e) => updateConfig({ namePositionY: parseInt(e.target.value) })}
-                                        className="w-full accent-[#E11D2E]"
-                                    />
-                                </div>
+                                {currentTemplate && (
+                                    <p className="text-xs text-green-500 mt-2 flex items-center gap-1">
+                                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                        </svg>
+                                        Template loaded for {CERTIFICATE_TYPES.find(t => t.type === activeType)?.label}
+                                    </p>
+                                )}
+                            </div>
 
-                                {/* Text Color */}
-                                <div>
-                                    <label className="block text-sm text-[#B3B3B3] mb-2">Name Color</label>
-                                    <div className="flex gap-2">
-                                        {[
-                                            { r: 253, g: 181, b: 21, name: 'Gold' },
-                                            { r: 192, g: 192, b: 192, name: 'Silver' },
-                                            { r: 205, g: 127, b: 50, name: 'Bronze' },
-                                            { r: 0, g: 0, b: 0, name: 'Black' },
-                                            { r: 255, g: 255, b: 255, name: 'White' },
-                                        ].map(color => (
-                                            <button
-                                                key={color.name}
-                                                onClick={() => updateConfig({ textColor: { r: color.r, g: color.g, b: color.b } })}
-                                                className={`w-8 h-8 rounded-full border-2 transition-all ${currentConfig.textColor.r === color.r && currentConfig.textColor.g === color.g
-                                                    ? 'border-white scale-110'
-                                                    : 'border-transparent'
-                                                    }`}
-                                                style={{ backgroundColor: `rgb(${color.r}, ${color.g}, ${color.b})` }}
-                                                title={color.name}
+                            {/* Email Message Editor */}
+                            <div className="bg-[#141414] border border-[#1F1F1F] rounded-2xl p-5">
+                                <h3 className="font-medium text-white mb-4 flex items-center gap-2">
+                                    <svg className="w-5 h-5 text-[#737373]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                    </svg>
+                                    Email Message
+                                </h3>
+                                <RichTextEditor
+                                    value={emailMessages[activeType]}
+                                    onChange={(value) => setEmailMessages(prev => ({ ...prev, [activeType]: value }))}
+                                    placeholder="Enter the body of the email here..."
+                                />
+                                <p className="text-xs text-[#737373] mt-2">
+                                    This message will be included in the email sent to recipients.
+                                </p>
+                            </div>
+
+                            {/* Text Settings */}
+                            {currentTemplate && (
+                                <div className="bg-[#141414] border border-[#1F1F1F] rounded-2xl p-5">
+                                    <h3 className="font-medium text-white mb-4 flex items-center gap-2">
+                                        <svg className="w-5 h-5 text-[#737373]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                        </svg>
+                                        Text Settings
+                                    </h3>
+
+                                    <div className="space-y-4">
+                                        {/* Font Size */}
+                                        <div>
+                                            <label className="block text-sm text-[#B3B3B3] mb-2">Font Size: {currentConfig.fontSize}px</label>
+                                            <input
+                                                type="range"
+                                                min="24"
+                                                max="72"
+                                                value={currentConfig.fontSize}
+                                                onChange={(e) => updateConfig({ fontSize: parseInt(e.target.value) })}
+                                                className="w-full accent-[#E11D2E]"
                                             />
-                                        ))}
+                                        </div>
+
+                                        {/* Position Y */}
+                                        <div>
+                                            <label className="block text-sm text-[#B3B3B3] mb-2">Name Position Y: {currentConfig.namePositionY}%</label>
+                                            <input
+                                                type="range"
+                                                min="10"
+                                                max="90"
+                                                value={currentConfig.namePositionY}
+                                                onChange={(e) => updateConfig({ namePositionY: parseInt(e.target.value) })}
+                                                className="w-full accent-[#E11D2E]"
+                                            />
+                                        </div>
+
+                                        {/* Text Color */}
+                                        <div>
+                                            <label className="block text-sm text-[#B3B3B3] mb-2">Name Color</label>
+                                            <div className="flex gap-2">
+                                                {[
+                                                    { r: 253, g: 181, b: 21, name: 'Gold' },
+                                                    { r: 192, g: 192, b: 192, name: 'Silver' },
+                                                    { r: 205, g: 127, b: 50, name: 'Bronze' },
+                                                    { r: 0, g: 0, b: 0, name: 'Black' },
+                                                    { r: 255, g: 255, b: 255, name: 'White' },
+                                                ].map(color => (
+                                                    <button
+                                                        key={color.name}
+                                                        onClick={() => updateConfig({ textColor: { r: color.r, g: color.g, b: color.b } })}
+                                                        className={`w-8 h-8 rounded-full border-2 transition-all ${currentConfig.textColor.r === color.r && currentConfig.textColor.g === color.g
+                                                            ? 'border-white scale-110'
+                                                            : 'border-transparent'
+                                                            }`}
+                                                        style={{ backgroundColor: `rgb(${color.r}, ${color.g}, ${color.b})` }}
+                                                        title={color.name}
+                                                    />
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        {/* Font Family */}
+                                        <div>
+                                            <label className="block text-sm text-[#B3B3B3] mb-2">Font</label>
+                                            <select
+                                                value={currentConfig.fontFamily}
+                                                onChange={(e) => updateConfig({ fontFamily: e.target.value as 'TimesRoman' | 'Helvetica' | 'Courier' })}
+                                                className="w-full px-3 py-2 bg-[#0D0D0D] border border-[#2A2A2A] rounded-lg text-white"
+                                            >
+                                                <option value="TimesRoman">Times Roman (Classic)</option>
+                                                <option value="Helvetica">Helvetica (Modern)</option>
+                                                <option value="Courier">Courier (Formal)</option>
+                                            </select>
+                                        </div>
+
+                                        <button
+                                            onClick={generatePreview}
+                                            className="w-full py-2 bg-[#1F1F1F] text-white rounded-lg hover:bg-[#2A2A2A] transition-colors text-sm"
+                                        >
+                                            Update Preview
+                                        </button>
                                     </div>
                                 </div>
+                            )}
 
-                                {/* Font Family */}
-                                <div>
-                                    <label className="block text-sm text-[#B3B3B3] mb-2">Font</label>
-                                    <select
-                                        value={currentConfig.fontFamily}
-                                        onChange={(e) => updateConfig({ fontFamily: e.target.value as 'TimesRoman' | 'Helvetica' | 'Courier' })}
-                                        className="w-full px-3 py-2 bg-[#0D0D0D] border border-[#2A2A2A] rounded-lg text-white"
-                                    >
-                                        <option value="TimesRoman">Times Roman (Classic)</option>
-                                        <option value="Helvetica">Helvetica (Modern)</option>
-                                        <option value="Courier">Courier (Formal)</option>
-                                    </select>
+                            {/* Names Input */}
+                            <div className="bg-[#141414] border border-[#1F1F1F] rounded-2xl p-5">
+                                <h3 className="font-medium text-white mb-4 flex items-center gap-2">
+                                    <svg className="w-5 h-5 text-[#737373]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    </svg>
+                                    Recipients (one name per line)
+                                </h3>
+
+                                <textarea
+                                    value={names}
+                                    onChange={(e) => setNames(e.target.value)}
+                                    placeholder={`John Doe\nJane Smith, jane@example.com\nAlex Johnson <alex@example.com>`}
+                                    rows={8}
+                                    className="w-full px-4 py-3 bg-[#0D0D0D] border border-[#2A2A2A] rounded-xl text-white placeholder:text-[#737373] focus:border-[#E11D2E]/50 focus:outline-none resize-none"
+                                />
+
+                                <p className="text-xs text-[#737373] mt-2">
+                                    {names.split('\n').filter(n => n.trim()).length} names entered
+                                </p>
+                            </div>
+
+                            {/* Generate Button */}
+                            <button
+                                onClick={generateBulk}
+                                disabled={isGenerating || !currentTemplate || names.trim().length === 0}
+                                className="w-full py-4 bg-gradient-to-r from-[#E11D2E] to-[#B91C1C] text-white font-medium rounded-xl hover:from-[#C41E3A] hover:to-[#991B1B] disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
+                            >
+                                {isGenerating ? (
+                                    <>
+                                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                        Generating... {progress.current}/{progress.total}
+                                    </>
+                                ) : (
+                                    <>
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                        </svg>
+                                        Generate & Download Certificates
+                                    </>
+                                )}
+                            </button>
+
+                            {/* Email Button */}
+                            <button
+                                onClick={generateAndEmail}
+                                disabled={isGenerating || !currentTemplate || names.trim().length === 0}
+                                className="w-full py-4 bg-[#141414] border border-[#2A2A2A] text-white font-medium rounded-xl hover:bg-[#1A1A1A] hover:border-[#E11D2E] disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
+                            >
+                                {isGenerating ? (
+                                    <span>Processing...</span>
+                                ) : (
+                                    <>
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                        </svg>
+                                        Generate & Email to Recipients
+                                    </>
+                                )}
+                            </button>
+                        </div>
+
+                        {/* Right Column - Preview */}
+                        <div className="bg-[#141414] border border-[#1F1F1F] rounded-2xl p-5 h-fit sticky top-4">
+                            <h3 className="font-medium text-white mb-4 flex items-center gap-2">
+                                <svg className="w-5 h-5 text-[#737373]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                </svg>
+                                Preview
+                            </h3>
+
+                            {previewUrl ? (
+                                <div className="aspect-[4/3] bg-[#0D0D0D] rounded-xl overflow-hidden">
+                                    <embed
+                                        src={previewUrl}
+                                        type="application/pdf"
+                                        className="w-full h-full"
+                                    />
                                 </div>
+                            ) : (
+                                <div className="aspect-[4/3] bg-[#0D0D0D] rounded-xl flex items-center justify-center">
+                                    <div className="text-center text-[#737373]">
+                                        <svg className="w-16 h-16 mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                        </svg>
+                                        <p className="text-sm">Upload a template to preview</p>
+                                    </div>
+                                </div>
+                            )}
 
-                                <button
-                                    onClick={generatePreview}
-                                    className="w-full py-2 bg-[#1F1F1F] text-white rounded-lg hover:bg-[#2A2A2A] transition-colors text-sm"
-                                >
-                                    Update Preview
-                                </button>
-                            </div>
+                            {currentTemplate && names.trim() && (
+                                <div className="mt-4 p-3 bg-[#0D0D0D] rounded-lg">
+                                    <p className="text-sm text-[#B3B3B3]">
+                                        Ready to generate <span className="text-white font-medium">{names.split('\n').filter(n => n.trim()).length}</span> certificates for{' '}
+                                        <span className="text-white font-medium">{CERTIFICATE_TYPES.find(t => t.type === activeType)?.label}</span>
+                                    </p>
+                                </div>
+                            )}
                         </div>
-                    )}
+                    </div >
 
-                    {/* Names Input */}
-                    <div className="bg-[#141414] border border-[#1F1F1F] rounded-2xl p-5">
-                        <h3 className="font-medium text-white mb-4 flex items-center gap-2">
-                            <svg className="w-5 h-5 text-[#737373]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-                            </svg>
-                            Recipients (one name per line)
-                        </h3>
 
-                        <textarea
-                            value={names}
-                            onChange={(e) => setNames(e.target.value)}
-                            placeholder={`John Doe\nJane Smith, jane@example.com\nAlex Johnson <alex@example.com>`}
-                            rows={8}
-                            className="w-full px-4 py-3 bg-[#0D0D0D] border border-[#2A2A2A] rounded-xl text-white placeholder:text-[#737373] focus:border-[#E11D2E]/50 focus:outline-none resize-none"
-                        />
-
-                        <p className="text-xs text-[#737373] mt-2">
-                            {names.split('\n').filter(n => n.trim()).length} names entered
-                        </p>
-                    </div>
-
-                    {/* Generate Button */}
-                    <button
-                        onClick={generateBulk}
-                        disabled={isGenerating || !currentTemplate || names.trim().length === 0}
-                        className="w-full py-4 bg-gradient-to-r from-[#E11D2E] to-[#B91C1C] text-white font-medium rounded-xl hover:from-[#C41E3A] hover:to-[#991B1B] disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
-                    >
-                        {isGenerating ? (
-                            <>
-                                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                Generating... {progress.current}/{progress.total}
-                            </>
-                        ) : (
-                            <>
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                                </svg>
-                                Generate & Download Certificates
-                            </>
-                        )}
-                    </button>
-
-                    {/* Email Button */}
-                    <button
-                        onClick={generateAndEmail}
-                        disabled={isGenerating || !currentTemplate || names.trim().length === 0}
-                        className="w-full py-4 bg-[#141414] border border-[#2A2A2A] text-white font-medium rounded-xl hover:bg-[#1A1A1A] hover:border-[#E11D2E] disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
-                    >
-                        {isGenerating ? (
-                            <span>Processing...</span>
-                        ) : (
-                            <>
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                                </svg>
-                                Generate & Email to Recipients
-                            </>
-                        )}
-                    </button>
-                </div>
-
-                {/* Right Column - Preview */}
-                <div className="bg-[#141414] border border-[#1F1F1F] rounded-2xl p-5 h-fit sticky top-4">
-                    <h3 className="font-medium text-white mb-4 flex items-center gap-2">
-                        <svg className="w-5 h-5 text-[#737373]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                        </svg>
-                        Preview
-                    </h3>
-
-                    {previewUrl ? (
-                        <div className="aspect-[4/3] bg-[#0D0D0D] rounded-xl overflow-hidden">
-                            <embed
-                                src={previewUrl}
-                                type="application/pdf"
-                                className="w-full h-full"
-                            />
-                        </div>
-                    ) : (
-                        <div className="aspect-[4/3] bg-[#0D0D0D] rounded-xl flex items-center justify-center">
-                            <div className="text-center text-[#737373]">
-                                <svg className="w-16 h-16 mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                </svg>
-                                <p className="text-sm">Upload a template to preview</p>
-                            </div>
-                        </div>
-                    )}
-
-                    {currentTemplate && names.trim() && (
-                        <div className="mt-4 p-3 bg-[#0D0D0D] rounded-lg">
-                            <p className="text-sm text-[#B3B3B3]">
-                                Ready to generate <span className="text-white font-medium">{names.split('\n').filter(n => n.trim()).length}</span> certificates for{' '}
-                                <span className="text-white font-medium">{CERTIFICATE_TYPES.find(t => t.type === activeType)?.label}</span>
-                            </p>
-                        </div>
-                    )}
-                </div>
-            </div >
+                </>
+            )
+            }
         </div >
     );
 }

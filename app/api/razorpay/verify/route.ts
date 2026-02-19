@@ -127,31 +127,26 @@ export async function POST(request: NextRequest) {
         // Send confirmation email with PDF ticket
         if (email) {
             try {
-                const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+                const { sendTicketEmail } = await import('@/lib/ticket-email');
 
                 console.log('Sending confirmation email to:', email);
-                const emailResponse = await fetch(`${baseUrl}/api/email/send`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        to: email,
-                        ticketId,
-                        token, // Include token for QR code
-                        eventName: eventName || 'Event',
-                        attendeeName: name || 'Guest',
-                        eventDate: eventDate || 'TBA',
-                        venue: venue || 'TBA',
-                        // Payment details
-                        amountPaid,
-                        transactionId: razorpay_payment_id,
-                        orderId: razorpay_order_id,
-                        paymentDate: new Date().toISOString(),
-                        paymentMode: 'Online Payment',
-                        emailStyles,
-                    }),
+                const emailResult = await sendTicketEmail({
+                    to: email,
+                    ticketId,
+                    token, // Include token for QR code
+                    eventName: eventName || 'Event',
+                    attendeeName: name || 'Guest',
+                    eventDate: eventDate || 'TBA',
+                    venue: venue || 'TBA',
+                    // Payment details
+                    amountPaid,
+                    transactionId: razorpay_payment_id,
+                    orderId: razorpay_order_id,
+                    paymentDate: new Date().toISOString(),
+                    paymentMode: 'Online Payment',
+                    emailStyles,
                 });
 
-                const emailResult = await emailResponse.json();
                 console.log('Email send result:', emailResult);
             } catch (emailError) {
                 console.warn('Email sending failed:', emailError);

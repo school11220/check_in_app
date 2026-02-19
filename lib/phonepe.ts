@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
 import crypto from 'crypto';
 
 const PHONEPE_API_URL = process.env.PHONEPE_API_URL || 'https://api-preprod.phonepe.com/apis/pg-sandbox';
@@ -30,17 +30,25 @@ export function verifyChecksum(receivedChecksum: string, payload: string): boole
   return calculatedChecksum === receivedChecksumValue;
 }
 
-/**
- * Create PhonePe payment request
- * NOTE: Using MOCK mode for testing. For production, get real PhonePe credentials.
- */
-export async function createPhonePePayment(data: {
+interface PaymentData {
   ticketId: string;
   amount: number; // Amount in paise (200 rupees = 20000 paise)
   name: string;
   email?: string;
   phone?: string;
-}) {
+}
+
+interface PaymentResponse {
+  success: boolean;
+  paymentUrl: string;
+  transactionId: string;
+}
+
+/**
+ * Create PhonePe payment request
+ * NOTE: Using MOCK mode for testing. For production, get real PhonePe credentials.
+ */
+export async function createPhonePePayment(data: PaymentData): Promise<PaymentResponse> {
   // MOCK MODE - For testing without real PhonePe credentials
   // TODO: Replace with real PhonePe API when you have production credentials
 
@@ -103,17 +111,27 @@ export async function createPhonePePayment(data: {
     } else {
       throw new Error(response.data.message || 'Payment initiation failed');
     }
-  } catch (error: any) {
-    console.error('PhonePe payment error:', error.response?.data || error.message);
-    throw new Error(error.response?.data?.message || 'Failed to create payment');
+  } catch (error: unknown) {
+    if (axios.isAxiosError(error)) {
+        console.error('PhonePe payment error:', error.response?.data || error.message);
+        throw new Error(error.response?.data?.message || 'Failed to create payment');
+    }
+    console.error('PhonePe payment error:', error);
+    throw new Error('Failed to create payment');
   }
   */
+}
+
+interface StatusResponse {
+  success: boolean;
+  status: string;
+  data: any;
 }
 
 /**
  * Check PhonePe payment status
  */
-export async function checkPaymentStatus(transactionId: string) {
+export async function checkPaymentStatus(transactionId: string): Promise<StatusResponse> {
   try {
     const endpoint = `/pg/v1/status/${MERCHANT_ID}/${transactionId}`;
     const checksumString = endpoint + SALT_KEY;
@@ -132,8 +150,12 @@ export async function checkPaymentStatus(transactionId: string) {
       status: response.data.code,
       data: response.data.data,
     };
-  } catch (error: any) {
-    console.error('PhonePe status check error:', error.response?.data || error.message);
+  } catch (error: unknown) {
+    if (axios.isAxiosError(error)) {
+      console.error('PhonePe status check error:', error.response?.data || error.message);
+    } else {
+      console.error('PhonePe status check error:', error);
+    }
     throw new Error('Failed to check payment status');
   }
 }

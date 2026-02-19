@@ -66,6 +66,7 @@ model Event {
   Review               Review[]
   Session              Session[]
   Ticket               Ticket[]
+  CertificateTemplate  CertificateTemplate?
 
   @@index([category])
   @@index([isActive])
@@ -152,6 +153,7 @@ model Ticket {
   checkedIn         Boolean      @default(false)
   checkedInAt       DateTime?
   checkedInBy       String?
+  certificateSent   Boolean      @default(false)
   purchaseGroupId   String?
   createdAt         DateTime     @default(now())
   updatedAt         DateTime
@@ -228,3 +230,14 @@ model PromoUsage {
 }
 
 
+
+model CertificateTemplate {
+  id              String   @id @default(cuid())
+  name            String
+  eventId         String?  @unique
+  Event           Event?   @relation(fields: [eventId], references: [id])
+  bgImage         String?  // URL to background image
+  elements        Json?    // JSON array of elements { type: 'text'|'image', x: 0, y: 0, ... }
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}

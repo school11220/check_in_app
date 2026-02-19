@@ -377,9 +377,11 @@ export default function TicketPage() {
             style={{
               background: siteSettings.ticketHeaderStyle === 'image' && siteSettings.ticketHeaderImage
                 ? `url(${siteSettings.ticketHeaderImage}) center/cover`
-                : siteSettings.ticketGradient
-                  ? `linear-gradient(135deg, ${siteSettings.ticketAccentColor || '#dc2626'}, ${siteSettings.ticketGradientColor || '#991b1b'})`
-                  : (siteSettings.ticketAccentColor || '#dc2626'),
+                : siteSettings.ticketHeaderStyle === 'image' && ticket.event?.imageUrl
+                  ? `url(${ticket.event.imageUrl}) center/cover`
+                  : siteSettings.ticketGradient
+                    ? `linear-gradient(135deg, ${siteSettings.ticketAccentColor || '#dc2626'}, ${siteSettings.ticketGradientColor || '#991b1b'})`
+                    : (siteSettings.ticketAccentColor || '#dc2626'),
               color: '#ffffff'
             }}
             className={`px-6 ${siteSettings.ticketCompactMode ? 'py-4' : 'py-6'} relative overflow-hidden z-10`}
