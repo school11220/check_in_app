@@ -39,6 +39,12 @@
     ".next/dev/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "create-event.ts",
+    "check_db.ts",
+    "check_events_debug.ts",
+    "check-events.ts",
+    "debug_api.js",
+    "prisma/seed.ts"
   ]
 }

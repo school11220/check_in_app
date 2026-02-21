@@ -14,15 +14,11 @@ const getCachedSiteConfig = unstable_cache(
   { revalidate: 60 }
 );
 
-const getCachedEvents = unstable_cache(
-  async () => prisma.event.findMany({
-    where: { isActive: true },
-    include: { PricingRule: true },
-    orderBy: { date: 'asc' }
-  }),
-  ['active-events'],
-  { revalidate: 60 }
-);
+const getCachedEvents = async () => prisma.event.findMany({
+  where: { isActive: true },
+  include: { PricingRule: true },
+  orderBy: { date: 'asc' }
+});
 
 export default async function Home() {
   // Parallel data fetching with caching and error handling

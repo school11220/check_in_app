@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import QRScanner from '@/components/QRScanner';
+import OfflineBanner from '@/components/OfflineBanner';
 import { syncTicketsForEvent, offlineCheckIn, processBackgroundSync, getOfflineTicket } from '@/lib/offline-sync'; // Ensure getOfflineTicket is exported
 import { Wifi, WifiOff, RefreshCw, CheckCircle, XCircle, Loader2, User, Ticket as TicketIcon } from 'lucide-react';
 
@@ -257,6 +258,9 @@ export default function ScannerPage() {
                     </button>
                 </div>
             </div>
+
+            {/* Offline sync banner */}
+            <OfflineBanner />
         </div>
     );
 }

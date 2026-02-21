@@ -2,7 +2,8 @@
 
 import { useApp, CATEGORY_COLORS, Event, SiteSettings } from '@/lib/store';
 import { useState, useEffect } from 'react';
-import { Calendar, MapPin, ScanLine, LayoutDashboard, LogIn, X, Menu, Ticket, LogOut, Search, Clock, Home as HomeIcon } from 'lucide-react';
+import { Calendar, MapPin, ScanLine, LayoutDashboard, LogIn, X, Menu, Ticket, LogOut, Search, Clock, Home as HomeIcon, Compass } from 'lucide-react';
+import Link from 'next/link';
 import { useAuth, useClerk } from '@clerk/nextjs';
 import Image from 'next/image';
 
@@ -77,9 +78,15 @@ export default function HomeClient({ initialEvents, initialSettings }: HomeClien
             {/* Floating Menu Button (Desktop Only) */}
             <div className="hidden md:block fixed bottom-6 right-6 z-50">
                 <div className={`absolute bottom-16 right-0 glass rounded-xl overflow-hidden shadow-2xl transition-all duration-300 ${showMenu ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}>
+                    {mounted && (
+                        <a href="/discover" className="flex items-center gap-3 px-5 py-3.5 text-zinc-300 hover:bg-white/5 hover:text-white whitespace-nowrap transition-colors">
+                            <Compass className="w-5 h-5" />
+                            Discover Events
+                        </a>
+                    )}
                     {mounted && isSignedIn && (
                         <>
-                            <a href="/checkin" target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 px-5 py-3.5 text-zinc-300 hover:bg-white/5 hover:text-white whitespace-nowrap transition-colors">
+                            <a href="/checkin" target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 px-5 py-3.5 text-zinc-300 hover:bg-white/5 hover:text-white whitespace-nowrap border-t border-white/5 transition-colors">
                                 <ScanLine className="w-5 h-5" />
                                 Staff Check-In
                             </a>
@@ -124,6 +131,14 @@ export default function HomeClient({ initialEvents, initialSettings }: HomeClien
                     <Search className="w-6 h-6 mb-1" />
                     <span className="text-[10px] font-medium">Search</span>
                 </button>
+
+                <Link
+                    href="/discover"
+                    className="flex flex-col items-center justify-center w-16 h-full text-[#B3B3B3] hover:text-white transition-colors"
+                >
+                    <Compass className="w-6 h-6 mb-1" />
+                    <span className="text-[10px] font-medium">Discover</span>
+                </Link>
 
                 <div className="relative -top-5">
                     <a

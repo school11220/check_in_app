@@ -169,7 +169,7 @@ export default function EventDetailsPage() {
     const params = useParams();
     const router = useRouter();
     const eventId = params.id as string;
-    const { events, reviews, addReview, siteSettings } = useApp();
+    const { events, reviews, addReview, siteSettings, isLoading } = useApp();
     const { showToast } = useToast();
 
     const event = events.find(e => e.id === eventId);
@@ -189,6 +189,27 @@ export default function EventDetailsPage() {
         window.addEventListener('scroll', handleScroll);
         return () => window.removeEventListener('scroll', handleScroll);
     }, []);
+
+    // Show skeleton while the store is still fetching events from the API
+    if (isLoading) {
+        return (
+            <main className="min-h-screen bg-black">
+                <div className="max-w-5xl mx-auto px-4 py-12 animate-pulse">
+                    {/* Hero skeleton */}
+                    <div className="h-72 rounded-2xl bg-zinc-800 mb-8" />
+                    {/* Title + meta */}
+                    <div className="h-8 w-2/3 rounded-lg bg-zinc-800 mb-4" />
+                    <div className="h-4 w-1/3 rounded-lg bg-zinc-800 mb-8" />
+                    {/* Tab bar */}
+                    <div className="flex gap-4 mb-8">
+                        {[1,2,3].map(i => <div key={i} className="h-9 w-24 rounded-lg bg-zinc-800" />)}
+                    </div>
+                    {/* Body rows */}
+                    {[1,2,3,4].map(i => <div key={i} className="h-4 rounded bg-zinc-800 mb-3" style={{ width: `${85 - i * 8}%` }} />)}
+                </div>
+            </main>
+        );
+    }
 
     if (!event) {
         return (

@@ -113,3 +113,61 @@ async function networkFirst(request) {
         return new Response('Offline', { status: 503 });
     }
 }
+
+// ─── Background Sync: process offline check-in queue ───────────────────────
+self.addEventListener('sync', (event) => {
+    if (event.tag === 'checkin-sync') {
+        event.waitUntil(processOfflineCheckins());
+    }
+});
+
+async function processOfflineCheckins() {
+    let db;
+    try { db = await openIDB(); } catch { return; }
+
+    const pending = await db.getAll('pending_logs');
+    if (!pending.length) return;
+
+    await Promise.allSettled(
+        pending.map(async (entry) => {
+            const res = await fetch('/api/checkin', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ticketId: entry.ticketId, eventId: entry.eventId, source: 'offline-sync' }),
+            });
+            if (res.ok) await db.delete('pending_logs', entry.ticketId);
+        })
+    );
+
+    const allClients = await self.clients.matchAll({ type: 'window' });
+    allClients.forEach(c => c.postMessage({ type: 'SYNC_COMPLETE' }));
+}
+
+function openIDB() {
+    return new Promise((resolve, reject) => {
+        const req = indexedDB.open('offline-checkin', 1);
+        req.onupgradeneeded = (e) => {
+            const db = e.target.result;
+            if (!db.objectStoreNames.contains('pending_logs'))
+                db.createObjectStore('pending_logs', { keyPath: 'ticketId' });
+            if (!db.objectStoreNames.contains('tickets')) {
+                const ts = db.createObjectStore('tickets', { keyPath: 'id' });
+                ts.createIndex('eventId', 'eventId', { unique: false });
+                ts.createIndex('token', 'token', { unique: false });
+            }
+        };
+        req.onsuccess = (e) => {
+            const raw = e.target.result;
+            const wrap = (store, mode, fn) => new Promise((res, rej) => {
+                const tx = raw.transaction(store, mode);
+                const r2 = fn(tx.objectStore(store));
+                r2.onsuccess = () => res(r2.result);
+                r2.onerror = rej;
+            });
+            raw.getAll = (store) => wrap(store, 'readonly', s => s.getAll());
+            raw.delete = (store, key) => wrap(store, 'readwrite', s => s.delete(key));
+            resolve(raw);
+        };
+        req.onerror = reject;
+    });
+}

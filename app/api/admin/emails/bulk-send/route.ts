@@ -3,6 +3,8 @@ import { prisma } from '@/lib/prisma';
 import { sendTransactionalEmail, isEmailConfigured } from '@/lib/email';
 import { auth, clerkClient } from '@clerk/nextjs/server';
 
+// NOTE: Emails are only sent when GMAIL_USER + GMAIL_APP_PASSWORD (or SMTP_*) env vars are set.
+
 export async function POST(request: NextRequest) {
     try {
         // 1. Verify Admin Session with Clerk
@@ -19,6 +21,14 @@ export async function POST(request: NextRequest) {
 
         if (role !== 'ADMIN') {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        // 1b. Check email configuration BEFORE doing any DB work
+        if (!isEmailConfigured()) {
+            return NextResponse.json({
+                error: 'Email service is not configured. Please set GMAIL_USER + GMAIL_APP_PASSWORD or SMTP_HOST + SMTP_USER + SMTP_PASS environment variables in your .env file.',
+                notConfigured: true,
+            }, { status: 503 });
         }
 
         // 2. Parse Request
@@ -132,13 +142,17 @@ export async function POST(request: NextRequest) {
                       </html>
                     `;
 
-                    await sendTransactionalEmail({
+                    const emailResult = await sendTransactionalEmail({
                         to: ticket.email,
                         toName: ticket.name,
                         subject: finalSubject,
                         htmlContent: emailHtml
                     });
-                    sentCount++;
+                    if (emailResult.success) {
+                        sentCount++;
+                    } else {
+                        console.error(`Email failed for ticket ${ticket.id}:`, emailResult.error);
+                    }
                 } catch (e) {
                     console.error(`Failed to email ticket ${ticket.id}`, e);
                 }

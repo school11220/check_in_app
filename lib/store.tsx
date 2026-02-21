@@ -630,6 +630,7 @@ interface AppContextType {
     promoCodes: PromoCode[];
     waitlist: WaitlistEntry[];
     isAdminLoggedIn: boolean;
+    isLoading: boolean;
     setEvents: (events: Event[]) => void;
     addEvent: (event: Event) => Promise<boolean>;
     updateEvent: (id: string, data: Partial<Event>) => void;
@@ -680,6 +681,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const [promoCodes, setPromoCodes] = useState<PromoCode[]>(DEFAULT_PROMO_CODES);
     const [waitlist, setWaitlist] = useState<WaitlistEntry[]>(DEFAULT_WAITLIST);
     const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
         // Load admin session
@@ -754,7 +756,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         };
         fetchTickets();
 
-        // Fetch events from API
+        // Fetch events from API — flip isLoading off when done so consumers
+        // can distinguish "no events" from "not yet loaded"
         const fetchEvents = async () => {
             try {
                 const res = await fetch('/api/events');
@@ -764,6 +767,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
                 }
             } catch (error) {
                 console.error('Failed to load events', error);
+            } finally {
+                setIsLoading(false);
             }
         };
         fetchEvents();
@@ -1049,7 +1054,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return (
         <AppContext.Provider value={{
             events, tickets, reviews, teamMembers, siteSettings, festivals,
-            emailTemplates, surveys, surveyResponses, promoCodes, waitlist, isAdminLoggedIn,
+            emailTemplates, surveys, surveyResponses, promoCodes, waitlist, isAdminLoggedIn, isLoading,
             setEvents, addEvent, updateEvent, deleteEvent, duplicateEvent,
             addTicket, updateTicket, deleteTicket, addReview, addTeamMember, updateTeamMember, removeTeamMember,
             updateSiteSettings, addFestival, updateFestival, deleteFestival,

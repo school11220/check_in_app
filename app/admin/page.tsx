@@ -27,6 +27,8 @@ import EventReviews from '@/components/organizer/EventReviews';
 import EventModal from '@/components/EventModal';
 import { useClerk, useUser } from '@clerk/nextjs';
 import { useDraggable } from '@/hooks/useDraggable';
+import MultiEventAnalytics from '@/components/admin/MultiEventAnalytics';
+import DripCampaigns from '@/components/admin/DripCampaigns';
 
 export default function AdminPage() {
     const router = useRouter();
@@ -2129,6 +2131,9 @@ export default function AdminPage() {
                                     </div>
                                 ))}
                             </div>
+
+                            {/* Drip Campaigns */}
+                            <DripCampaigns />
                         </div>
                     )
                 }
@@ -3253,7 +3258,8 @@ export default function AdminPage() {
                 {/* Analytics Tab */}
                 {
                     activeTab === 'analytics' && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in-up">
+                        <div className="space-y-6 animate-fade-in-up">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6">
                                 <h3 className="text-lg font-bold text-white mb-6">Sales by Event</h3>
                                 <div className="h-80 w-full min-h-[320px]">
@@ -3283,6 +3289,12 @@ export default function AdminPage() {
                                     </ResponsiveContainer>
                                 </div>
                             </div>
+                        </div>
+
+                        {/* Multi-event comparison */}
+                        <div className="mt-6">
+                            <MultiEventAnalytics />
+                        </div>
                         </div>
                     )
                 }
