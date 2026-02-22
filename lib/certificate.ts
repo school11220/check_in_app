@@ -14,7 +14,7 @@ export interface CertificateTemplate {
     fontSize: number;
     namePositionX: number; // Percentage from left (0-100)
     namePositionY: number; // Percentage from bottom (0-100)
-    fontFamily: 'TimesRoman' | 'Helvetica' | 'Courier';
+    fontFamily: string;
     eventNameEnabled: boolean;
     eventPositionY: number;
     dateEnabled: boolean;
@@ -86,10 +86,19 @@ export const DEFAULT_CERTIFICATE_TEMPLATES: Record<CertificateType, Omit<Certifi
 };
 
 // Font mapping
-const FONT_MAP = {
+const FONT_MAP: Record<string, string> = {
     TimesRoman: StandardFonts.TimesRomanBoldItalic,
     Helvetica: StandardFonts.HelveticaBold,
     Courier: StandardFonts.CourierBold,
+    Georgia: StandardFonts.TimesRomanBoldItalic,
+    Palatino: StandardFonts.TimesRomanBold,
+    Garamond: StandardFonts.TimesRomanItalic,
+    Verdana: StandardFonts.Helvetica,
+    TrebuchetMS: StandardFonts.HelveticaBoldOblique,
+    Futura: StandardFonts.HelveticaBold,
+    CenturyGothic: StandardFonts.Helvetica,
+    Bodoni: StandardFonts.TimesRomanBold,
+    Baskerville: StandardFonts.TimesRomanBold,
 };
 
 /**

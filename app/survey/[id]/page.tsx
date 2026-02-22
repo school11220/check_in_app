@@ -2,8 +2,8 @@ import { prisma } from '@/lib/prisma';
 import SurveyForm from '@/components/SurveyForm';
 import { notFound } from 'next/navigation';
 
-export default async function SurveyPage({ params }: { params: { id: string } }) {
-    const { id } = params;
+export default async function SurveyPage({ params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params;
 
     const config = await prisma.siteConfig.findUnique({
         where: { id: 'default' }
@@ -14,7 +14,11 @@ export default async function SurveyPage({ params }: { params: { id: string } })
     const surveys = (config.surveys as any[]) || [];
     const siteSettings = (config.settings as any) || {};
 
-    const survey = surveys.find((s: any) => s.id === id);
+    // Try exact match first, then prefix match for flexibility
+    let survey = surveys.find((s: any) => s.id === id);
+    if (!survey) {
+        survey = surveys.find((s: any) => s.id === `survey-${id}` || id === `survey-${s.id}`);
+    }
 
     if (!survey || !survey.isActive) {
         return (
@@ -29,7 +33,6 @@ export default async function SurveyPage({ params }: { params: { id: string } })
         <div className="min-h-screen bg-black text-white selection:bg-red-500/30 selection:text-red-200"
             style={{
                 fontFamily: siteSettings.theme?.bodyFont || 'Inter, sans-serif',
-                // Use background from theme if available, or fallback
                 backgroundColor: siteSettings.theme?.backgroundColor || '#000000'
             }}>
             <SurveyForm survey={survey} siteName={siteSettings.siteName || 'EventHub'} />

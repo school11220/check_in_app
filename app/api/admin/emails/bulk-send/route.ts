@@ -110,12 +110,15 @@ export async function POST(request: NextRequest) {
                     const surveyUrl = surveyId ? `${baseUrl}/survey/${surveyId}` : '#';
                     const surveyLinkHtml = surveyId ? `<a href="${surveyUrl}" style="color: #4ade80; text-decoration: underline;">Take our 1-minute survey</a>` : '';
 
+                    const siteSettingsObj = siteConfig?.settings as any;
                     const variables: Record<string, string> = {
                         '{{name}}': ticket.name,
                         '{{eventName}}': event.name,
                         '{{eventDate}}': new Date(event.date).toLocaleDateString('en-IN'),
+                        '{{eventTime}}': event.startTime || '09:00',
                         '{{eventVenue}}': event.venue || 'TBA',
                         '{{ticketId}}': ticket.id,
+                        '{{siteName}}': siteSettingsObj?.siteName || 'EventHub',
                         '{{surveyLink}}': surveyLinkHtml
                     };
 

@@ -28,7 +28,7 @@ import EventModal from '@/components/EventModal';
 import { useClerk, useUser } from '@clerk/nextjs';
 import { useDraggable } from '@/hooks/useDraggable';
 import MultiEventAnalytics from '@/components/admin/MultiEventAnalytics';
-import DripCampaigns from '@/components/admin/DripCampaigns';
+
 
 export default function AdminPage() {
     const router = useRouter();
@@ -326,7 +326,7 @@ export default function AdminPage() {
                             <button
                                 key={tab.id}
                                 onClick={() => setActiveTab(tab.id as any)}
-                                className={`px-5 py-2.5 rounded-xl font-medium whitespace-nowrap transition-all flex items-center gap-2 text-sm ${activeTab === tab.id
+                                className={`px-5 py-2.5 min-w-0 flex-shrink-0 rounded-xl font-medium whitespace-nowrap transition-all flex items-center gap-2 text-sm ${activeTab === tab.id
                                     ? 'bg-[#E11D2E] text-white shadow-[0_0_20px_rgba(225,29,46,0.3)]'
                                     : 'bg-[#141414] text-[#737373] hover:bg-[#1A1A1A] hover:text-[#B3B3B3] border border-[#1F1F1F]'
                                     }`}
@@ -731,7 +731,178 @@ export default function AdminPage() {
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {/* Live Preview — Above Settings */}
+                        <div className="w-full">
+                            <div className="bg-[#141414] border border-[#1F1F1F] rounded-2xl p-4 md:p-6">
+                                <div className="flex items-center justify-between mb-5">
+                                    <h3 className="font-heading text-lg font-semibold text-white flex items-center gap-2">
+                                        <svg className="w-5 h-5 text-[#22C55E]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                        </svg>
+                                        Live Preview
+                                    </h3>
+                                    <span className="text-xs text-[#22C55E] bg-[#22C55E]/10 px-3 py-1 rounded-full border border-[#22C55E]/20">Auto-updating</span>
+                                </div>
+
+                                {/* Ticket Preview — centered with max-width */}
+                                <div className="max-w-md mx-auto">
+                                    <div
+                                        className={`overflow-hidden relative shadow-2xl ${(ticketDraft?.ticketCompactMode ?? siteSettings.ticketCompactMode) ? 'max-w-xs mx-auto' : ''}`}
+                                        style={{
+                                            borderRadius: `${ticketDraft?.ticketBorderRadius ?? siteSettings.ticketBorderRadius ?? 24}px`,
+                                            background: (ticketDraft?.ticketGradient ?? siteSettings.ticketGradient)
+                                                ? `linear-gradient(135deg, ${ticketDraft?.ticketBgColor ?? siteSettings.ticketBgColor ?? '#111111'}, ${ticketDraft?.ticketGradientColor ?? siteSettings.ticketGradientColor ?? '#991b1b'})`
+                                                : ticketDraft?.ticketBgColor ?? siteSettings.ticketBgColor ?? '#111111',
+                                            border: (ticketDraft?.ticketBorderStyle ?? siteSettings.ticketBorderStyle ?? 'solid') === 'none' ? 'none' : `2px ${ticketDraft?.ticketBorderStyle ?? siteSettings.ticketBorderStyle ?? 'solid'} ${ticketDraft?.ticketBorderColor ?? siteSettings.ticketBorderColor ?? '#333333'}`,
+                                            fontFamily: (ticketDraft?.ticketFontFamily ?? siteSettings.ticketFontFamily) === 'playfair' ? 'Georgia, serif' : (ticketDraft?.ticketFontFamily ?? siteSettings.ticketFontFamily) === 'montserrat' ? 'Montserrat, sans-serif' : (ticketDraft?.ticketFontFamily ?? siteSettings.ticketFontFamily) === 'roboto' ? 'Roboto, sans-serif' : 'Inter, sans-serif'
+                                        }}
+                                    >
+                                        {/* Pattern Overlay */}
+                                        {(ticketDraft?.ticketShowPattern ?? siteSettings.ticketShowPattern) && (ticketDraft?.ticketPatternType ?? siteSettings.ticketPatternType) !== 'none' && (
+                                            <div className="absolute inset-0 opacity-10 pointer-events-none" style={{
+                                                backgroundImage: (ticketDraft?.ticketPatternType ?? siteSettings.ticketPatternType) === 'dots'
+                                                    ? `radial-gradient(circle, ${ticketDraft?.ticketTextColor ?? siteSettings.ticketTextColor ?? '#ffffff'} 1px, transparent 1px)`
+                                                    : (ticketDraft?.ticketPatternType ?? siteSettings.ticketPatternType) === 'lines'
+                                                        ? `repeating-linear-gradient(45deg, transparent, transparent 10px, ${ticketDraft?.ticketTextColor ?? siteSettings.ticketTextColor ?? '#ffffff'} 10px, ${ticketDraft?.ticketTextColor ?? siteSettings.ticketTextColor ?? '#ffffff'} 11px)`
+                                                        : `linear-gradient(to right, ${ticketDraft?.ticketTextColor ?? siteSettings.ticketTextColor ?? '#ffffff'} 1px, transparent 1px), linear-gradient(to bottom, ${ticketDraft?.ticketTextColor ?? siteSettings.ticketTextColor ?? '#ffffff'} 1px, transparent 1px)`,
+                                                backgroundSize: (ticketDraft?.ticketPatternType ?? siteSettings.ticketPatternType) === 'dots' ? '15px 15px' : (ticketDraft?.ticketPatternType ?? siteSettings.ticketPatternType) === 'grid' ? '20px 20px' : 'auto'
+                                            }} />
+                                        )}
+
+                                        {/* Watermark */}
+                                        {(ticketDraft?.ticketWatermark ?? siteSettings.ticketWatermark) && (
+                                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden z-20">
+                                                <p
+                                                    className="text-4xl font-bold opacity-5 whitespace-nowrap"
+                                                    style={{
+                                                        transform: 'rotate(-30deg)',
+                                                        color: ticketDraft?.ticketTextColor ?? siteSettings.ticketTextColor ?? '#ffffff',
+                                                        letterSpacing: '0.1em'
+                                                    }}
+                                                >
+                                                    {ticketDraft?.ticketWatermark ?? siteSettings.ticketWatermark}
+                                                </p>
+                                            </div>
+                                        )}
+
+                                        {/* Event Image Banner */}
+                                        {(ticketDraft?.ticketShowEventImage ?? siteSettings.ticketShowEventImage) && (
+                                            <div className="relative h-24 overflow-hidden">
+                                                <img
+                                                    src={ticketDraft?.ticketHeaderImage || siteSettings.ticketHeaderImage || 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=600&q=80'}
+                                                    alt="Event"
+                                                    className="w-full h-full object-cover"
+                                                />
+                                                <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/60"></div>
+                                            </div>
+                                        )}
+
+                                        {/* Header */}
+                                        <div
+                                            className={`px-6 ${(ticketDraft?.ticketCompactMode ?? siteSettings.ticketCompactMode) ? 'py-4' : 'py-5'} relative overflow-hidden`}
+                                            style={{
+                                                background: (ticketDraft?.ticketGradient ?? siteSettings.ticketGradient)
+                                                    ? `linear-gradient(135deg, ${ticketDraft?.ticketAccentColor ?? siteSettings.ticketAccentColor ?? '#dc2626'}, ${ticketDraft?.ticketGradientColor ?? siteSettings.ticketGradientColor ?? '#991b1b'})`
+                                                    : (ticketDraft?.ticketAccentColor ?? siteSettings.ticketAccentColor ?? '#dc2626')
+                                            }}
+                                        >
+                                            <div className="absolute top-0 right-0 w-24 h-24 rounded-full -mr-12 -mt-12" style={{ backgroundColor: 'rgba(255,255,255,0.1)' }}></div>
+                                            {(ticketDraft?.ticketLogoUrl ?? siteSettings.ticketLogoUrl) && (
+                                                <img src={ticketDraft?.ticketLogoUrl ?? siteSettings.ticketLogoUrl} alt="Logo" className="h-6 mb-2 opacity-80" />
+                                            )}
+                                            <div className="flex items-center gap-2 text-xs mb-1 opacity-90 text-white">
+                                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
+                                                </svg>
+                                                {ticketDraft?.ticketBadgeText ?? siteSettings.ticketBadgeText ?? 'VIP ACCESS'}
+                                            </div>
+                                            <h3 className={`font-bold text-white ${(ticketDraft?.ticketCompactMode ?? siteSettings.ticketCompactMode) ? 'text-lg' : 'text-xl'}`}>Summer Music Festival</h3>
+                                            {(ticketDraft?.ticketShowEventDescription ?? siteSettings.ticketShowEventDescription) && (
+                                                <p className="text-xs opacity-70 mt-1 text-white">Amazing event with live performances</p>
+                                            )}
+                                        </div>
+
+                                        {/* Perforation */}
+                                        {(ticketDraft?.ticketShowPerforation ?? siteSettings.ticketShowPerforation) !== false && (
+                                            <div className="relative flex items-center bg-transparent">
+                                                <div className="absolute left-0 w-3 h-6 rounded-r-full" style={{ backgroundColor: '#0B0B0B' }}></div>
+                                                <div className="flex-1 border-t-2 border-dashed mx-3" style={{ borderColor: ticketDraft?.ticketBorderColor ?? siteSettings.ticketBorderColor ?? '#444444' }}></div>
+                                                <div className="absolute right-0 w-3 h-6 rounded-l-full" style={{ backgroundColor: '#0B0B0B' }}></div>
+                                            </div>
+                                        )}
+
+                                        {/* Body */}
+                                        <div className={`${(ticketDraft?.ticketCompactMode ?? siteSettings.ticketCompactMode) ? 'p-4' : 'p-5'} relative`}>
+                                            {/* Date & Venue */}
+                                            {((ticketDraft?.ticketShowDate ?? siteSettings.ticketShowDate) !== false || (ticketDraft?.ticketShowVenue ?? siteSettings.ticketShowVenue) !== false) && (
+                                                <div className={`grid ${(ticketDraft?.ticketShowDate ?? siteSettings.ticketShowDate) !== false && (ticketDraft?.ticketShowVenue ?? siteSettings.ticketShowVenue) !== false ? 'grid-cols-2' : 'grid-cols-1'} gap-3 mb-4`}>
+                                                    {(ticketDraft?.ticketShowDate ?? siteSettings.ticketShowDate) !== false && (
+                                                        <div className="rounded-lg p-3" style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}>
+                                                            <p className="text-[10px] opacity-60 mb-0.5" style={{ color: ticketDraft?.ticketTextColor ?? siteSettings.ticketTextColor ?? '#ffffff' }}>DATE</p>
+                                                            <p className="text-sm font-semibold" style={{ color: ticketDraft?.ticketTextColor ?? siteSettings.ticketTextColor ?? '#ffffff' }}>Dec 25, 2024</p>
+                                                        </div>
+                                                    )}
+                                                    {(ticketDraft?.ticketShowVenue ?? siteSettings.ticketShowVenue) !== false && (
+                                                        <div className="rounded-lg p-3" style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}>
+                                                            <p className="text-[10px] opacity-60 mb-0.5" style={{ color: ticketDraft?.ticketTextColor ?? siteSettings.ticketTextColor ?? '#ffffff' }}>VENUE</p>
+                                                            <p className="text-sm font-semibold truncate" style={{ color: ticketDraft?.ticketTextColor ?? siteSettings.ticketTextColor ?? '#ffffff' }}>Convention Center</p>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+
+                                            <div className="rounded-lg p-3 mb-4" style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}>
+                                                <p className="text-[10px] opacity-60 mb-0.5" style={{ color: ticketDraft?.ticketTextColor ?? siteSettings.ticketTextColor ?? '#ffffff' }}>ATTENDEE</p>
+                                                <p className="text-base font-semibold" style={{ color: ticketDraft?.ticketTextColor ?? siteSettings.ticketTextColor ?? '#ffffff' }}>John Doe</p>
+                                                <p className="text-xs opacity-60" style={{ color: ticketDraft?.ticketTextColor ?? siteSettings.ticketTextColor ?? '#ffffff' }}>john@example.com</p>
+                                            </div>
+
+                                            {/* QR Code */}
+                                            {(ticketDraft?.ticketShowQrCode ?? siteSettings.ticketShowQrCode) && (
+                                                <div className={`flex flex-col ${(ticketDraft?.ticketQrPosition ?? siteSettings.ticketQrPosition) === 'right' ? 'items-end' : 'items-center'}`}>
+                                                    <div className="rounded-xl p-3 mb-2" style={{ backgroundColor: '#ffffff' }}>
+                                                        <svg
+                                                            className={`text-black ${(ticketDraft?.ticketQrSize ?? siteSettings.ticketQrSize) === 'small' ? 'w-16 h-16' : (ticketDraft?.ticketQrSize ?? siteSettings.ticketQrSize) === 'large' ? 'w-28 h-28' : 'w-20 h-20'}`}
+                                                            viewBox="0 0 24 24"
+                                                            fill="currentColor"
+                                                        >
+                                                            <path d="M3 3h7v7H3V3zm1 1v5h5V4H4zm8-1h7v7h-7V3zm1 1v5h5V4h-5zM3 12h7v7H3v-7zm1 1v5h5v-5H4zm11 1h1v1h-1v-1zm-3-1h1v1h-1v-1zm5 0h1v1h-1v-1zm-2 2h1v1h-1v-1zm2 0h3v3h-3v-3zm1 1v1h1v-1h-1zm-8 3h1v1h-1v-1zm2 0h1v1h-1v-1zm4 0h1v1h-1v-1z" />
+                                                        </svg>
+                                                    </div>
+                                                    <p className="text-[10px] opacity-50" style={{ color: ticketDraft?.ticketTextColor ?? siteSettings.ticketTextColor ?? '#ffffff' }}>TICKET-ABC123XYZ</p>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Footer */}
+                                        {((ticketDraft?.ticketShowPrice ?? siteSettings.ticketShowPrice) !== false || (ticketDraft?.ticketShowStatus ?? siteSettings.ticketShowStatus) !== false || (ticketDraft?.ticketFooterText ?? siteSettings.ticketFooterText)) && (
+                                            <div className="px-5 py-3 border-t flex justify-between items-center" style={{ borderColor: ticketDraft?.ticketBorderColor ?? siteSettings.ticketBorderColor ?? '#333333', backgroundColor: 'rgba(0,0,0,0.3)' }}>
+                                                <div>
+                                                    {(ticketDraft?.ticketShowPrice ?? siteSettings.ticketShowPrice) !== false && (
+                                                        <>
+                                                            <p className="text-lg font-bold font-mono" style={{ color: ticketDraft?.ticketTextColor ?? siteSettings.ticketTextColor ?? '#ffffff' }}>₹1,999</p>
+                                                            <p className="text-[10px] opacity-50" style={{ color: ticketDraft?.ticketTextColor ?? siteSettings.ticketTextColor ?? '#ffffff' }}>Paid</p>
+                                                        </>
+                                                    )}
+                                                    {(ticketDraft?.ticketFooterText ?? siteSettings.ticketFooterText) && (
+                                                        <p className="text-[10px] opacity-60 mt-1" style={{ color: ticketDraft?.ticketTextColor ?? siteSettings.ticketTextColor ?? '#ffffff' }}>{ticketDraft?.ticketFooterText ?? siteSettings.ticketFooterText}</p>
+                                                    )}
+                                                </div>
+                                                {(ticketDraft?.ticketShowStatus ?? siteSettings.ticketShowStatus) !== false && (
+                                                    <span className="px-2 py-1 rounded-full text-[10px] font-bold" style={{ backgroundColor: 'rgba(34, 197, 94, 0.2)', color: '#4ade80', border: '1px solid rgba(34, 197, 94, 0.3)' }}>VALID</span>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <p className="text-center text-[#737373] text-xs mt-4">This is how your tickets will appear</p>
+                            </div>
+                        </div>
+
+                        {/* Settings — Single Column Below Preview */}
+                        <div className="space-y-6">
                             {/* Left Column - Settings */}
                             <div className="space-y-6">
                                 {/* Branding */}
@@ -1300,174 +1471,6 @@ export default function AdminPage() {
                                     Add Custom Field
                                 </button>
                             </div>
-
-                            {/* Right Column - Live Preview Start */}
-                            <div className="xl:sticky xl:top-6 h-fit">
-                                <div className="bg-[#141414] border border-[#1F1F1F] rounded-2xl p-6">
-                                    <div className="flex items-center justify-between mb-5">
-                                        <h3 className="font-heading text-lg font-semibold text-white flex items-center gap-2">
-                                            <svg className="w-5 h-5 text-[#22C55E]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                            </svg>
-                                            Live Preview
-                                        </h3>
-                                        <span className="text-xs text-[#22C55E] bg-[#22C55E]/10 px-3 py-1 rounded-full border border-[#22C55E]/20">Auto-updating</span>
-                                    </div>
-
-                                    {/* Ticket Preview */}
-                                    <div
-                                        className={`overflow-hidden relative shadow-2xl ${(ticketDraft?.ticketCompactMode ?? siteSettings.ticketCompactMode) ? 'max-w-xs mx-auto' : ''}`}
-                                        style={{
-                                            borderRadius: `${ticketDraft?.ticketBorderRadius ?? siteSettings.ticketBorderRadius ?? 24}px`,
-                                            background: (ticketDraft?.ticketGradient ?? siteSettings.ticketGradient)
-                                                ? `linear-gradient(135deg, ${ticketDraft?.ticketBgColor ?? siteSettings.ticketBgColor ?? '#111111'}, ${ticketDraft?.ticketGradientColor ?? siteSettings.ticketGradientColor ?? '#991b1b'})`
-                                                : ticketDraft?.ticketBgColor ?? siteSettings.ticketBgColor ?? '#111111',
-                                            border: (ticketDraft?.ticketBorderStyle ?? siteSettings.ticketBorderStyle ?? 'solid') === 'none' ? 'none' : `2px ${ticketDraft?.ticketBorderStyle ?? siteSettings.ticketBorderStyle ?? 'solid'} ${ticketDraft?.ticketBorderColor ?? siteSettings.ticketBorderColor ?? '#333333'}`,
-                                            fontFamily: (ticketDraft?.ticketFontFamily ?? siteSettings.ticketFontFamily) === 'playfair' ? 'Georgia, serif' : (ticketDraft?.ticketFontFamily ?? siteSettings.ticketFontFamily) === 'montserrat' ? 'Montserrat, sans-serif' : (ticketDraft?.ticketFontFamily ?? siteSettings.ticketFontFamily) === 'roboto' ? 'Roboto, sans-serif' : 'Inter, sans-serif'
-                                        }}
-                                    >
-                                        {/* Pattern Overlay */}
-                                        {(ticketDraft?.ticketShowPattern ?? siteSettings.ticketShowPattern) && (ticketDraft?.ticketPatternType ?? siteSettings.ticketPatternType) !== 'none' && (
-                                            <div className="absolute inset-0 opacity-10 pointer-events-none" style={{
-                                                backgroundImage: (ticketDraft?.ticketPatternType ?? siteSettings.ticketPatternType) === 'dots'
-                                                    ? `radial-gradient(circle, ${ticketDraft?.ticketTextColor ?? siteSettings.ticketTextColor ?? '#ffffff'} 1px, transparent 1px)`
-                                                    : (ticketDraft?.ticketPatternType ?? siteSettings.ticketPatternType) === 'lines'
-                                                        ? `repeating-linear-gradient(45deg, transparent, transparent 10px, ${ticketDraft?.ticketTextColor ?? siteSettings.ticketTextColor ?? '#ffffff'} 10px, ${ticketDraft?.ticketTextColor ?? siteSettings.ticketTextColor ?? '#ffffff'} 11px)`
-                                                        : `linear-gradient(to right, ${ticketDraft?.ticketTextColor ?? siteSettings.ticketTextColor ?? '#ffffff'} 1px, transparent 1px), linear-gradient(to bottom, ${ticketDraft?.ticketTextColor ?? siteSettings.ticketTextColor ?? '#ffffff'} 1px, transparent 1px)`,
-                                                backgroundSize: (ticketDraft?.ticketPatternType ?? siteSettings.ticketPatternType) === 'dots' ? '15px 15px' : (ticketDraft?.ticketPatternType ?? siteSettings.ticketPatternType) === 'grid' ? '20px 20px' : 'auto'
-                                            }} />
-                                        )}
-
-                                        {/* Watermark */}
-                                        {(ticketDraft?.ticketWatermark ?? siteSettings.ticketWatermark) && (
-                                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden z-20">
-                                                <p
-                                                    className="text-4xl font-bold opacity-5 whitespace-nowrap"
-                                                    style={{
-                                                        transform: 'rotate(-30deg)',
-                                                        color: ticketDraft?.ticketTextColor ?? siteSettings.ticketTextColor ?? '#ffffff',
-                                                        letterSpacing: '0.1em'
-                                                    }}
-                                                >
-                                                    {ticketDraft?.ticketWatermark ?? siteSettings.ticketWatermark}
-                                                </p>
-                                            </div>
-                                        )}
-
-                                        {/* Event Image Banner */}
-                                        {(ticketDraft?.ticketShowEventImage ?? siteSettings.ticketShowEventImage) && (
-                                            <div className="relative h-24 overflow-hidden">
-                                                <img
-                                                    src={ticketDraft?.ticketHeaderImage || siteSettings.ticketHeaderImage || 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=600&q=80'}
-                                                    alt="Event"
-                                                    className="w-full h-full object-cover"
-                                                />
-                                                <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/60"></div>
-                                            </div>
-                                        )}
-
-                                        {/* Header */}
-                                        <div
-                                            className={`px-6 ${(ticketDraft?.ticketCompactMode ?? siteSettings.ticketCompactMode) ? 'py-4' : 'py-5'} relative overflow-hidden`}
-                                            style={{
-                                                background: (ticketDraft?.ticketGradient ?? siteSettings.ticketGradient)
-                                                    ? `linear-gradient(135deg, ${ticketDraft?.ticketAccentColor ?? siteSettings.ticketAccentColor ?? '#dc2626'}, ${ticketDraft?.ticketGradientColor ?? siteSettings.ticketGradientColor ?? '#991b1b'})`
-                                                    : (ticketDraft?.ticketAccentColor ?? siteSettings.ticketAccentColor ?? '#dc2626')
-                                            }}
-                                        >
-                                            <div className="absolute top-0 right-0 w-24 h-24 rounded-full -mr-12 -mt-12" style={{ backgroundColor: 'rgba(255,255,255,0.1)' }}></div>
-                                            {(ticketDraft?.ticketLogoUrl ?? siteSettings.ticketLogoUrl) && (
-                                                <img src={ticketDraft?.ticketLogoUrl ?? siteSettings.ticketLogoUrl} alt="Logo" className="h-6 mb-2 opacity-80" />
-                                            )}
-                                            <div className="flex items-center gap-2 text-xs mb-1 opacity-90 text-white">
-                                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
-                                                </svg>
-                                                {ticketDraft?.ticketBadgeText ?? siteSettings.ticketBadgeText ?? 'VIP ACCESS'}
-                                            </div>
-                                            <h3 className={`font-bold text-white ${(ticketDraft?.ticketCompactMode ?? siteSettings.ticketCompactMode) ? 'text-lg' : 'text-xl'}`}>Summer Music Festival</h3>
-                                            {(ticketDraft?.ticketShowEventDescription ?? siteSettings.ticketShowEventDescription) && (
-                                                <p className="text-xs opacity-70 mt-1 text-white">Amazing event with live performances</p>
-                                            )}
-                                        </div>
-
-                                        {/* Perforation */}
-                                        {(ticketDraft?.ticketShowPerforation ?? siteSettings.ticketShowPerforation) !== false && (
-                                            <div className="relative flex items-center bg-transparent">
-                                                <div className="absolute left-0 w-3 h-6 rounded-r-full" style={{ backgroundColor: '#0B0B0B' }}></div>
-                                                <div className="flex-1 border-t-2 border-dashed mx-3" style={{ borderColor: ticketDraft?.ticketBorderColor ?? siteSettings.ticketBorderColor ?? '#444444' }}></div>
-                                                <div className="absolute right-0 w-3 h-6 rounded-l-full" style={{ backgroundColor: '#0B0B0B' }}></div>
-                                            </div>
-                                        )}
-
-                                        {/* Body */}
-                                        <div className={`${(ticketDraft?.ticketCompactMode ?? siteSettings.ticketCompactMode) ? 'p-4' : 'p-5'} relative`}>
-                                            {/* Date & Venue */}
-                                            {((ticketDraft?.ticketShowDate ?? siteSettings.ticketShowDate) !== false || (ticketDraft?.ticketShowVenue ?? siteSettings.ticketShowVenue) !== false) && (
-                                                <div className={`grid ${(ticketDraft?.ticketShowDate ?? siteSettings.ticketShowDate) !== false && (ticketDraft?.ticketShowVenue ?? siteSettings.ticketShowVenue) !== false ? 'grid-cols-2' : 'grid-cols-1'} gap-3 mb-4`}>
-                                                    {(ticketDraft?.ticketShowDate ?? siteSettings.ticketShowDate) !== false && (
-                                                        <div className="rounded-lg p-3" style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}>
-                                                            <p className="text-[10px] opacity-60 mb-0.5" style={{ color: ticketDraft?.ticketTextColor ?? siteSettings.ticketTextColor ?? '#ffffff' }}>DATE</p>
-                                                            <p className="text-sm font-semibold" style={{ color: ticketDraft?.ticketTextColor ?? siteSettings.ticketTextColor ?? '#ffffff' }}>Dec 25, 2024</p>
-                                                        </div>
-                                                    )}
-                                                    {(ticketDraft?.ticketShowVenue ?? siteSettings.ticketShowVenue) !== false && (
-                                                        <div className="rounded-lg p-3" style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}>
-                                                            <p className="text-[10px] opacity-60 mb-0.5" style={{ color: ticketDraft?.ticketTextColor ?? siteSettings.ticketTextColor ?? '#ffffff' }}>VENUE</p>
-                                                            <p className="text-sm font-semibold truncate" style={{ color: ticketDraft?.ticketTextColor ?? siteSettings.ticketTextColor ?? '#ffffff' }}>Convention Center</p>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            )}
-
-                                            <div className="rounded-lg p-3 mb-4" style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}>
-                                                <p className="text-[10px] opacity-60 mb-0.5" style={{ color: ticketDraft?.ticketTextColor ?? siteSettings.ticketTextColor ?? '#ffffff' }}>ATTENDEE</p>
-                                                <p className="text-base font-semibold" style={{ color: ticketDraft?.ticketTextColor ?? siteSettings.ticketTextColor ?? '#ffffff' }}>John Doe</p>
-                                                <p className="text-xs opacity-60" style={{ color: ticketDraft?.ticketTextColor ?? siteSettings.ticketTextColor ?? '#ffffff' }}>john@example.com</p>
-                                            </div>
-
-                                            {/* QR Code */}
-                                            {(ticketDraft?.ticketShowQrCode ?? siteSettings.ticketShowQrCode) && (
-                                                <div className={`flex flex-col ${(ticketDraft?.ticketQrPosition ?? siteSettings.ticketQrPosition) === 'right' ? 'items-end' : 'items-center'}`}>
-                                                    <div className="rounded-xl p-3 mb-2" style={{ backgroundColor: '#ffffff' }}>
-                                                        <svg
-                                                            className={`text-black ${(ticketDraft?.ticketQrSize ?? siteSettings.ticketQrSize) === 'small' ? 'w-16 h-16' : (ticketDraft?.ticketQrSize ?? siteSettings.ticketQrSize) === 'large' ? 'w-28 h-28' : 'w-20 h-20'}`}
-                                                            viewBox="0 0 24 24"
-                                                            fill="currentColor"
-                                                        >
-                                                            <path d="M3 3h7v7H3V3zm1 1v5h5V4H4zm8-1h7v7h-7V3zm1 1v5h5V4h-5zM3 12h7v7H3v-7zm1 1v5h5v-5H4zm11 1h1v1h-1v-1zm-3-1h1v1h-1v-1zm5 0h1v1h-1v-1zm-2 2h1v1h-1v-1zm2 0h3v3h-3v-3zm1 1v1h1v-1h-1zm-8 3h1v1h-1v-1zm2 0h1v1h-1v-1zm4 0h1v1h-1v-1z" />
-                                                        </svg>
-                                                    </div>
-                                                    <p className="text-[10px] opacity-50" style={{ color: ticketDraft?.ticketTextColor ?? siteSettings.ticketTextColor ?? '#ffffff' }}>TICKET-ABC123XYZ</p>
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        {/* Footer */}
-                                        {((ticketDraft?.ticketShowPrice ?? siteSettings.ticketShowPrice) !== false || (ticketDraft?.ticketShowStatus ?? siteSettings.ticketShowStatus) !== false || (ticketDraft?.ticketFooterText ?? siteSettings.ticketFooterText)) && (
-                                            <div className="px-5 py-3 border-t flex justify-between items-center" style={{ borderColor: ticketDraft?.ticketBorderColor ?? siteSettings.ticketBorderColor ?? '#333333', backgroundColor: 'rgba(0,0,0,0.3)' }}>
-                                                <div>
-                                                    {(ticketDraft?.ticketShowPrice ?? siteSettings.ticketShowPrice) !== false && (
-                                                        <>
-                                                            <p className="text-lg font-bold font-mono" style={{ color: ticketDraft?.ticketTextColor ?? siteSettings.ticketTextColor ?? '#ffffff' }}>₹1,999</p>
-                                                            <p className="text-[10px] opacity-50" style={{ color: ticketDraft?.ticketTextColor ?? siteSettings.ticketTextColor ?? '#ffffff' }}>Paid</p>
-                                                        </>
-                                                    )}
-                                                    {(ticketDraft?.ticketFooterText ?? siteSettings.ticketFooterText) && (
-                                                        <p className="text-[10px] opacity-60 mt-1" style={{ color: ticketDraft?.ticketTextColor ?? siteSettings.ticketTextColor ?? '#ffffff' }}>{ticketDraft?.ticketFooterText ?? siteSettings.ticketFooterText}</p>
-                                                    )}
-                                                </div>
-                                                {(ticketDraft?.ticketShowStatus ?? siteSettings.ticketShowStatus) !== false && (
-                                                    <span className="px-2 py-1 rounded-full text-[10px] font-bold" style={{ backgroundColor: 'rgba(34, 197, 94, 0.2)', color: '#4ade80', border: '1px solid rgba(34, 197, 94, 0.3)' }}>VALID</span>
-                                                )}
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    <p className="text-center text-[#737373] text-xs mt-4">This is how your tickets will appear</p>
-                                </div>
-                            </div>
                         </div>
                     </div >
                 )
@@ -1675,93 +1678,95 @@ export default function AdminPage() {
                                             <p className="text-zinc-500 text-sm mt-1">Try adjusting your search or filters</p>
                                         </div>
                                     ) : (
-                                        <table className="w-full">
-                                            <thead className="bg-zinc-800">
-                                                <tr>
-                                                    <th className="text-left text-zinc-400 text-sm font-medium px-6 py-4">Attendee</th>
-                                                    <th className="text-left text-zinc-400 text-sm font-medium px-6 py-4">Ticket ID</th>
-                                                    <th className="text-left text-zinc-400 text-sm font-medium px-6 py-4">Event</th>
-                                                    <th className="text-left text-zinc-400 text-sm font-medium px-6 py-4">Details</th>
-                                                    <th className="text-left text-zinc-400 text-sm font-medium px-6 py-4">Status</th>
-                                                    <th className="text-left text-zinc-400 text-sm font-medium px-6 py-4">Check-In</th>
-                                                    <th className="text-left text-zinc-400 text-sm font-medium px-6 py-4">Actions</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="divide-y divide-zinc-800">
-                                                {filteredTickets.map(ticket => {
-                                                    const event = events.find(e => e.id === ticket.eventId);
-                                                    return (
-                                                        <tr key={ticket.id} className="hover:bg-zinc-800/50">
-                                                            <td className="px-6 py-4">
-                                                                <p className="text-white font-medium">{ticket.name}</p>
-                                                                <p className="text-zinc-500 text-sm">{ticket.email}</p>
-                                                                <p className="text-zinc-600 text-xs">{ticket.phone}</p>
-                                                            </td>
-                                                            <td className="px-6 py-4">
-                                                                <code className="text-xs bg-zinc-800 px-2 py-1 rounded text-zinc-400">{ticket.id}</code>
-                                                            </td>
-                                                            <td className="px-6 py-4">
-                                                                <p className="text-zinc-300">{event?.name}</p>
-                                                                <p className="text-xs text-zinc-500">₹{((event?.price || 0) / 100).toLocaleString()}</p>
-                                                            </td>
-                                                            <td className="px-6 py-4">
-                                                                {ticket.customAnswers && Object.keys(ticket.customAnswers).length > 0 ? (
-                                                                    <div className="space-y-1">
-                                                                        {Object.entries(ticket.customAnswers).map(([key, value]) => {
-                                                                            const field = event?.registrationFields?.find((f: any) => f.id === key);
-                                                                            return (
-                                                                                <div key={key} className="text-xs">
-                                                                                    <span className="text-zinc-500">{field?.label || key}: </span>
-                                                                                    <span className="text-zinc-300">{String(value)}</span>
-                                                                                </div>
-                                                                            );
-                                                                        })}
-                                                                    </div>
-                                                                ) : (
-                                                                    <span className="text-zinc-600 text-xs">-</span>
-                                                                )}
-                                                            </td>
-                                                            <td className="px-6 py-4">
-                                                                <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${ticket.status === 'paid' ? 'bg-green-900/50 text-green-400' : 'bg-yellow-900/50 text-yellow-400'}`}>
-                                                                    {ticket.status.toUpperCase()}
-                                                                </span>
-                                                            </td>
-                                                            <td className="px-6 py-4">
-                                                                {ticket.checkedIn ? (
-                                                                    <span className="flex items-center gap-1 text-green-400 text-sm">
-                                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                                                        </svg>
-                                                                        Checked In
-                                                                    </span>
-                                                                ) : (
-                                                                    <span className="flex items-center gap-1 text-zinc-500 text-sm">
-                                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                                                        </svg>
-                                                                        Pending
-                                                                    </span>
-                                                                )}
-                                                            </td>
-                                                            <td className="px-6 py-4">
-                                                                <button
-                                                                    onClick={() => router.push(`/ticket/${ticket.id}`)}
-                                                                    className="text-red-400 hover:text-red-300 text-sm"
-                                                                >
-                                                                    View Ticket
-                                                                </button>
-                                                            </td>
+                                        <div className="space-y-4">
+                                            <div className="overflow-x-auto">
+                                                <table className="w-full text-left min-w-[600px]">
+                                                    <thead>
+                                                        <tr className="border-b border-zinc-800 text-sm xl:text-base">
+                                                            <th className="pb-3 text-zinc-400 font-medium">Order ID/Txn</th>
+                                                            <th className="text-left text-zinc-400 text-sm font-medium px-6 py-4">Event</th>
+                                                            <th className="text-left text-zinc-400 text-sm font-medium px-6 py-4">Details</th>
+                                                            <th className="text-left text-zinc-400 text-sm font-medium px-6 py-4">Status</th>
+                                                            <th className="text-left text-zinc-400 text-sm font-medium px-6 py-4">Check-In</th>
+                                                            <th className="text-left text-zinc-400 text-sm font-medium px-6 py-4">Actions</th>
                                                         </tr>
-                                                    );
-                                                })}
-                                            </tbody>
-                                        </table>
+                                                    </thead>
+                                                    <tbody className="divide-y divide-zinc-800">
+                                                        {filteredTickets.map(ticket => {
+                                                            const event = events.find(e => e.id === ticket.eventId);
+                                                            return (
+                                                                <tr key={ticket.id} className="hover:bg-zinc-800/50">
+                                                                    <td className="px-6 py-4">
+                                                                        <p className="text-white font-medium">{ticket.name}</p>
+                                                                        <p className="text-zinc-500 text-sm">{ticket.email}</p>
+                                                                        <p className="text-zinc-600 text-xs">{ticket.phone}</p>
+                                                                    </td>
+                                                                    <td className="px-6 py-4">
+                                                                        <code className="text-xs bg-zinc-800 px-2 py-1 rounded text-zinc-400">{ticket.id}</code>
+                                                                    </td>
+                                                                    <td className="px-6 py-4">
+                                                                        <p className="text-zinc-300">{event?.name}</p>
+                                                                        <p className="text-xs text-zinc-500">₹{((event?.price || 0) / 100).toLocaleString()}</p>
+                                                                    </td>
+                                                                    <td className="px-6 py-4">
+                                                                        {ticket.customAnswers && Object.keys(ticket.customAnswers).length > 0 ? (
+                                                                            <div className="space-y-1">
+                                                                                {Object.entries(ticket.customAnswers).map(([key, value]) => {
+                                                                                    const field = event?.registrationFields?.find((f: any) => f.id === key);
+                                                                                    return (
+                                                                                        <div key={key} className="text-xs">
+                                                                                            <span className="text-zinc-500">{field?.label || key}: </span>
+                                                                                            <span className="text-zinc-300">{String(value)}</span>
+                                                                                        </div>
+                                                                                    );
+                                                                                })}
+                                                                            </div>
+                                                                        ) : (
+                                                                            <span className="text-zinc-600 text-xs">-</span>
+                                                                        )}
+                                                                    </td>
+                                                                    <td className="px-6 py-4">
+                                                                        <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${ticket.status === 'paid' ? 'bg-green-900/50 text-green-400' : 'bg-yellow-900/50 text-yellow-400'}`}>
+                                                                            {ticket.status.toUpperCase()}
+                                                                        </span>
+                                                                    </td>
+                                                                    <td className="px-6 py-4">
+                                                                        {ticket.checkedIn ? (
+                                                                            <span className="flex items-center gap-1 text-green-400 text-sm">
+                                                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                                                </svg>
+                                                                                Checked In
+                                                                            </span>
+                                                                        ) : (
+                                                                            <span className="flex items-center gap-1 text-zinc-500 text-sm">
+                                                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                                                </svg>
+                                                                                Pending
+                                                                            </span>
+                                                                        )}
+                                                                    </td>
+                                                                    <td className="px-6 py-4 text-right">
+                                                                        <button
+                                                                            onClick={() => router.push(`/ticket/${ticket.id}`)}
+                                                                            className="text-red-400 hover:text-red-300 transition-colors text-sm font-medium"
+                                                                        >
+                                                                            View Ticket
+                                                                        </button>
+                                                                    </td>
+                                                                </tr>
+                                                            );
+                                                        })}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
                                     )}
                                 </div>
                             </div>
                         </div>
-                    )
-                }
+                    )}
 
                 {/* Team */}
                 {
@@ -2132,8 +2137,7 @@ export default function AdminPage() {
                                 ))}
                             </div>
 
-                            {/* Drip Campaigns */}
-                            <DripCampaigns />
+
                         </div>
                     )
                 }
@@ -3259,42 +3263,42 @@ export default function AdminPage() {
                 {
                     activeTab === 'analytics' && (
                         <div className="space-y-6 animate-fade-in-up">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6">
-                                <h3 className="text-lg font-bold text-white mb-6">Sales by Event</h3>
-                                <div className="h-80 w-full min-h-[320px]">
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <BarChart data={salesByEvent}>
-                                            <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                                            <XAxis dataKey="name" stroke="#666" />
-                                            <YAxis stroke="#666" />
-                                            <Tooltip contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a' }} />
-                                            <Bar dataKey="tickets" fill="#EF4444" radius={[4, 4, 0, 0]} />
-                                        </BarChart>
-                                    </ResponsiveContainer>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6">
+                                    <h3 className="text-lg font-bold text-white mb-6">Sales by Event</h3>
+                                    <div className="h-80 w-full min-h-[320px]">
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <BarChart data={salesByEvent}>
+                                                <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+                                                <XAxis dataKey="name" stroke="#666" />
+                                                <YAxis stroke="#666" />
+                                                <Tooltip contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a' }} />
+                                                <Bar dataKey="tickets" fill="#EF4444" radius={[4, 4, 0, 0]} />
+                                            </BarChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                </div>
+
+                                <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6">
+                                    <h3 className="text-lg font-bold text-white mb-6">Revenue by Event</h3>
+                                    <div className="h-80 w-full min-h-[320px]">
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <BarChart data={salesByEvent}>
+                                                <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+                                                <XAxis dataKey="name" stroke="#666" />
+                                                <YAxis stroke="#666" />
+                                                <Tooltip contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a' }} />
+                                                <Bar dataKey="revenue" fill="#10B981" radius={[4, 4, 0, 0]} />
+                                            </BarChart>
+                                        </ResponsiveContainer>
+                                    </div>
                                 </div>
                             </div>
 
-                            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6">
-                                <h3 className="text-lg font-bold text-white mb-6">Revenue by Event</h3>
-                                <div className="h-80 w-full min-h-[320px]">
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <BarChart data={salesByEvent}>
-                                            <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                                            <XAxis dataKey="name" stroke="#666" />
-                                            <YAxis stroke="#666" />
-                                            <Tooltip contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a' }} />
-                                            <Bar dataKey="revenue" fill="#10B981" radius={[4, 4, 0, 0]} />
-                                        </BarChart>
-                                    </ResponsiveContainer>
-                                </div>
+                            {/* Multi-event comparison */}
+                            <div className="mt-6">
+                                <MultiEventAnalytics />
                             </div>
-                        </div>
-
-                        {/* Multi-event comparison */}
-                        <div className="mt-6">
-                            <MultiEventAnalytics />
-                        </div>
                         </div>
                     )
                 }

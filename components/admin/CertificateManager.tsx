@@ -714,12 +714,21 @@ export default function CertificateManager({ eventName = 'Event', eventDate, sho
                                             <label className="block text-sm text-[#B3B3B3] mb-2">Font</label>
                                             <select
                                                 value={currentConfig.fontFamily}
-                                                onChange={(e) => updateConfig({ fontFamily: e.target.value as 'TimesRoman' | 'Helvetica' | 'Courier' })}
+                                                onChange={(e) => updateConfig({ fontFamily: e.target.value as any })}
                                                 className="w-full px-3 py-2 bg-[#0D0D0D] border border-[#2A2A2A] rounded-lg text-white"
                                             >
                                                 <option value="TimesRoman">Times Roman (Classic)</option>
                                                 <option value="Helvetica">Helvetica (Modern)</option>
                                                 <option value="Courier">Courier (Formal)</option>
+                                                <option value="Georgia">Georgia (Elegant)</option>
+                                                <option value="Palatino">Palatino (Refined)</option>
+                                                <option value="Garamond">Garamond (Traditional)</option>
+                                                <option value="Verdana">Verdana (Clean)</option>
+                                                <option value="TrebuchetMS">Trebuchet MS (Friendly)</option>
+                                                <option value="Futura">Futura (Geometric)</option>
+                                                <option value="CenturyGothic">Century Gothic (Stylish)</option>
+                                                <option value="Bodoni">Bodoni (Luxury)</option>
+                                                <option value="Baskerville">Baskerville (Distinguished)</option>
                                             </select>
                                         </div>
 

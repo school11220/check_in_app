@@ -709,38 +709,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
         };
         fetchSettings();
 
-        // Load festivals from localStorage (Keep as is for now unless requested)
-        const savedFestivals = localStorage.getItem('festivals');
-        if (savedFestivals) {
-            try {
-                setFestivals(JSON.parse(savedFestivals));
-            } catch (e) {
-                console.error('Failed to parse festivals:', e);
+        fetch('/api/settings').then(res => res.json()).then(data => {
+            if (data?.siteSettings) {
+                setSiteSettings(data.siteSettings);
+                if (data.siteSettings.waitlist) setWaitlist(data.siteSettings.waitlist);
+                if (data.siteSettings.festivals) setFestivals(data.siteSettings.festivals);
+                if (data.siteSettings.teamMembers) setTeamMembers(data.siteSettings.teamMembers);
             }
-        }
-
-        // ... rest of loading logic
-        // Load promo codes from localStorage
-        const savedPromoCodes = localStorage.getItem('promoCodes');
-        if (savedPromoCodes) {
-            try {
-                setPromoCodes(JSON.parse(savedPromoCodes));
-            } catch (e) {
-                console.error('Failed to parse promo codes:', e);
+            if (data?.emailTemplates) {
+                setEmailTemplates(data.emailTemplates);
             }
-        }
-
-        // Load waitlist from localStorage
-        const savedWaitlist = localStorage.getItem('waitlist');
-        if (savedWaitlist) {
-            try {
-                setWaitlist(JSON.parse(savedWaitlist));
-            } catch (e) {
-                console.error('Failed to parse waitlist:', e);
+            if (data?.surveys) {
+                setSurveys(data.surveys);
             }
-        }
+        }).catch(err => console.error('Failed to fetch settings:', err));
 
-        // Fetch tickets from API
+        // Note: adminLoggedIn localStorage check removed; using server-side auth (Clerk)
+
+        setIsLoading(false);
+
         const fetchTickets = async () => {
             try {
                 const res = await fetch('/api/admin/tickets');
@@ -883,9 +870,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     };
 
     const loginAdmin = (password: string): boolean => {
-        if (password === 'admin123') {
+        if (password === 'admin123') { // Simple mock auth
             setIsAdminLoggedIn(true);
-            localStorage.setItem('adminLoggedIn', 'true');
             return true;
         }
         return false;
@@ -893,14 +879,37 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     const logoutAdmin = () => {
         setIsAdminLoggedIn(false);
-        localStorage.removeItem('adminLoggedIn');
     };
 
-    const addTeamMember = (member: TeamMember) => setTeamMembers([member, ...teamMembers]);
-    const updateTeamMember = (id: string, data: Partial<TeamMember>) => {
-        setTeamMembers(teamMembers.map(m => m.id === id ? { ...m, ...data } : m));
+    const persistExtraSettings = async (updates: any) => {
+        try {
+            await fetch('/api/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    siteSettings: { ...siteSettings, waitlist, festivals, teamMembers, ...updates },
+                })
+            });
+        } catch (err) {
+            console.error('Failed to save extra settings', err);
+        }
     };
-    const removeTeamMember = (id: string) => setTeamMembers(teamMembers.filter(m => m.id !== id));
+
+    const addTeamMember = (member: TeamMember) => {
+        const newMembers = [member, ...teamMembers];
+        setTeamMembers(newMembers);
+        persistExtraSettings({ teamMembers: newMembers });
+    };
+    const updateTeamMember = (id: string, data: Partial<TeamMember>) => {
+        const newMembers = teamMembers.map(m => m.id === id ? { ...m, ...data } : m);
+        setTeamMembers(newMembers);
+        persistExtraSettings({ teamMembers: newMembers });
+    };
+    const removeTeamMember = (id: string) => {
+        const newMembers = teamMembers.filter(m => m.id !== id);
+        setTeamMembers(newMembers);
+        persistExtraSettings({ teamMembers: newMembers });
+    };
 
     const updateSiteSettings = async (data: Partial<SiteSettings>) => {
         const newSettings = { ...siteSettings, ...data };
@@ -925,17 +934,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const addFestival = (festival: Festival) => {
         const newFestivals = [festival, ...festivals];
         setFestivals(newFestivals);
-        localStorage.setItem('festivals', JSON.stringify(newFestivals));
+        persistExtraSettings({ festivals: newFestivals });
     };
     const updateFestival = (id: string, data: Partial<Festival>) => {
         const newFestivals = festivals.map(f => f.id === id ? { ...f, ...data } : f);
         setFestivals(newFestivals);
-        localStorage.setItem('festivals', JSON.stringify(newFestivals));
+        persistExtraSettings({ festivals: newFestivals });
     };
     const deleteFestival = (id: string) => {
         const newFestivals = festivals.filter(f => f.id !== id);
         setFestivals(newFestivals);
-        localStorage.setItem('festivals', JSON.stringify(newFestivals));
+        persistExtraSettings({ festivals: newFestivals });
     };
 
     const updateEmailTemplate = async (id: string, data: Partial<EmailTemplate>) => {
@@ -998,21 +1007,41 @@ export function AppProvider({ children }: { children: ReactNode }) {
     };
     const addSurveyResponse = (response: SurveyResponse) => setSurveyResponses([response, ...surveyResponses]);
 
-    // Promo Code Functions
-    const addPromoCode = (code: PromoCode) => {
+    // Promo Code Functions — persisted via API
+    const addPromoCode = async (code: PromoCode) => {
         const newCodes = [code, ...promoCodes];
         setPromoCodes(newCodes);
-        localStorage.setItem('promoCodes', JSON.stringify(newCodes));
+        try {
+            await fetch('/api/admin/promo-codes', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(code)
+            });
+        } catch (err) {
+            console.error('Failed to save promo code to API:', err);
+        }
     };
-    const updatePromoCode = (id: string, data: Partial<PromoCode>) => {
+    const updatePromoCode = async (id: string, data: Partial<PromoCode>) => {
         const newCodes = promoCodes.map(c => c.id === id ? { ...c, ...data } : c);
         setPromoCodes(newCodes);
-        localStorage.setItem('promoCodes', JSON.stringify(newCodes));
+        try {
+            await fetch('/api/admin/promo-codes', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id, ...data })
+            });
+        } catch (err) {
+            console.error('Failed to update promo code:', err);
+        }
     };
-    const deletePromoCode = (id: string) => {
+    const deletePromoCode = async (id: string) => {
         const newCodes = promoCodes.filter(c => c.id !== id);
         setPromoCodes(newCodes);
-        localStorage.setItem('promoCodes', JSON.stringify(newCodes));
+        try {
+            await fetch(`/api/admin/promo-codes?id=${id}`, { method: 'DELETE' });
+        } catch (err) {
+            console.error('Failed to delete promo code:', err);
+        }
     };
     const validatePromoCode = (code: string, eventId: string): PromoCode | null => {
         const promo = promoCodes.find(p =>
@@ -1029,19 +1058,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const addToWaitlist = (entry: WaitlistEntry) => {
         const newWaitlist = [entry, ...waitlist];
         setWaitlist(newWaitlist);
-        localStorage.setItem('waitlist', JSON.stringify(newWaitlist));
+        persistExtraSettings({ waitlist: newWaitlist });
     };
     const removeFromWaitlist = (id: string) => {
         const newWaitlist = waitlist.filter(w => w.id !== id);
         setWaitlist(newWaitlist);
-        localStorage.setItem('waitlist', JSON.stringify(newWaitlist));
+        persistExtraSettings({ waitlist: newWaitlist });
     };
     const notifyWaitlist = (eventId: string) => {
         const newWaitlist = waitlist.map(w =>
             w.eventId === eventId ? { ...w, notified: true } : w
         );
         setWaitlist(newWaitlist);
-        localStorage.setItem('waitlist', JSON.stringify(newWaitlist));
+        persistExtraSettings({ waitlist: newWaitlist });
     };
 
     // Placeholder for toast - typically handled by a separate ToastContext or component
