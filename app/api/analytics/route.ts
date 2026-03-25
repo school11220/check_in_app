@@ -14,104 +14,110 @@ export async function GET(request: NextRequest) {
         else if (timeRange === '90d') dateCutoff.setDate(dateCutoff.getDate() - 90);
         else if (timeRange === 'all') dateCutoff = new Date(0); // Epoch
 
-        // Base where clause for Tickets
-        const where: any = {
-            status: 'paid', // Only count paid tickets for sales/revenue
-            createdAt: { gte: dateCutoff }
+        const baseWhere: any = {
+            createdAt: { gte: dateCutoff },
         };
+        if (eventId) baseWhere.eventId = eventId;
 
-        if (eventId) {
-            where.eventId = eventId;
-        }
-
-        // Parallel queries for performance
-        const [
-            totalTickets,
-            checkedInTickets,
-            salesByEvent,
-            tickets
-        ] = await Promise.all([
-            // Total Paid Tickets
-            prisma.ticket.count({ where }),
-
-            // Check-in Count (subset of paid)
-            prisma.ticket.count({
-                where: { ...where, checkedIn: true }
+        const [ticketsForRange, salesByEvent, fraudAttemptsRaw] = await Promise.all([
+            prisma.ticket.findMany({
+                where: baseWhere,
+                select: { createdAt: true, email: true, eventId: true, status: true, checkedIn: true },
             }),
-
-            // Sales by Event (Group By)
             prisma.ticket.groupBy({
                 by: ['eventId'],
-                where,
+                where: { ...baseWhere, status: 'paid' },
                 _count: { id: true },
                 orderBy: { _count: { id: 'desc' } },
-                take: 8
+                take: 8,
             }),
-
-            // Fetch tickets for complex JS aggregations (Trend, Hourly, Email stats)
-            // Prisma doesn't support complex date grouping natively in groupBy easily without raw SQL
-            // so we fetch minimum fields needed for remaining stats
-            prisma.ticket.findMany({
-                where,
-                select: {
-                    createdAt: true,
-                    email: true,
-                    eventId: true
-                }
-            })
+            prisma.checkInLog.findMany({
+                where: {
+                    action: { in: ['duplicate_attempt', 'replay_detected'] },
+                    ...(eventId ? { eventId } : {}),
+                    createdAt: { gte: dateCutoff },
+                },
+                orderBy: { createdAt: 'desc' },
+                take: 20,
+                include: { ticket: { select: { name: true, email: true } } },
+            }).catch(() => [] as any[]),
         ]);
 
-        // --- Post-Processing Aggregations ---
+        const paidTickets = ticketsForRange.filter(t => t.status === 'paid');
+        const checkedInTickets = paidTickets.filter(t => t.checkedIn).length;
+        const totalTickets = paidTickets.length;
 
-        // 1. Sales Trend (Daily)
+        const funnel = {
+            created: ticketsForRange.length,
+            pending: ticketsForRange.filter(t => t.status === 'pending').length,
+            paid: paidTickets.length,
+            cancelled: ticketsForRange.filter(t => t.status === 'cancelled').length,
+            refunded: ticketsForRange.filter(t => t.status === 'refunded').length,
+            checkedIn: checkedInTickets,
+        };
+
+        const dropOff = {
+            paymentConversion: funnel.created ? Number(((funnel.paid / funnel.created) * 100).toFixed(1)) : 0,
+            checkInConversion: funnel.paid ? Number(((funnel.checkedIn / funnel.paid) * 100).toFixed(1)) : 0,
+            abandonmentRate: funnel.created ? Number(((((funnel.pending + funnel.cancelled + funnel.refunded) / funnel.created) * 100)).toFixed(1)) : 0,
+        };
+
         const salesByDay: Record<string, number> = {};
-        tickets.forEach(t => {
+        paidTickets.forEach(t => {
             const date = new Date(t.createdAt).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' });
             salesByDay[date] = (salesByDay[date] || 0) + 1;
         });
         const salesTrendData = Object.entries(salesByDay)
             .map(([date, sales]) => ({ date, sales }))
-            // Sort by date logic if needed, but for now simple JS sort or assuming robust enough
-            // Since we need chronological, let's rely on Object.entries iteration order or sort
-            // Better to sort by timestamp if critical, but for chart visual this is usually okay if keys are inserted in order
             .slice(-14);
 
-        // 2. Repeat Attendees
         const emailCounts: Record<string, number> = {};
-        tickets.forEach(t => {
+        paidTickets.forEach(t => {
             if (t.email) emailCounts[t.email] = (emailCounts[t.email] || 0) + 1;
         });
         const repeatAttendees = Object.values(emailCounts).filter(c => c > 1).length;
         const uniqueAttendees = Object.keys(emailCounts).length;
 
-        // 3. Peak Hours
         const bookingHours = new Array(24).fill(0);
-        tickets.forEach(t => {
+        paidTickets.forEach(t => {
             const hour = new Date(t.createdAt).getHours();
             bookingHours[hour]++;
         });
         const peakHoursData = bookingHours.map((count, hour) => ({
             hour: `${hour.toString().padStart(2, '0')}:00`,
-            bookings: count
+            bookings: count,
         }));
 
-        // 4. Sales by Event (Enrich with Names)
-        // We need event names. We can fetch all events or just the ones in the group
-        const eventIds = salesByEvent.map(g => g.eventId);
-        const events = await prisma.event.findMany({
-            where: { id: { in: eventIds } },
-            select: { id: true, name: true }
-        });
+        const eventIds = Array.from(new Set([
+            ...salesByEvent.map(g => g.eventId),
+            ...fraudAttemptsRaw.map(f => f.eventId),
+        ]));
 
-        const salesByEventData = salesByEvent.map(group => {
-            const event = events.find(e => e.id === group.eventId);
-            return {
-                name: event?.name || 'Unknown',
-                count: group._count.id
-            };
-        });
+        const events = eventIds.length
+            ? await prisma.event.findMany({ where: { id: { in: eventIds } }, select: { id: true, name: true } })
+            : [];
+        const eventNameMap = new Map(events.map(e => [e.id, e.name]));
 
-        // 5. Check-in Rate
+        const salesByEventData = salesByEvent.map(group => ({
+            name: eventNameMap.get(group.eventId) || 'Unknown',
+            count: group._count.id,
+        }));
+
+        const fraudWatch = {
+            attempts: fraudAttemptsRaw.length,
+            recent: fraudAttemptsRaw.map(log => ({
+                id: log.id,
+                ticketId: log.ticketId,
+                eventId: log.eventId,
+                eventName: eventNameMap.get(log.eventId) || 'Unknown',
+                action: log.action,
+                performedBy: log.performedBy,
+                at: log.createdAt,
+                attendee: log.ticket?.name || 'Unknown',
+                email: log.ticket?.email,
+            })),
+        };
+
         const checkInRate = totalTickets > 0 ? ((checkedInTickets / totalTickets) * 100).toFixed(1) : '0';
 
         return NextResponse.json({
@@ -125,8 +131,11 @@ export async function GET(request: NextRequest) {
             peakHoursData,
             checkInData: [
                 { name: 'Checked In', value: checkedInTickets },
-                { name: 'Not Checked In', value: totalTickets - checkedInTickets }
-            ]
+                { name: 'Not Checked In', value: totalTickets - checkedInTickets },
+            ],
+            funnel,
+            dropOff,
+            fraudWatch,
         });
 
     } catch (error) {

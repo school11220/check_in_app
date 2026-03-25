@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { TicketFormData } from '@/types';
 import { ticketStorage } from '@/lib/ticket-storage';
+import { auth } from '@clerk/nextjs/server';
 
 // Fallback events data (same as events/route.ts)
 const FALLBACK_EVENTS: Record<string, { name: string; price: number }> = {
@@ -14,6 +15,7 @@ const FALLBACK_EVENTS: Record<string, { name: string; price: number }> = {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
+    const { userId } = await auth();
 
     // Support both single and multi-ticket purchase
     const quantity = body.quantity || 1;
@@ -93,7 +95,8 @@ export async function POST(req: NextRequest) {
           name: attendee.name,
           email: attendee.email || body.email || null,
           phone: attendee.phone || body.phone || null,
-          Event: { connect: { id: body.eventId } },
+          userId: userId || null,
+          eventId: body.eventId,
           status: 'pending',
           customAnswers: body.customAnswers || {},
           updatedAt: new Date(),

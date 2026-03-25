@@ -1,0 +1,79 @@
+EventHub Commercial License
+
+Copyright (c) 2026 Shivam
+© 2026 Shivam
+
+1. Nature of License
+
+EventHub is licensed, not sold. Your purchase grants you a limited, non-exclusive, non-transferable, revocable license to use the software in accordance with this license and the plan you purchased.
+
+2. Definitions
+
+"Software" means the EventHub source code package, including its code, documentation, assets, configuration, and related files.
+
+"User" means the individual or legal entity that lawfully purchased EventHub from Gumroad or an authorized seller.
+
+"Project" means a single end product, deployment, client installation, internal business system, or commercial implementation using the Software.
+
+3. Permitted Use
+
+Subject to the purchased plan, the User may:
+
+- use the Software for personal or internal purposes
+- modify, adapt, and customize the Software
+- use the Software commercially within the limits of the applicable plan
+- deploy the Software for production use within the limits of the applicable plan
+
+4. License Tiers
+
+Starter License:
+
+- personal use only
+- may be used for learning, testing, prototyping, or non-commercial internal evaluation
+- not valid for commercial client work or paid public deployment
+
+Growth License:
+
+- includes commercial use for one single Project
+- may be used for one client project or one owned commercial deployment
+- not valid for reuse across multiple separate Projects
+
+Business License:
+
+- includes commercial use across multiple Projects
+- may be used by the purchasing User or business for multiple client or internal deployments
+
+5. Restrictions
+
+The User may not:
+
+- redistribute the Software in whole or in part
+- resell the Software as source code, template, boilerplate, or starter kit
+- share, publish, transfer, or upload the Software for others to download or use
+- sublicense the Software to any third party
+- claim ownership of the original Software
+- remove copyright or license notices from the Software or documentation
+
+These restrictions apply to both the original Software and modified versions that remain substantially based on EventHub.
+
+6. Ownership
+
+All intellectual property rights, title, and interest in and to the Software remain with Shivam. This license grants usage rights only and does not transfer ownership of the Software.
+
+7. Termination
+
+This license automatically terminates if the User violates any term of this license. Upon termination, the User must stop using the Software and delete all copies in their possession or control.
+
+8. No Warranty
+
+The Software is provided "as is" and "as available" without warranties of any kind, whether express or implied, including but not limited to merchantability, fitness for a particular purpose, title, non-infringement, or uninterrupted operation.
+
+9. Limitation of Liability
+
+To the maximum extent permitted by law, Shivam will not be liable for any indirect, incidental, special, consequential, exemplary, or punitive damages, or for any loss of revenue, profits, data, business, goodwill, or opportunity arising from or related to the Software or its use.
+
+The total liability of Shivam under this license will not exceed the amount paid by the User for the Software.
+
+10. Acceptance
+
+By downloading, installing, copying, modifying, or using EventHub, the User agrees to be bound by this license.

@@ -52,6 +52,8 @@ export async function POST(request: Request) {
         const event = await prisma.event.create({
             data: {
                 ...rest,
+                organizer: rest.organizer || session.user.name || session.user.email,
+                organizerId: session.user.id,
                 date: new Date(rest.date),
             },
         });

@@ -1,301 +1,266 @@
-# 🎫 Event Ticketing & Check-In SystemThis is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# EventHub - Complete Event Management Platform
 
+> Launch, manage, and scale modern event operations with a ready-to-deploy SaaS codebase built for developers and startups.
 
+## Overview
 
-A secure, production-ready ticketing and check-in system built with Next.js 14, TypeScript, Prisma, and Stripe.## Getting Started
+EventHub is a production-oriented event management SaaS designed to help developers, founders, and agencies launch an event platform without building core infrastructure from scratch. It combines event operations, ticketing, payments, attendee workflows, and role-based management in one downloadable source code package.
 
+This project is built to save significant development time for teams that want to ship faster, validate an idea sooner, or deliver a polished client solution with less engineering overhead. Instead of spending weeks assembling common event features, you can start from a complete foundation and customize it for your brand, business model, or customer requirements.
 
+EventHub is ideal for:
 
-## 🚀 FeaturesFirst, run the development server:
+- founders building an event-tech SaaS MVP or commercial platform
+- agencies delivering event portals for clients
+- developers who want a ready-to-deploy event management base
+- startups looking for a faster route to production
 
+## Features
 
+EventHub includes the core functionality expected from a modern event management platform, with enough flexibility to support both internal systems and customer-facing SaaS products.
 
-- **Ticket Registration**: User-friendly form to register for events```bash
+### Role-Based Access
 
-- **Stripe Payment Integration**: Secure ₹200 ticket payments via Stripe Checkoutnpm run dev
+- Admin and Organizer role separation
+- permission-aware workflows for operational control
+- clear ownership between platform administration and day-to-day event execution
 
-- **QR Code Generation**: Automatic QR code generation with HMAC-signed tokens# or
+### Event Creation and Management
 
-- **Check-In System**: Staff portal to scan and validate ticketsyarn dev
+- create, update, publish, and manage events from a centralized interface
+- organize event details such as title, date, capacity, schedule, and status
+- maintain multiple events with streamlined operational visibility
 
-- **Real-time Validation**: Prevents double check-ins and validates payment status# or
+### Ticket Booking System
 
-- **Security**: HMAC SHA-256 signed tokens for ticket authenticationpnpm dev
+- end-to-end attendee booking workflow
+- ticket generation for confirmed orders
+- attendee management and booking records for operational follow-up
 
-# or
+### Razorpay Payment Integration
 
-## 📋 Prerequisitesbun dev
+- integrated payment flow using Razorpay
+- suitable for test and production payment workflows
+- built to support monetized event registrations and paid ticketing models
 
+### Email Ticket Delivery System
+
+- automated ticket delivery via email after successful booking
+- improved attendee experience with direct ticket access
+- useful for customer communication and post-purchase confirmation
+
+### Venue Management
+
+- manage event venues and location-related information
+- organize venue-specific details for smoother planning
+- useful for single-location and multi-venue event operations
+
+### Dashboard Analytics
+
+- high-level operational insights for admins and organizers
+- track event activity, ticketing status, and platform usage
+- helps teams monitor performance and make faster business decisions
+
+### Responsive UI
+
+- optimized for desktop, tablet, and mobile usage
+- suitable for admin teams, organizers, and operational staff
+- modern interface designed for real-world SaaS deployment
+
+## User Roles
+
+### Admin
+
+Admins have full platform control and can manage the overall system configuration, users, events, analytics, and operational settings. This role is intended for business owners, super admins, platform operators, or internal management teams.
+
+Admin capabilities typically include:
+
+- full access to platform configuration
+- user and organizer management
+- event oversight across the system
+- reporting and dashboard visibility
+- business-level operational control
+
+### Organizer
+
+Organizers are responsible for managing event-level workflows without full platform authority. This role is well suited for client teams, event staff, department leads, or individual event managers.
+
+Organizer capabilities typically include:
+
+- creating and managing assigned events
+- handling ticketing and attendee workflows
+- managing venue-related event information
+- monitoring event-specific performance and operations
+
+## Use Cases
+
+EventHub is flexible enough to support multiple business and development scenarios:
+
+- **SaaS startups** building an event booking or event operations platform
+- **Client projects** for agencies and freelance developers delivering custom event systems
+- **College projects** that need a polished, realistic SaaS-grade architecture and feature set
+- **Internal tools** for companies, communities, or institutions managing events in-house
+
+## Tech Stack
+
+EventHub is structured as a modern full-stack web application and can be adapted to different deployment workflows.
+
+- **Frontend:** modern React-based web application interface
+- **Backend:** server-side application logic and API layer
+- **Database:** relational database for users, events, tickets, and operational records
+- **Payments:** Razorpay payment gateway integration
+
+This source code package is designed to be developer-friendly and customization-ready.
+
+## Installation Guide
+
+Follow the steps below to run EventHub locally and prepare it for deployment.
+
+### 1. Clone the project
+
+```bash
+git clone https://github.com/shivam/eventhub.git
+cd eventhub
 ```
 
-- Node.js 18+ 
+If you downloaded the source code from Gumroad as an archive, extract it and open the project folder in your terminal.
 
-- PostgreSQL databaseOpen [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. Install dependencies
 
-- Stripe account (test mode keys)
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-## ⚙️ Installation
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-1. **Clone and install dependencies:**
-
-```bash## Learn More
-
+```bash
 npm install
+```
 
-```To learn more about Next.js, take a look at the following resources:
+### 3. Set up environment variables
 
+Create a `.env` file in the root of the project and add the required configuration values.
 
-
-2. **Set up environment variables:**- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-Copy `.env.example` to `.env` and fill in your credentials:
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Example:
 
 ```env
-
-# Database (PostgreSQL connection string)## Deploy on Vercel
-
-DATABASE_URL="postgresql://username:password@localhost:5432/ticketing_db?schema=public"
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-# Stripe Keys (from https://dashboard.stripe.com/test/apikeys)
-
-STRIPE_SECRET_KEY="sk_test_your_key_here"Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-
-STRIPE_PUBLISHABLE_KEY="pk_test_your_key_here"
-STRIPE_WEBHOOK_SECRET="whsec_your_webhook_secret_here"
-
-# Security - Generate a strong random 32+ character key
-TICKET_SECRET_KEY="change-this-to-a-super-secret-key-minimum-32-characters-long"
-
-# App URL
-NEXT_PUBLIC_APP_URL="http://localhost:3000"
+RAZORPAY_KEY=rzp_test_xxxxxxxxxx
+RAZORPAY_SECRET=xxxxxxxxxx
+DATABASE_URL=postgresql://username:password@localhost:5432/eventhub
 ```
 
-3. **Generate Prisma Client:**
+Depending on your deployment setup, you may also configure additional values for authentication, email delivery, storage, or app URLs.
+
+### 4. Prepare the database
+
 ```bash
 npx prisma generate
-```
-
-4. **Run database migrations:**
-```bash
 npx prisma db push
 ```
 
-5. **Start development server:**
+### 5. Run the project
+
 ```bash
 npm run dev
 ```
 
-## 🔧 Stripe Webhook Setup
+The application will start locally in development mode and can then be customized, tested, and prepared for production deployment.
 
-For the payment webhook to work, you need to set up Stripe CLI or configure webhooks in Stripe Dashboard:
+### 6. Backfill existing Clerk users (one-time)
 
-### Option 1: Stripe CLI (Development)
+If you enabled local `User` sync via Clerk webhooks and need to import existing users once:
+
 ```bash
-# Install Stripe CLI
-stripe listen --forward-to localhost:3000/api/webhooks/stripe
+# Preview only (no DB writes)
+npm run backfill:users:dry
 
-# Copy the webhook signing secret to your .env file
+# Write users to DB
+npm run backfill:users
 ```
 
-### Option 2: Stripe Dashboard (Production)
-1. Go to https://dashboard.stripe.com/webhooks
-2. Add endpoint: `https://yourdomain.com/api/webhooks/stripe`
-3. Select event: `checkout.session.completed`
-4. Copy the signing secret to your `.env` file
+Optional flags:
 
-## 📖 User Flow
-
-### 1. **Ticket Registration**
-- User visits homepage (`/`)
-- Fills form with: name, email (optional), phone (optional), eventId
-- Clicks "Proceed to Payment"
-
-### 2. **Payment Processing**
-- Backend creates pending ticket in database
-- Creates Stripe Checkout Session (₹200)
-- User redirected to Stripe payment page
-- Completes payment
-
-### 3. **Ticket Generation**
-- Stripe webhook receives `checkout.session.completed` event
-- Backend updates ticket status to "paid"
-- Generates HMAC-signed token
-- User redirected to ticket page
-
-### 4. **QR Code Display**
-- Ticket page shows QR code with signed payload
-- QR contains: `{ticketId, token}`
-- User can save or screenshot QR code
-
-### 5. **Check-In**
-- Staff opens check-in portal (`/checkin`)
-- Scans QR code (paste JSON data)
-- System validates token and payment status
-- Marks ticket as checked in
-- Prevents duplicate check-ins
-
-## 🛠️ API Endpoints
-
-### `POST /api/tickets`
-Create a new ticket and Stripe checkout session.
-
-**Request:**
-```json
-{
-  "name": "John Doe",
-  "email": "john@example.com",
-  "phone": "+91 98765 43210",
-  "eventId": "EVENT-2025"
-}
-```
-
-**Response:**
-```json
-{
-  "ticketId": "uuid",
-  "sessionId": "cs_xxx",
-  "url": "https://checkout.stripe.com/..."
-}
-```
-
-### `GET /api/tickets/[id]`
-Get ticket details by ID.
-
-**Response:**
-```json
-{
-  "id": "uuid",
-  "name": "John Doe",
-  "email": "john@example.com",
-  "phone": "+91 98765 43210",
-  "eventId": "EVENT-2025",
-  "status": "paid",
-  "token": "abc123...",
-  "checkedIn": false,
-  "createdAt": "2025-01-01T00:00:00Z",
-  "updatedAt": "2025-01-01T00:00:00Z"
-}
-```
-
-### `POST /api/webhooks/stripe`
-Stripe webhook handler for payment confirmation.
-
-**Event:** `checkout.session.completed`
-
-### `POST /api/checkin`
-Check in a ticket.
-
-**Request:**
-```json
-{
-  "ticketId": "uuid",
-  "token": "abc123..."
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Check-in successful",
-  "ticket": {
-    "id": "uuid",
-    "name": "John Doe",
-    "email": "john@example.com",
-    "eventId": "EVENT-2025",
-    "checkedIn": true
-  }
-}
-```
-
-## 🗃️ Database Schema
-
-```prisma
-model Ticket {
-  id         String   @id @default(uuid())
-  name       String
-  email      String?
-  phone      String?
-  eventId    String
-  status     String   @default("pending") // pending | paid | refunded
-  token      String?
-  checkedIn  Boolean  @default(false)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-}
-```
-
-## 🔒 Security Features
-
-1. **HMAC Token Signing**: Tickets signed with SHA-256 HMAC
-2. **Timing-Safe Comparison**: Prevents timing attacks
-3. **Stripe Webhook Verification**: Validates webhook signatures
-4. **Environment Variables**: Sensitive data in `.env` file
-5. **Payment Status Check**: Validates payment before check-in
-6. **Duplicate Prevention**: One-time check-in enforcement
-
-## 📱 Pages
-
-- `/` - Registration form
-- `/ticket/[id]` - Ticket display with QR code
-- `/checkin` - Staff check-in portal
-
-## 🚀 Deployment
-
-### Vercel (Recommended)
 ```bash
-vercel deploy
+npm run backfill:users -- --page-size=100 --max-users=500
 ```
 
-### Environment Variables
-Set all `.env` variables in your hosting platform:
-- `DATABASE_URL`
-- `STRIPE_SECRET_KEY`
-- `STRIPE_PUBLISHABLE_KEY`
-- `STRIPE_WEBHOOK_SECRET`
-- `TICKET_SECRET_KEY`
-- `NEXT_PUBLIC_APP_URL`
+Required environment variables:
 
-### Database
-- Use a managed PostgreSQL service (Neon, Supabase, Railway)
-- Run `npx prisma db push` after deployment
+- `CLERK_SECRET_KEY`
+- `POSTGRES_PRISMA_URL` (or `DATABASE_URL`)
 
-## 🧪 Testing
+## Environment Variables
 
-1. Use Stripe test cards: `4242 4242 4242 4242`
-2. Test webhook locally with Stripe CLI
-3. Generate test tickets and verify QR codes
-4. Test check-in flow with valid/invalid tickets
+EventHub requires a small set of core environment variables to handle payments and database connectivity.
 
-## 📝 Future Enhancements
+```env
+RAZORPAY_KEY=rzp_test_xxxxxxxxxx
+RAZORPAY_SECRET=xxxxxxxxxxxxxxxx
+DATABASE_URL=postgresql://username:password@localhost:5432/eventhub
+```
 
-- [ ] QR code scanner camera integration
-- [ ] Email ticket delivery
-- [ ] PDF ticket generation
-- [ ] Admin dashboard with analytics
-- [ ] Multiple event support
-- [ ] Ticket refund handling
-- [ ] Real-time check-in stats
+Recommended usage:
 
-## 📄 License
+- `RAZORPAY_KEY` for client-facing Razorpay integration
+- `RAZORPAY_SECRET` for secure server-side payment verification
+- `DATABASE_URL` for connecting the application to your database
 
-MIT
+Keep all production credentials private and never commit them to a public repository.
 
-## 🤝 Contributing
+## Pricing Tiers and Usage Limits
 
-Contributions welcome! Please open an issue or PR.
+EventHub is distributed under a commercial license with usage rights based on the purchased plan.
+
+### Starter
+
+- 1 Admin
+- 2 Organizers
+- 5 Events
+- personal use
+
+Best for individual developers, learning, testing, and non-commercial usage.
+
+### Growth
+
+- 3 Admins
+- 10 Organizers
+- unlimited events
+- commercial use for a single project
+
+Best for freelancers, agencies, and startups launching one client or business deployment.
+
+### Business
+
+- unlimited admins
+- unlimited organizers
+- unlimited events
+- multi-project usage
+
+Best for agencies, studios, and businesses that want broader commercial usage across multiple deployments.
+
+**Note:** Limits are based on recommended usage and license terms.
+
+## License
+
+EventHub is provided under a commercial license.
+
+You are allowed to use and modify the source code according to your purchased tier, but redistribution, resale, sublicensing, and unauthorized sharing of the original or modified source code are strictly prohibited.
+
+See [LICENSE.txt](/home/shivam/check_in_app/LICENSE.txt) for full terms.
+
+## Support
+
+Support is structured to match the needs of buyers at different stages:
+
+- basic support is available for setup guidance and general usage questions
+- priority support is intended for higher-tier customers and commercial buyers
+
+Support covers product usage and implementation guidance, but extensive custom development is not included unless separately agreed.
+
+## Notes
+
+- Razorpay should be configured in test mode before switching to live credentials
+- the system is fully customizable for branding, business logic, and deployment needs
+- EventHub is delivered as source code, making it suitable for developers who want full control over the product
+
+## Built For Shipping Faster
+
+EventHub is designed to help you skip repetitive setup work and focus on launch, customization, and delivery. Whether you are validating a startup idea, building for a client, or creating an internal platform, this codebase provides a serious head start.
 
 ---
 
-Built with ❤️ using Next.js 14, TypeScript, Prisma, and Stripe
-# Trigger deployment
+Built by Shivam

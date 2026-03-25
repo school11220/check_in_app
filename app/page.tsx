@@ -11,13 +11,48 @@ const getCachedSiteConfig = unstable_cache(
   { revalidate: 60 }
 );
 
+const getCachedHomeEvents = unstable_cache(
+  async () => prisma.event.findMany({
+    where: { isActive: true },
+    orderBy: [{ isFeatured: 'desc' }, { date: 'asc' }],
+    take: 6,
+    select: {
+      id: true,
+      name: true,
+      date: true,
+      venue: true,
+      price: true,
+      imageUrl: true,
+      isFeatured: true,
+      soldCount: true,
+      capacity: true,
+    },
+  }),
+  ['home-events'],
+  { revalidate: 60 }
+);
+
 export default async function Home() {
   let siteConfig: any = null;
+  let initialEvents: {
+    id: string;
+    name: string;
+    date: Date;
+    venue: string | null;
+    price: number;
+    imageUrl: string | null;
+    isFeatured: boolean;
+    soldCount: number;
+    capacity: number;
+  }[] = [];
+
   try {
     siteConfig = await getCachedSiteConfig();
+    initialEvents = await getCachedHomeEvents();
   } catch (error) {
     console.error("Database connection failed:", error);
     siteConfig = null;
+    initialEvents = [];
   }
 
   let settings = DEFAULT_SITE_SETTINGS;
@@ -29,6 +64,10 @@ export default async function Home() {
   return (
     <HomeClient
       initialSettings={settings}
+      initialEvents={initialEvents.map((event) => ({
+        ...event,
+        date: event.date.toISOString(),
+      }))}
     />
   );
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import Razorpay from 'razorpay';
 import { prisma } from '@/lib/prisma';
 import { calculateDynamicPrice } from '@/lib/pricing';
+import { enforceRateLimit } from '@/lib/rate-limit';
 
 // Fallback events data
 const FALLBACK_EVENTS: Record<string, { name: string; price: number }> = {
@@ -35,6 +36,9 @@ function getRazorpayInstance(keyId?: string, keySecret?: string) {
 // Create a Razorpay order
 export async function POST(request: NextRequest) {
     try {
+        const rateLimited = await enforceRateLimit(request, 'razorpay-order', { requests: 10, window: '1 m' });
+        if (rateLimited) return rateLimited;
+
         const body = await request.json();
         const { ticketId, ticketIds, amount, quantity } = body;
 
@@ -65,17 +69,24 @@ export async function POST(request: NextRequest) {
                 include: { Event: { include: { PricingRule: true } } },
             });
 
-            if (ticket?.event) {
-                eventName = ticket.event.name;
+            if (ticket?.Event) {
+                if (!ticket.Event.isActive) {
+                    return NextResponse.json(
+                        { error: 'Ticket sales are paused for this event.' },
+                        { status: 403 }
+                    );
+                }
+
+                eventName = ticket.Event.name;
 
                 // Check Early Bird
-                if (ticket.event.earlyBirdEnabled &&
-                    ticket.event.earlyBirdDeadline &&
-                    new Date(ticket.event.earlyBirdDeadline) > new Date()) {
-                    eventPrice = ticket.event.earlyBirdPrice || ticket.event.price;
+                if (ticket.Event.earlyBirdEnabled &&
+                    ticket.Event.earlyBirdDeadline &&
+                    new Date(ticket.Event.earlyBirdDeadline) > new Date()) {
+                    eventPrice = ticket.Event.earlyBirdPrice || ticket.Event.price;
                 } else {
                     // Dynamic Price
-                    eventPrice = calculateDynamicPrice(ticket.event);
+                    eventPrice = calculateDynamicPrice(ticket.Event as any);
                 }
             } else {
                 // Start of fallback logic if DB fails or ticket not found? 

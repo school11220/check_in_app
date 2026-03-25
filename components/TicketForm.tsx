@@ -205,6 +205,11 @@ export default function TicketForm() {
       return;
     }
 
+    if (!selectedEvt.isActive) {
+      showToast('Ticket sales are paused for this event', 'error');
+      return;
+    }
+
     if (selectedEvt.registrationFields) {
       for (const field of selectedEvt.registrationFields) {
         if (field.required && (!answers[field.id] || !answers[field.id].trim())) {

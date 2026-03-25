@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { ticketStorage } from '@/lib/ticket-storage';
+import { auth } from '@clerk/nextjs/server';
+import { enforceRateLimit } from '@/lib/rate-limit';
 
 export async function POST(request: NextRequest) {
     try {
+        const { userId } = await auth();
+        const rateLimited = await enforceRateLimit(request, 'checkin-bulk', { requests: 20, window: '1 m' }, userId || undefined);
+        if (rateLimited) return rateLimited;
+
         const body = await request.json();
         const { ticketIds } = body;
 

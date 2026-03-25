@@ -27,7 +27,10 @@ export default function AttendeeInsights({ eventId }: AttendeeInsightsProps) {
         salesByEventData: [],
         salesTrendData: [],
         peakHoursData: [],
-        checkInData: []
+        checkInData: [],
+        funnel: { created: 0, pending: 0, paid: 0, cancelled: 0, refunded: 0, checkedIn: 0 },
+        dropOff: { paymentConversion: 0, checkInConversion: 0, abandonmentRate: 0 },
+        fraudWatch: { attempts: 0, recent: [] }
     });
     const [loading, setLoading] = useState(false);
 
@@ -57,6 +60,19 @@ export default function AttendeeInsights({ eventId }: AttendeeInsightsProps) {
     const exportToCSV = () => {
         window.location.href = `/api/export?eventId=${eventId}`;
         // toast.success("Export started");
+    };
+
+    const formatRelativeTime = (value?: string | Date) => {
+        if (!value) return 'Just now';
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return 'Just now';
+        const diffMs = Date.now() - date.getTime();
+        const diffMins = Math.floor(diffMs / 60000);
+        if (diffMins < 1) return 'Just now';
+        if (diffMins < 60) return `${diffMins}m ago`;
+        const diffHours = Math.floor(diffMins / 60);
+        if (diffHours < 24) return `${diffHours}h ago`;
+        return date.toLocaleDateString();
     };
 
     return (
@@ -111,6 +127,92 @@ export default function AttendeeInsights({ eventId }: AttendeeInsightsProps) {
                 <div className="bg-zinc-800/50 border border-zinc-700 rounded-xl p-4">
                     <p className="text-sm text-zinc-400">Check-in Rate</p>
                     <p className="text-3xl font-bold text-blue-400 mt-1">{analytics.checkInRate}%</p>
+                </div>
+            </div>
+
+            {/* Drop-off + Fraud Watch */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="bg-zinc-800/50 border border-zinc-700 rounded-xl p-5 space-y-4">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h3 className="text-sm font-semibold text-zinc-300">Drop-off Monitor</h3>
+                            <p className="text-xs text-zinc-500">Track funnel from creation to check-in</p>
+                        </div>
+                        <div className="text-right">
+                            <p className="text-xs text-zinc-500">Payment Conv.</p>
+                            <p className="text-xl font-bold text-white">{analytics.dropOff.paymentConversion}%</p>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                        {[{ label: 'Created', value: analytics.funnel.created }, { label: 'Pending/Abandoned', value: analytics.funnel.pending + analytics.funnel.cancelled + analytics.funnel.refunded }, { label: 'Paid', value: analytics.funnel.paid }, { label: 'Checked In', value: analytics.funnel.checkedIn }].map(item => (
+                            <div key={item.label} className="bg-zinc-900/60 border border-zinc-800 rounded-lg p-3">
+                                <p className="text-xs text-zinc-500">{item.label}</p>
+                                <p className="text-lg font-semibold text-white">{item.value.toLocaleString()}</p>
+                            </div>
+                        ))}
+                    </div>
+
+                    <div className="space-y-3">
+                        {[{
+                            label: 'Payment Conversion',
+                            value: analytics.dropOff.paymentConversion,
+                            color: '#22c55e',
+                        }, {
+                            label: 'Check-in Conversion',
+                            value: analytics.dropOff.checkInConversion,
+                            color: '#3b82f6',
+                        }, {
+                            label: 'Abandonment Rate',
+                            value: analytics.dropOff.abandonmentRate,
+                            color: '#ef4444',
+                        }].map(metric => (
+                            <div key={metric.label} className="space-y-1">
+                                <div className="flex items-center justify-between text-xs text-zinc-400">
+                                    <span>{metric.label}</span>
+                                    <span className="text-white font-semibold">{metric.value}%</span>
+                                </div>
+                                <div className="h-2 bg-zinc-900 rounded-full overflow-hidden">
+                                    <div
+                                        className="h-full rounded-full"
+                                        style={{ width: `${Math.min(metric.value || 0, 100)}%`, backgroundColor: metric.color }}
+                                    />
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                <div className="bg-zinc-800/50 border border-zinc-700 rounded-xl p-5 space-y-3">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h3 className="text-sm font-semibold text-zinc-300">Fraud Watch</h3>
+                            <p className="text-xs text-zinc-500">Duplicate or replayed scans</p>
+                        </div>
+                        <div className="text-right">
+                            <p className="text-xs text-zinc-500">Attempts</p>
+                            <p className="text-xl font-bold text-white">{analytics.fraudWatch.attempts}</p>
+                        </div>
+                    </div>
+
+                    <div className="divide-y divide-zinc-800 rounded-xl border border-zinc-800 bg-zinc-900/40">
+                        {analytics.fraudWatch.recent.length === 0 && (
+                            <div className="p-4 text-sm text-zinc-500 text-center">No duplicate scans detected in this window</div>
+                        )}
+                        {analytics.fraudWatch.recent.map((log: any) => (
+                            <div key={log.id} className="p-4 flex items-center justify-between gap-3">
+                                <div className="min-w-0">
+                                    <p className="text-white font-medium truncate">{log.attendee}</p>
+                                    <p className="text-xs text-zinc-500 truncate">{log.eventName}</p>
+                                    <p className="text-xs text-red-400 capitalize">{log.action.replace('_', ' ')}</p>
+                                </div>
+                                <div className="text-right text-xs text-zinc-500">
+                                    <p>{formatRelativeTime(log.at)}</p>
+                                    {log.performedBy && <p className="text-[11px] text-zinc-500">by {log.performedBy}</p>}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
                 </div>
             </div>
 

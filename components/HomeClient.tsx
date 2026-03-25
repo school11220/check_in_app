@@ -8,10 +8,22 @@ import { SiteSettings } from '@/lib/store';
 
 interface HomeClientProps {
     initialSettings: SiteSettings;
+    initialEvents: {
+        id: string;
+        name: string;
+        date: string;
+        venue: string | null;
+        price: number;
+        imageUrl: string | null;
+        isFeatured: boolean;
+        soldCount: number;
+        capacity: number;
+    }[];
 }
 
-export default function HomeClient({ initialSettings }: HomeClientProps) {
+export default function HomeClient({ initialSettings, initialEvents }: HomeClientProps) {
     const [siteSettings] = useState<SiteSettings>(initialSettings);
+    const [events] = useState(initialEvents);
     const [showMenu, setShowMenu] = useState(false);
     const [mounted, setMounted] = useState(false);
     useEffect(() => { setMounted(true); }, []);
@@ -22,6 +34,11 @@ export default function HomeClient({ initialSettings }: HomeClientProps) {
     const handleLogout = async () => {
         await signOut({ redirectUrl: '/' });
         setShowMenu(false);
+    };
+
+    const handleRegisterForEvent = (eventId: string) => {
+        localStorage.setItem('selectedEventId', eventId);
+        window.location.href = '/register';
     };
 
     return (
@@ -178,6 +195,58 @@ export default function HomeClient({ initialSettings }: HomeClientProps) {
                     </a>
                 </div>
             </div>
+
+            {/* Upcoming Events */}
+            <section className="px-4 pb-16">
+                <div className="max-w-6xl mx-auto">
+                    <div className="flex items-center justify-between mb-6">
+                        <h2 className="font-heading text-2xl md:text-3xl font-bold text-white">Upcoming Events</h2>
+                        <a href="/discover" className="text-sm text-[#E11D2E] hover:text-white transition-colors">View all</a>
+                    </div>
+
+                    {events.length === 0 ? (
+                        <div className="bg-[#141414] border border-[#1F1F1F] rounded-2xl p-8 text-center text-[#B3B3B3]">
+                            No active events are available right now.
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                            {events.map((event) => {
+                                const eventDate = new Date(event.date);
+                                const soldOut = event.soldCount >= event.capacity;
+
+                                return (
+                                    <article key={event.id} className="bg-[#141414] border border-[#1F1F1F] rounded-2xl overflow-hidden">
+                                        <div className="h-36 bg-[#0D0D0D]">
+                                            {event.imageUrl ? (
+                                                <img src={event.imageUrl} alt={event.name} className="w-full h-full object-cover" />
+                                            ) : (
+                                                <div className="w-full h-full flex items-center justify-center text-[#737373] text-sm">No image</div>
+                                            )}
+                                        </div>
+                                        <div className="p-5 space-y-2">
+                                            <h3 className="text-white font-semibold line-clamp-2">{event.name}</h3>
+                                            <p className="text-[#B3B3B3] text-sm">{eventDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                                            <p className="text-[#737373] text-sm line-clamp-1">{event.venue || 'Venue to be announced'}</p>
+                                            <div className="flex items-center justify-between pt-2">
+                                                <span className="text-[#E11D2E] font-semibold">
+                                                    {event.price === 0 ? 'Free' : `₹${Math.round(event.price / 100)}`}
+                                                </span>
+                                                <button
+                                                    onClick={() => handleRegisterForEvent(event.id)}
+                                                    disabled={soldOut}
+                                                    className="px-4 py-2 text-sm font-medium rounded-lg bg-[#E11D2E] text-white hover:bg-[#B91C1C] disabled:bg-zinc-700 disabled:text-zinc-400 transition-colors"
+                                                >
+                                                    {soldOut ? 'Sold Out' : 'Register'}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </article>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+            </section>
 
             {/* Footer */}
             <footer className="border-t border-[#1F1F1F] py-10 px-4">

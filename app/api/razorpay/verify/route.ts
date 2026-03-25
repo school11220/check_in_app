@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { prisma } from '@/lib/prisma';
 import { ticketStorage } from '@/lib/ticket-storage';
+import { enforceRateLimit } from '@/lib/rate-limit';
 
 // Fallback events data for getting price when DB not available
 const FALLBACK_EVENTS: Record<string, { name: string; price: number }> = {
@@ -22,6 +23,9 @@ function generateToken(ticketId: string): string {
 // Verify Razorpay payment
 export async function POST(request: NextRequest) {
     try {
+        const rateLimited = await enforceRateLimit(request, 'razorpay-verify', { requests: 20, window: '1 m' });
+        if (rateLimited) return rateLimited;
+
         const body = await request.json();
         const { razorpay_order_id, razorpay_payment_id, razorpay_signature, ticketId, email, name, eventName, eventDate, venue, emailStyles } = body;
 

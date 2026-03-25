@@ -1,10 +1,25 @@
 import { auth, clerkClient } from '@clerk/nextjs/server';
+import { syncUserById } from '@/lib/user-sync';
 
 // Updated to use Clerk authentication
 export async function getSession() {
     try {
         const { userId } = await auth();
         if (!userId) return null;
+
+        const syncedUser = await syncUserById(userId).catch(() => null);
+
+        if (syncedUser && syncedUser.role !== 'UNAUTHORIZED' && syncedUser.isActive) {
+            return {
+                user: {
+                    id: syncedUser.id,
+                    name: syncedUser.name || syncedUser.email,
+                    email: syncedUser.email,
+                    role: syncedUser.role,
+                    assignedEventIds: syncedUser.assignedEventIds || [],
+                }
+            };
+        }
 
         // Get user from Clerk
         const client = await clerkClient();

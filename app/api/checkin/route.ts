@@ -5,6 +5,7 @@ import { generateAuditChecksum, verifyTimedQRToken } from '@/lib/qr-security';
 import { CheckInResponse } from '@/types';
 import { auth, clerkClient } from '@clerk/nextjs/server';
 import { fireWebhook } from '@/lib/webhooks';
+import { enforceRateLimit } from '@/lib/rate-limit';
 
 const ALLOWED_ROLES = ['ADMIN', 'ORGANIZER', 'ORGANISER', 'SCANNER'];
 
@@ -24,6 +25,34 @@ async function getUserRole(userId: string): Promise<string> {
   }
 }
 
+async function logDuplicateAttempt(params: {
+  ticketId: string;
+  eventId: string;
+  action: 'duplicate_attempt' | 'replay_detected';
+  userId: string;
+  role: string;
+  req: NextRequest;
+}) {
+  const { ticketId, eventId, action, userId, role, req } = params;
+  try {
+    const timestamp = new Date().toISOString();
+    await prisma.checkInLog.create({
+      data: {
+        ticketId,
+        eventId,
+        action,
+        performedBy: userId,
+        performedRole: role,
+        ipAddress: req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown',
+        userAgent: req.headers.get('user-agent') || 'unknown',
+        checksum: generateAuditChecksum(ticketId, action, timestamp, userId),
+      },
+    });
+  } catch {
+    // Logging failure should not block check-in
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     // Verify caller is authenticated and has check-in permission
@@ -34,6 +63,9 @@ export async function POST(req: NextRequest) {
         { status: 401 }
       );
     }
+
+    const rateLimited = await enforceRateLimit(req, 'checkin-post', { requests: 120, window: '1 m' }, userId);
+    if (rateLimited) return rateLimited;
 
     const role = await getUserRole(userId);
     if (!ALLOWED_ROLES.includes(role)) {
@@ -88,6 +120,7 @@ export async function POST(req: NextRequest) {
       const parts = timedToken.split(':');
       const nonce = parts[3];
       if (nonce && usedNonces.has(nonce)) {
+        await logDuplicateAttempt({ ticketId, eventId: ticket.eventId, action: 'replay_detected', userId, role, req });
         return NextResponse.json<CheckInResponse>(
           { success: false, message: 'QR code already used (replay detected)' },
           { status: 403 }
@@ -173,6 +206,7 @@ export async function POST(req: NextRequest) {
 
     // --- Standard check-in ---
     if (ticket.checkedIn) {
+      await logDuplicateAttempt({ ticketId, eventId: ticket.eventId, action: 'duplicate_attempt', userId, role, req });
       return NextResponse.json<CheckInResponse>(
         {
           success: false,
@@ -250,6 +284,9 @@ export async function GET(req: NextRequest) {
     if (!userId) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
+
+    const rateLimited = await enforceRateLimit(req, 'checkin-get', { requests: 60, window: '1 m' }, userId);
+    if (rateLimited) return rateLimited;
 
     const role = await getUserRole(userId);
     if (!ALLOWED_ROLES.includes(role)) {

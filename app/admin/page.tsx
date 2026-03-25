@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useApp, CATEGORY_COLORS, Event, ScheduleItem, Speaker, Sponsor, TeamMember, TeamRole, ROLE_PERMISSIONS, SiteSettings, Festival, EmailTemplate, Survey, SurveyQuestion, PromoCode, WaitlistEntry, Announcement, NavLink, CustomPage, ThemeSettings, DEFAULT_THEME } from '@/lib/store';
 import { useToast } from '@/components/Toaster';
 import { useRouter } from 'next/navigation';
@@ -45,6 +45,28 @@ export default function AdminPage() {
 
     const { showToast } = useToast();
     const { ref: scrollRef, events: dragEvents, isDragging } = useDraggable();
+
+    const tabConfig = useMemo(() => ([
+        { id: 'events', label: 'Events', icon: Calendar, roles: ['ADMIN', 'ORGANIZER'] },
+        { id: 'attendees', label: 'Attendees', icon: Users, roles: ['ADMIN', 'ORGANIZER'] },
+        { id: 'analytics', label: 'Analytics', icon: BarChart3, roles: ['ADMIN', 'ORGANIZER'] },
+        { id: 'reviews', label: 'Reviews', icon: MessageSquare, roles: ['ADMIN', 'ORGANIZER'] },
+        { id: 'sessions', label: 'Sessions', icon: Clock, roles: ['ADMIN', 'ORGANIZER'] },
+        { id: 'team', label: 'Team', icon: Shield, roles: ['ADMIN'] },
+        { id: 'festivals', label: 'Festivals', icon: Tent, roles: ['ADMIN'] },
+        { id: 'emails', label: 'Emails', icon: Mail, roles: ['ADMIN', 'ORGANIZER'] },
+        { id: 'surveys', label: 'Surveys', icon: ClipboardList, roles: ['ADMIN', 'ORGANIZER'] },
+        { id: 'tickets', label: 'Ticket Design', icon: Ticket, roles: ['ADMIN', 'ORGANIZER'] },
+        { id: 'layout', label: 'Layout', icon: Layout, roles: ['ADMIN'] },
+        { id: 'growth', label: 'Pricing', icon: TrendingUp, roles: ['ADMIN'] },
+        { id: 'certificates', label: 'Certificates', icon: Award, roles: ['ADMIN'] },
+        { id: 'audit', label: 'Logs', icon: Shield, roles: ['ADMIN'] },
+        { id: 'history', label: 'History', icon: History, roles: ['ADMIN', 'ORGANIZER'] },
+        { id: 'sales', label: 'Sales Control', icon: Power, roles: ['ADMIN'] },
+        { id: 'pages', label: 'Pages', icon: FileText, roles: ['ADMIN'] },
+    ]), []);
+
+    const visibleTabs = tabConfig.filter(tab => tab.roles.includes(role as any));
 
     const [activeTab, setActiveTab] = useState<'events' | 'attendees' | 'team' | 'festivals' | 'emails' | 'surveys' | 'settings' | 'layout' | 'growth' | 'analytics' | 'history' | 'certificates' | 'sessions' | 'tickets' | 'audit' | 'integrations' | 'sales' | 'pages' | 'theme' | 'reviews'>('events');
     const [sessionEventId, setSessionEventId] = useState<string>('');
@@ -122,6 +144,7 @@ export default function AdminPage() {
 
 
     const [ticketDraft, setTicketDraft] = useState<SiteSettings | null>(null);
+    const [hasUnsaved, setHasUnsaved] = useState(false);
 
     // Initialize draft when entering tickets tab
     useEffect(() => {
@@ -129,6 +152,23 @@ export default function AdminPage() {
             setTicketDraft(siteSettings);
         }
     }, [activeTab, siteSettings]);
+
+    useEffect(() => {
+        if (!ticketDraft || !siteSettings) return;
+        const dirty = JSON.stringify(ticketDraft) !== JSON.stringify(siteSettings);
+        setHasUnsaved(dirty);
+    }, [ticketDraft, siteSettings]);
+
+    useEffect(() => {
+        const beforeUnload = (event: BeforeUnloadEvent) => {
+            if (hasUnsaved) {
+                event.preventDefault();
+                event.returnValue = '';
+            }
+        };
+        window.addEventListener('beforeunload', beforeUnload);
+        return () => window.removeEventListener('beforeunload', beforeUnload);
+    }, [hasUnsaved]);
 
     const handleSaveTicketDraft = () => {
         if (ticketDraft) {
@@ -290,10 +330,22 @@ export default function AdminPage() {
                         <a href="/checkin" target="_blank" rel="noopener noreferrer" className="flex items-center text-[#B3B3B3] hover:text-white text-sm px-4 py-2 rounded-lg hover:bg-white/5 transition-colors">
                             <CheckCircle className="w-4 h-4 mr-1.5" /> Check-In
                         </a>
+                        <a href="/kiosk" target="_blank" rel="noopener noreferrer" className="flex items-center text-[#B3B3B3] hover:text-white text-sm px-4 py-2 rounded-lg hover:bg-white/5 transition-colors">
+                            <Smartphone className="w-4 h-4 mr-1.5" /> Kiosk
+                        </a>
                         <button onClick={handleLogout} className="flex items-center px-4 py-2.5 bg-[#141414] text-[#B3B3B3] rounded-xl hover:bg-[#1A1A1A] hover:text-white text-sm border border-[#1F1F1F] transition-colors">
                             Logout <LogOut className="w-4 h-4 ml-2" />
                         </button>
                     </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3 mb-4 text-xs text-[#B3B3B3] bg-[#111] border border-[#1F1F1F] px-4 py-3 rounded-xl">
+                    <span className="px-2 py-1 rounded-lg bg-white/5 font-mono uppercase tracking-wide text-[11px]">{role}</span>
+                    <span className="text-[#737373]">Restricted tabs hidden based on role.</span>
+                    <span className="flex items-center gap-1">
+                        <AlertTriangle className="w-3 h-3 text-amber-400" />
+                        {hasUnsaved ? 'Unsaved ticket design changes. Saving recommended.' : 'No unsaved changes.'}
+                    </span>
                 </div>
 
                 {/* Tabs */}
@@ -302,30 +354,18 @@ export default function AdminPage() {
                     ref={scrollRef}
                     className={`flex gap-2 mb-6 sm:mb-8 overflow-x-auto pb-2 scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0 cursor-grab active:cursor-grabbing ${isDragging ? '[&>*]:pointer-events-none' : ''}`}
                 >
-                    {[
-                        { id: 'events', label: 'Events', icon: Calendar },
-                        { id: 'attendees', label: 'Attendees', icon: Users },
-                        { id: 'analytics', label: 'Analytics', icon: BarChart3 },
-                        { id: 'reviews', label: 'Reviews', icon: MessageSquare },
-                        { id: 'sessions', label: 'Sessions', icon: Clock },
-                        { id: 'team', label: 'Team', icon: Shield },
-                        { id: 'festivals', label: 'Festivals', icon: Tent },
-                        { id: 'emails', label: 'Emails', icon: Mail },
-                        { id: 'surveys', label: 'Surveys', icon: ClipboardList },
-                        { id: 'tickets', label: 'Ticket Design', icon: Ticket },
-                        { id: 'layout', label: 'Layout', icon: Layout },
-                        { id: 'growth', label: 'Pricing', icon: TrendingUp },
-                        { id: 'certificates', label: 'Certificates', icon: Award },
-                        { id: 'audit', label: 'Logs', icon: Shield },
-                        { id: 'history', label: 'History', icon: History },
-                        { id: 'sales', label: 'Sales Control', icon: Power },
-                        { id: 'pages', label: 'Pages', icon: FileText },
-                    ].map(tab => {
+                    {visibleTabs.map(tab => {
                         const Icon = tab.icon;
                         return (
                             <button
                                 key={tab.id}
-                                onClick={() => setActiveTab(tab.id as any)}
+                                onClick={() => {
+                                    if (hasUnsaved && activeTab === 'tickets' && tab.id !== 'tickets') {
+                                        const proceed = confirm('You have unsaved ticket design changes. Leave without saving?');
+                                        if (!proceed) return;
+                                    }
+                                    setActiveTab(tab.id as any);
+                                }}
                                 className={`px-5 py-2.5 min-w-0 flex-shrink-0 rounded-xl font-medium whitespace-nowrap transition-all flex items-center gap-2 text-sm ${activeTab === tab.id
                                     ? 'bg-[#E11D2E] text-white shadow-[0_0_20px_rgba(225,29,46,0.3)]'
                                     : 'bg-[#141414] text-[#737373] hover:bg-[#1A1A1A] hover:text-[#B3B3B3] border border-[#1F1F1F]'

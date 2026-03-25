@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { auth, clerkClient } from '@clerk/nextjs/server';
+import { enforceRateLimit } from '@/lib/rate-limit';
 
 const ALLOWED_ROLES = ['ADMIN', 'ORGANIZER', 'ORGANISER'];
 
@@ -16,6 +17,10 @@ export async function GET(req: NextRequest) {
   try {
     const { userId } = await auth();
     if (!userId) return NextResponse.json({ error: 'Auth required' }, { status: 401 });
+
+    const rateLimited = await enforceRateLimit(req, 'checkin-audit', { requests: 30, window: '1 m' }, userId);
+    if (rateLimited) return rateLimited;
+
     const role = await getUserRole(userId);
     if (!ALLOWED_ROLES.includes(role)) {
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });

@@ -1,13 +1,32 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { auth, clerkClient } from '@clerk/nextjs/server';
-import { prisma } from '@/lib/prisma';
+import { enforceRateLimit } from '@/lib/rate-limit';
+import { syncUserById } from '@/lib/user-sync';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
     try {
         const { userId } = await auth();
 
         if (!userId) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        const rateLimited = await enforceRateLimit(request, 'auth-me', { requests: 60, window: '1 m' }, userId);
+        if (rateLimited) return rateLimited;
+
+        const syncedUser = await syncUserById(userId).catch(() => null);
+        if (syncedUser) {
+            if (syncedUser.role === 'UNAUTHORIZED' || !syncedUser.isActive) {
+                return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            }
+
+            return NextResponse.json({
+                id: syncedUser.id,
+                name: syncedUser.name || syncedUser.email,
+                email: syncedUser.email,
+                role: syncedUser.role,
+                assignedEventIds: syncedUser.assignedEventIds || [],
+            });
         }
 
         // Get user from Clerk

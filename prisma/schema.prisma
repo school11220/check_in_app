@@ -25,6 +25,24 @@ model AuditLog {
   @@index([resource])
 }
 
+model User {
+  id               String   @id // Clerk user ID
+  email            String   @unique
+  firstName        String?
+  lastName         String?
+  name             String?
+  imageUrl         String?
+  role             String   @default("UNAUTHORIZED")
+  assignedEventIds String[] @default([])
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  organizedEvents  Event[]  @relation("OrganizerEvents")
+  tickets          Ticket[]
+
+  @@index([role])
+}
+
 model Event {
   id                   String        @id
   name                 String
@@ -48,6 +66,7 @@ model Event {
   sponsors             Json          @default("[]")
   tags                 String[]      @default([])
   organizer            String?
+  organizerId          String?
   contactEmail         String?
   contactPhone         String?
   termsAndConditions   String?
@@ -67,9 +86,11 @@ model Event {
   Session              Session[]
   Ticket               Ticket[]
   CertificateTemplate  CertificateTemplate?
+  OrganizerUser        User?         @relation("OrganizerEvents", fields: [organizerId], references: [id], onDelete: SetNull)
 
   @@index([category])
   @@index([isActive])
+  @@index([organizerId])
 }
 
 model Integration {
@@ -159,7 +180,9 @@ model Ticket {
   updatedAt         DateTime
   customAnswers     Json         @default("{}")
   promoCodeId       String?
+  userId            String?
   Event             Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  User              User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
   CheckInLogs       CheckInLog[]
 
   @@index([email])
@@ -168,6 +191,7 @@ model Ticket {
   @@index([status])
   @@index([token])
   @@index([eventId, status])
+  @@index([userId])
 }
 
 model CheckInLog {
