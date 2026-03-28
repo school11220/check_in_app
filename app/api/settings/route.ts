@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { SiteSettings, EmailTemplate } from '@/lib/store';
+import { getSession, hasRole, ADMIN_ROLES } from '@/lib/auth';
+import { logAudit } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,6 +26,11 @@ export async function GET() {
 
 export async function POST(request: Request) {
     try {
+        const session = await getSession();
+        if (!session || !hasRole(session.user.role, ADMIN_ROLES)) {
+            return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+        }
+
         const body = await request.json();
         const { siteSettings, emailTemplates, surveys } = body;
 
@@ -46,6 +52,22 @@ export async function POST(request: Request) {
                 templates: emailTemplates || undefined,
                 surveys: surveys || undefined
             }
+        });
+
+        await logAudit({
+            action: 'SETTINGS_UPDATE',
+            resource: 'SETTINGS',
+            resourceId: 'default',
+            details: {
+                updatedKeys: [
+                    siteSettings ? 'siteSettings' : null,
+                    emailTemplates ? 'emailTemplates' : null,
+                    surveys ? 'surveys' : null,
+                ].filter(Boolean),
+            },
+            userId: session.user.id,
+            userName: session.user.name || session.user.email,
+            userRole: session.user.role,
         });
 
         return NextResponse.json({ success: true });

@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { ScanLine, LayoutDashboard, LogIn, X, Menu, Ticket, LogOut, Home as HomeIcon } from 'lucide-react';
 import { useAuth, useClerk } from '@clerk/nextjs';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import { SiteSettings } from '@/lib/store';
 
 interface HomeClientProps {
@@ -25,10 +26,9 @@ export default function HomeClient({ initialSettings, initialEvents }: HomeClien
     const [siteSettings] = useState<SiteSettings>(initialSettings);
     const [events] = useState(initialEvents);
     const [showMenu, setShowMenu] = useState(false);
-    const [mounted, setMounted] = useState(false);
-    useEffect(() => { setMounted(true); }, []);
+    const router = useRouter();
 
-    const { isSignedIn } = useAuth();
+    const { isSignedIn, isLoaded } = useAuth();
     const { signOut } = useClerk();
 
     const handleLogout = async () => {
@@ -38,7 +38,7 @@ export default function HomeClient({ initialSettings, initialEvents }: HomeClien
 
     const handleRegisterForEvent = (eventId: string) => {
         localStorage.setItem('selectedEventId', eventId);
-        window.location.href = '/register';
+        router.push('/register');
     };
 
     return (
@@ -60,7 +60,7 @@ export default function HomeClient({ initialSettings, initialEvents }: HomeClien
             {/* Floating Menu Button (Desktop Only) */}
             <div className="hidden md:block fixed bottom-6 right-6 z-50">
                 <div className={`absolute bottom-16 right-0 glass rounded-xl overflow-hidden shadow-2xl transition-all duration-300 ${showMenu ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}>
-                    {mounted && isSignedIn && (
+                    {isLoaded && isSignedIn && (
                         <>
                             <a href="/checkin" target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 px-5 py-3.5 text-zinc-300 hover:bg-white/5 hover:text-white whitespace-nowrap transition-colors">
                                 <ScanLine className="w-5 h-5" />
@@ -79,7 +79,7 @@ export default function HomeClient({ initialSettings, initialEvents }: HomeClien
                             </button>
                         </>
                     )}
-                    {mounted && !isSignedIn && (
+                    {isLoaded && !isSignedIn && (
                         <a href="/login" className="flex items-center gap-3 px-5 py-3.5 text-zinc-300 hover:bg-white/5 hover:text-white whitespace-nowrap transition-colors">
                             <LogIn className="w-5 h-5" />
                             Login
@@ -129,7 +129,7 @@ export default function HomeClient({ initialSettings, initialEvents }: HomeClien
                             </button>
                         </div>
                         <div className="space-y-2">
-                            {mounted && isSignedIn ? (
+                            {isLoaded && isSignedIn ? (
                                 <>
                                     <a href="/admin" target="_blank" rel="noopener noreferrer" className="flex items-center gap-4 p-4 bg-zinc-900 rounded-xl text-white">
                                         <LayoutDashboard className="w-5 h-5 text-[#E11D2E]" />
@@ -147,7 +147,7 @@ export default function HomeClient({ initialSettings, initialEvents }: HomeClien
                                         <span className="font-medium">Logout</span>
                                     </button>
                                 </>
-                            ) : mounted ? (
+                            ) : isLoaded ? (
                                 <a href="/login" className="flex items-center gap-4 p-4 bg-zinc-900 rounded-xl text-white">
                                     <LogIn className="w-5 h-5 text-[#E11D2E]" />
                                     <span className="font-medium">Login</span>

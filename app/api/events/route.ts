@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { calculateDynamicPrice } from '@/lib/pricing';
-import { getSession } from '@/lib/auth';
+import { getSession, hasEventAccess } from '@/lib/auth';
 import { logAudit } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
@@ -84,17 +84,58 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
     try {
+        const session = await getSession();
+        if (!session) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
         const body = await request.json();
         const { id, ...data } = body;
 
         if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 });
+        if (!hasEventAccess(session, id)) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
 
-        if (data.date) data.date = new Date(data.date);
+        const updateData: Record<string, unknown> = {};
+        const allowedFields = [
+            'name', 'description', 'startTime', 'endTime', 'venue', 'address',
+            'price', 'entryFee', 'prizePool', 'category', 'imageUrl', 'capacity',
+            'isActive', 'isFeatured', 'organizer', 'contactEmail', 'contactPhone',
+            'termsAndConditions', 'registrationDeadline', 'earlyBirdEnabled',
+            'earlyBirdPrice', 'earlyBirdDeadline', 'sendReminders', 'videoLink',
+            'organizerVideoLink', 'tags', 'registrationFields', 'schedule',
+            'speakers', 'sponsors', 'gallery'
+        ];
+
+        for (const field of allowedFields) {
+            if (data[field] !== undefined) {
+                updateData[field] = data[field];
+            }
+        }
+
+        if (data.date) updateData.date = new Date(data.date);
+        if (updateData.price !== undefined) updateData.price = Number(updateData.price);
+        if (updateData.entryFee !== undefined) updateData.entryFee = Number(updateData.entryFee);
+        if (updateData.prizePool !== undefined) updateData.prizePool = Number(updateData.prizePool);
+        if (updateData.capacity !== undefined) updateData.capacity = Number(updateData.capacity);
+        if (updateData.earlyBirdPrice !== undefined) updateData.earlyBirdPrice = Number(updateData.earlyBirdPrice);
 
         const event = await prisma.event.update({
             where: { id },
-            data,
+            data: updateData,
         });
+
+        await logAudit({
+            action: 'UPDATE',
+            resource: 'EVENT',
+            resourceId: id,
+            details: { eventName: event.name, changes: Object.keys(updateData) },
+            userId: session.user.id,
+            userName: session.user.name || session.user.email,
+            userRole: session.user.role,
+        });
+
         return NextResponse.json(event);
     } catch (error) {
         return NextResponse.json({ error: 'Failed to update' }, { status: 500 });
@@ -103,12 +144,29 @@ export async function PATCH(request: Request) {
 
 export async function DELETE(request: Request) {
     try {
+        const session = await getSession();
+        if (!session || session.user.role !== 'ADMIN') {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
+
         const url = new URL(request.url);
         const id = url.searchParams.get('id');
 
         if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 });
 
+        const event = await prisma.event.findUnique({ where: { id }, select: { name: true } });
         await prisma.event.delete({ where: { id } });
+
+        await logAudit({
+            action: 'DELETE',
+            resource: 'EVENT',
+            resourceId: id,
+            details: { eventName: event?.name },
+            userId: session.user.id,
+            userName: session.user.name || session.user.email,
+            userRole: session.user.role,
+        });
+
         return NextResponse.json({ success: true });
     } catch (error) {
         return NextResponse.json({ error: 'Failed to delete' }, { status: 500 });

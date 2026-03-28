@@ -30,6 +30,8 @@ export interface EmailAttachment {
     content: string; // base64 encoded
     contentType?: string;
     encoding?: string;
+    cid?: string;
+    disposition?: 'attachment' | 'inline';
 }
 
 export interface SendEmailOptions {
@@ -68,6 +70,8 @@ export async function sendEmail(
             content: att.content,
             encoding: att.encoding || 'base64',
             contentType: att.contentType,
+            cid: att.cid,
+            contentDisposition: att.disposition,
         }));
     }
 

@@ -1,26 +1,10 @@
 'use client';
 
-import { useApp } from '@/lib/store';
+import { useApp, Event as StoreEvent } from '@/lib/store';
 import { useState, useEffect } from 'react';
 import { useToast } from './Toaster';
 
-interface Event {
-  id: string;
-  name: string;
-  description: string | null;
-  date: string;
-  venue: string | null;
-  price: number;
-  // Early Bird Pricing
-  earlyBirdEnabled?: boolean;
-  earlyBirdPrice?: number;
-  earlyBirdDeadline?: string;
-  // Dynamic Pricing
-  // Dynamic Pricing
-  currentPrice?: number;
-  // Custom Registration Fields
-  registrationFields?: any[];
-}
+type Event = StoreEvent & { currentPrice?: number }; // allow optional dynamic price while keeping core shape
 
 declare global {
   interface Window {

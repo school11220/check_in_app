@@ -147,7 +147,7 @@ export default function EventReviews({ eventId }: EventReviewsProps) {
                                     </div>
                                 </div>
                                 <p className="text-[#B3B3B3] text-sm leading-relaxed pl-[52px]">
-                                    "{review.comment}"
+                                    &quot;{review.comment}&quot;
                                 </p>
                             </div>
                         ))}

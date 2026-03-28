@@ -2,25 +2,22 @@
 
 import { useEffect, useState } from 'react';
 
+function getInitialTheme() {
+    if (typeof window === 'undefined') return false;
+
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'dark') return true;
+    if (savedTheme === 'light') return false;
+
+    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+}
+
 export default function ThemeToggle() {
-    const [isDark, setIsDark] = useState(false);
-    const [mounted, setMounted] = useState(false);
+    const [isDark, setIsDark] = useState(getInitialTheme);
 
     useEffect(() => {
-        setMounted(true);
-        // Check localStorage or system preference
-        const savedTheme = localStorage.getItem('theme');
-        if (savedTheme === 'dark') {
-            setIsDark(true);
-            document.documentElement.classList.add('dark');
-        } else if (savedTheme === 'light') {
-            setIsDark(false);
-            document.documentElement.classList.remove('dark');
-        } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-            setIsDark(true);
-            document.documentElement.classList.add('dark');
-        }
-    }, []);
+        document.documentElement.classList.toggle('dark', isDark);
+    }, [isDark]);
 
     const toggleTheme = () => {
         if (isDark) {
@@ -33,13 +30,6 @@ export default function ThemeToggle() {
             setIsDark(true);
         }
     };
-
-    // Avoid hydration mismatch
-    if (!mounted) {
-        return (
-            <button className="w-10 h-10 rounded-xl bg-gray-100 dark:bg-gray-800" />
-        );
-    }
 
     return (
         <button

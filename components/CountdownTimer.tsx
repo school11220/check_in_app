@@ -16,42 +16,41 @@ interface TimeLeft {
     expired: boolean;
 }
 
+function calculateTimeLeft(targetDate: string | Date): TimeLeft {
+    const target = new Date(targetDate).getTime();
+    const now = new Date().getTime();
+    const difference = target - now;
+
+    if (difference <= 0) {
+        return { days: 0, hours: 0, minutes: 0, seconds: 0, expired: true };
+    }
+
+    return {
+        days: Math.floor(difference / (1000 * 60 * 60 * 24)),
+        hours: Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
+        minutes: Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60)),
+        seconds: Math.floor((difference % (1000 * 60)) / 1000),
+        expired: false,
+    };
+}
+
 export default function CountdownTimer({ targetDate, eventName, onExpire }: CountdownTimerProps) {
-    const [timeLeft, setTimeLeft] = useState<TimeLeft>({ days: 0, hours: 0, minutes: 0, seconds: 0, expired: false });
-    const [mounted, setMounted] = useState(false);
+    const [timeLeft, setTimeLeft] = useState<TimeLeft>(() => calculateTimeLeft(targetDate));
 
     useEffect(() => {
-        setMounted(true);
-
-        const calculateTimeLeft = () => {
-            const target = new Date(targetDate).getTime();
-            const now = new Date().getTime();
-            const difference = target - now;
-
-            if (difference <= 0) {
-                setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0, expired: true });
+        const updateTime = () => {
+            const nextTimeLeft = calculateTimeLeft(targetDate);
+            setTimeLeft(nextTimeLeft);
+            if (nextTimeLeft.expired) {
                 onExpire?.();
-                return;
             }
-
-            setTimeLeft({
-                days: Math.floor(difference / (1000 * 60 * 60 * 24)),
-                hours: Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
-                minutes: Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60)),
-                seconds: Math.floor((difference % (1000 * 60)) / 1000),
-                expired: false,
-            });
         };
 
-        calculateTimeLeft();
-        const timer = setInterval(calculateTimeLeft, 1000);
+        updateTime();
+        const timer = setInterval(updateTime, 1000);
 
         return () => clearInterval(timer);
     }, [targetDate, onExpire]);
-
-    if (!mounted) {
-        return null;
-    }
 
     if (timeLeft.expired) {
         return (

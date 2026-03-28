@@ -1,6 +1,5 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import { useApp } from '@/lib/store';
 
 interface CheckInActivity {
@@ -19,29 +18,22 @@ interface LiveCheckInFeedProps {
 
 export default function LiveCheckInFeed({ eventId, maxItems = 10 }: LiveCheckInFeedProps) {
     const { tickets, events } = useApp();
-    const [activities, setActivities] = useState<CheckInActivity[]>([]);
-
-    useEffect(() => {
-        // Generate activity feed from tickets
-        const checkedInTickets = tickets
-            .filter(t => t.checkedIn && t.status === 'paid')
-            .filter(t => !eventId || t.eventId === eventId)
-            .map(t => {
-                const event = events.find(e => e.id === t.eventId);
-                return {
-                    id: t.id,
-                    ticketId: t.id,
-                    attendeeName: t.name,
-                    eventName: event?.name || 'Event',
-                    timestamp: new Date(t.createdAt), // In production, use checkedInAt
-                    action: 'check_in' as const,
-                };
-            })
-            .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
-            .slice(0, maxItems);
-
-        setActivities(checkedInTickets);
-    }, [tickets, events, eventId, maxItems]);
+    const activities: CheckInActivity[] = tickets
+        .filter(t => t.checkedIn && t.status === 'paid')
+        .filter(t => !eventId || t.eventId === eventId)
+        .map(t => {
+            const event = events.find(e => e.id === t.eventId);
+            return {
+                id: t.id,
+                ticketId: t.id,
+                attendeeName: t.name,
+                eventName: event?.name || 'Event',
+                timestamp: new Date(t.createdAt),
+                action: 'check_in' as const,
+            };
+        })
+        .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
+        .slice(0, maxItems);
 
     const formatTime = (date: Date) => {
         const now = new Date();

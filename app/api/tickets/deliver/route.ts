@@ -3,17 +3,28 @@ import { prisma } from '@/lib/prisma';
 import { sendTransactionalEmail, isEmailConfigured } from '@/lib/email';
 import { generateTicketPDF } from '@/lib/pdf-generator';
 import { generateQRCodeBase64 } from '@/lib/qr-generator';
-import { sendTicketConfirmationSMS, isSMSConfigured } from '@/lib/sms';
+import { sendTicketConfirmationSMS } from '@/lib/sms';
+import { getSession, hasEventAccess, hasRole, ORGANIZER_ROLES } from '@/lib/auth';
+import { enforceRateLimit } from '@/lib/rate-limit';
 
 // POST: Send ticket via email and/or SMS
 export async function POST(req: NextRequest) {
   try {
+    const session = await getSession();
     const body = await req.json();
-    const { ticketId, sendEmail: shouldSendEmail = true, sendSMS: shouldSendSMS = true } = body;
+    const { ticketId, token, sendEmail: shouldSendEmail = true, sendSMS: shouldSendSMS = true } = body;
 
     if (!ticketId) {
       return NextResponse.json({ error: 'Ticket ID required' }, { status: 400 });
     }
+
+    const rateLimited = await enforceRateLimit(
+      req,
+      'ticket-deliver',
+      { requests: 10, window: '1 m' },
+      session?.user.id || ticketId
+    );
+    if (rateLimited) return rateLimited;
 
     const ticket = await prisma.ticket.findUnique({
       where: { id: ticketId },
@@ -22,6 +33,12 @@ export async function POST(req: NextRequest) {
 
     if (!ticket) {
       return NextResponse.json({ error: 'Ticket not found' }, { status: 404 });
+    }
+
+    const canManageTicket = session && hasRole(session.user.role, ORGANIZER_ROLES) && hasEventAccess(session, ticket.eventId);
+    const hasValidToken = typeof token === 'string' && !!ticket.token && token === ticket.token;
+    if (!canManageTicket && !hasValidToken) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const results: { email?: any; sms?: any } = {};
@@ -131,7 +148,16 @@ export async function POST(req: NextRequest) {
             toName: ticket.name,
             subject: `Your ticket for ${ticket.Event.name} - Confirmed!`,
             htmlContent: emailHtml,
-            attachments: attachments.length > 0 ? attachments : undefined,
+            attachments: [
+              {
+                filename: `ticket-${ticket.id.slice(-8)}-qr.png`,
+                content: qrCodeBase64.replace(/^data:image\/png;base64,/, ''),
+                contentType: 'image/png',
+                cid: 'qrcode',
+                disposition: 'inline',
+              },
+              ...attachments,
+            ],
           });
 
           results.email = emailResult;

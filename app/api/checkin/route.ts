@@ -6,6 +6,7 @@ import { CheckInResponse } from '@/types';
 import { auth, clerkClient } from '@clerk/nextjs/server';
 import { fireWebhook } from '@/lib/webhooks';
 import { enforceRateLimit } from '@/lib/rate-limit';
+import { getSession, hasEventAccess } from '@/lib/auth';
 
 const ALLOWED_ROLES = ['ADMIN', 'ORGANIZER', 'ORGANISER', 'SCANNER'];
 
@@ -101,6 +102,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json<CheckInResponse>(
         { success: false, message: `Ticket payment is ${ticket.status}` },
         { status: 400 }
+      );
+    }
+
+    const session = await getSession();
+    if (!session || !hasEventAccess(session, ticket.eventId)) {
+      return NextResponse.json<CheckInResponse>(
+        { success: false, message: 'You do not have access to this event' },
+        { status: 403 }
       );
     }
 

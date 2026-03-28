@@ -1,34 +1,25 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useApp } from '@/lib/store';
 import { Layout, Eye, EyeOff, Save, RotateCcw } from 'lucide-react';
 
+function buildLayoutSettings(siteSettings: ReturnType<typeof useApp>['siteSettings']) {
+    return {
+        heroTitle: siteSettings.heroTitle || 'EventHub 2024',
+        heroSubtitle: siteSettings.heroSubtitle || 'The ultimate event management platform for organizers and attendees.',
+        showHero: siteSettings.showHero ?? true,
+        showFeatures: siteSettings.showFeatures ?? true,
+        showSchedule: siteSettings.showSchedule ?? true,
+        showSponsors: siteSettings.showSponsors ?? true,
+        showFaq: siteSettings.showFaq ?? true,
+    };
+}
+
 export default function LayoutManager() {
     const { siteSettings, updateSiteSettings, showToast } = useApp();
-    const [settings, setSettings] = useState({
-        heroTitle: '',
-        heroSubtitle: '',
-        showHero: true,
-        showFeatures: true,
-        showSchedule: true,
-        showSponsors: true,
-        showFaq: true,
-    });
+    const [settings, setSettings] = useState(() => buildLayoutSettings(siteSettings));
     const [hasChanges, setHasChanges] = useState(false);
-
-    // Initialize state from global store
-    useEffect(() => {
-        setSettings({
-            heroTitle: siteSettings.heroTitle || 'EventHub 2024',
-            heroSubtitle: siteSettings.heroSubtitle || 'The ultimate event management platform for organizers and attendees.',
-            showHero: siteSettings.showHero ?? true,
-            showFeatures: siteSettings.showFeatures ?? true,
-            showSchedule: siteSettings.showSchedule ?? true,
-            showSponsors: siteSettings.showSponsors ?? true,
-            showFaq: siteSettings.showFaq ?? true,
-        });
-    }, [siteSettings]);
 
     const handleChange = (key: string, value: any) => {
         setSettings(prev => ({ ...prev, [key]: value }));
@@ -43,15 +34,7 @@ export default function LayoutManager() {
 
     const handleReset = () => {
         if (confirm('Discard unsaved changes?')) {
-            setSettings({
-                heroTitle: siteSettings.heroTitle || 'EventHub 2024',
-                heroSubtitle: siteSettings.heroSubtitle || 'The ultimate event management platform for organizers and attendees.',
-                showHero: siteSettings.showHero ?? true,
-                showFeatures: siteSettings.showFeatures ?? true,
-                showSchedule: siteSettings.showSchedule ?? true,
-                showSponsors: siteSettings.showSponsors ?? true,
-                showFaq: siteSettings.showFaq ?? true,
-            });
+            setSettings(buildLayoutSettings(siteSettings));
             setHasChanges(false);
         }
     };

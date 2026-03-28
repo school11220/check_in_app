@@ -4,14 +4,6 @@ import { prisma } from '@/lib/prisma';
 import { calculateDynamicPrice } from '@/lib/pricing';
 import { enforceRateLimit } from '@/lib/rate-limit';
 
-// Fallback events data
-const FALLBACK_EVENTS: Record<string, { name: string; price: number }> = {
-    'event-1': { name: 'Tech Conference 2025', price: 50000 },
-    'event-2': { name: 'Music Festival Night', price: 200000 },
-    'event-3': { name: 'Startup Meetup', price: 20000 },
-    'event-4': { name: 'Art Exhibition Opening', price: 10000 },
-};
-
 // In-memory ticket storage
 const ticketOrders: Map<string, { ticketId: string; orderId: string; ticketIds?: string[] }> = new Map();
 
@@ -40,7 +32,12 @@ export async function POST(request: NextRequest) {
         if (rateLimited) return rateLimited;
 
         const body = await request.json();
-        const { ticketId, ticketIds, amount, quantity } = body;
+        const { ticketId, ticketIds, quantity } = body;
+
+        const requestedTicketIds = Array.isArray(ticketIds) && ticketIds.length > 0 ? ticketIds : [ticketId];
+        if (!requestedTicketIds[0]) {
+            return NextResponse.json({ error: 'Ticket ID is required' }, { status: 400 });
+        }
 
         // Check Global Sales Pause
         const siteConfig = await prisma.siteConfig.findUnique({ where: { id: 'default' } });
@@ -52,66 +49,64 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        console.log('Razorpay order request:', { ticketId, ticketIds, amount, quantity });
+        console.log('Razorpay order request:', { ticketId, ticketIds: requestedTicketIds, quantity });
 
-        // Use the amount passed from frontend if available (for multi-ticket support)
-        let orderAmount = 0; // Ignore client amount for security
-        let eventName = 'Event Ticket';
+        const tickets = await prisma.ticket.findMany({
+            where: { id: { in: requestedTicketIds } },
+            include: { Event: { include: { PricingRule: true } } },
+        });
 
-        // Calculate from ticket/event
-        let ticket: any = null;
-        let eventPrice = 0;
-
-        try {
-            // Find one ticket to get the event details
-            ticket = await prisma.ticket.findUnique({
-                where: { id: ticketId },
-                include: { Event: { include: { PricingRule: true } } },
-            });
-
-            if (ticket?.Event) {
-                if (!ticket.Event.isActive) {
-                    return NextResponse.json(
-                        { error: 'Ticket sales are paused for this event.' },
-                        { status: 403 }
-                    );
-                }
-
-                eventName = ticket.Event.name;
-
-                // Check Early Bird
-                if (ticket.Event.earlyBirdEnabled &&
-                    ticket.Event.earlyBirdDeadline &&
-                    new Date(ticket.Event.earlyBirdDeadline) > new Date()) {
-                    eventPrice = ticket.Event.earlyBirdPrice || ticket.Event.price;
-                } else {
-                    // Dynamic Price
-                    eventPrice = calculateDynamicPrice(ticket.Event as any);
-                }
-            } else {
-                // Start of fallback logic if DB fails or ticket not found? 
-                // But we rely on DB for security. If DB fails, we should fail.
-                // But for demo app robustness:
-                if (FALLBACK_EVENTS['event-4']) { // Just dummy
-                    eventPrice = 10000;
-                }
-            }
-        } catch (e) {
-            console.log('Database error/warning:', e);
-            // Fail secure or assume fallback? 
-            // Given previous code had fallback, I'll keep it but typically we should fail.
-            eventPrice = 10000;
+        if (tickets.length !== requestedTicketIds.length) {
+            return NextResponse.json({ error: 'One or more tickets were not found' }, { status: 404 });
         }
 
-        // Calculate total amount
-        const ticketCount = quantity || ticketIds?.length || 1;
-        orderAmount = eventPrice * ticketCount;
+        const primaryTicket = tickets[0];
+        if (!primaryTicket?.Event) {
+            return NextResponse.json({ error: 'Event not found for ticket' }, { status: 404 });
+        }
+
+        const eventId = primaryTicket.eventId;
+        const invalidTicket = tickets.find((ticket) => ticket.eventId !== eventId);
+        if (invalidTicket) {
+            return NextResponse.json({ error: 'All tickets in an order must belong to the same event' }, { status: 400 });
+        }
+
+        const nonPendingTicket = tickets.find((ticket) => ticket.status !== 'pending');
+        if (nonPendingTicket) {
+            return NextResponse.json({ error: 'Only pending tickets can be paid' }, { status: 400 });
+        }
+
+        if (!primaryTicket.Event.isActive) {
+            return NextResponse.json(
+                { error: 'Ticket sales are paused for this event.' },
+                { status: 403 }
+            );
+        }
+
+        let eventPrice = 0;
+        if (primaryTicket.Event.earlyBirdEnabled &&
+            primaryTicket.Event.earlyBirdDeadline &&
+            new Date(primaryTicket.Event.earlyBirdDeadline) > new Date()) {
+            eventPrice = primaryTicket.Event.earlyBirdPrice || primaryTicket.Event.price;
+        } else {
+            eventPrice = calculateDynamicPrice(primaryTicket.Event as any);
+        }
+
+        const ticketCount = requestedTicketIds.length;
+        const requestedQuantity = quantity ? Number(quantity) : ticketCount;
+        if (requestedQuantity !== ticketCount) {
+            return NextResponse.json({ error: 'Ticket quantity mismatch' }, { status: 400 });
+        }
+
+        const orderAmount = eventPrice * ticketCount;
+        if (orderAmount <= 0) {
+            return NextResponse.json({ error: 'Invalid order amount' }, { status: 400 });
+        }
 
         console.log('Creating Razorpay order with amount:', orderAmount);
 
         // Fetch Dynamic Config
-        let razorpayKeyId = ENV_RAZORPAY_KEY_ID;
-        let razorpayKeySecret = ENV_RAZORPAY_KEY_SECRET;
+        const razorpayKeyId = ENV_RAZORPAY_KEY_ID;
 
         // Create Razorpay order with the correct total amount
         // We use env vars directly now, removing the db-switch logic
@@ -119,40 +114,33 @@ export async function POST(request: NextRequest) {
         const order = await razorpay.orders.create({
             amount: orderAmount,
             currency: 'INR',
-            receipt: ticketId,
+            receipt: primaryTicket.id,
             notes: {
-                ticketId: ticketId,
-                ticketIds: ticketIds ? ticketIds.join(',') : ticketId,
-                quantity: quantity || 1,
+                ticketId: primaryTicket.id,
+                ticketIds: requestedTicketIds.join(','),
+                quantity: ticketCount,
+                eventId,
             },
         });
 
         // Store order mapping with all ticket IDs
-        ticketOrders.set(ticketId, {
-            ticketId,
+        ticketOrders.set(primaryTicket.id, {
+            ticketId: primaryTicket.id,
             orderId: order.id,
-            ticketIds: ticketIds || [ticketId],
+            ticketIds: requestedTicketIds,
         });
 
-        // Try to update tickets in database
-        const allTicketIds = ticketIds || [ticketId];
-        for (const tId of allTicketIds) {
-            try {
-                await prisma.ticket.update({
-                    where: { id: tId },
-                    data: { razorpayOrderId: order.id },
-                });
-            } catch (e) {
-                // Ignore if database not available
-            }
-        }
+        await prisma.ticket.updateMany({
+            where: { id: { in: requestedTicketIds } },
+            data: { razorpayOrderId: order.id },
+        });
 
         return NextResponse.json({
             orderId: order.id,
             amount: order.amount,
             currency: order.currency,
             keyId: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || razorpayKeyId,
-            quantity: quantity || 1,
+            quantity: ticketCount,
         });
     } catch (error) {
         console.error('Razorpay order creation failed:', error);

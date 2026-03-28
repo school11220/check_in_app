@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Lock, Mail, Loader2, ArrowRight } from 'lucide-react';
 import { useToast } from '@/components/Toaster';
@@ -202,14 +203,14 @@ export default function LoginPage() {
 
                 <div className="mt-8 text-center space-y-4">
                     <p className="text-zinc-500 text-xs">
-                        Don't have an account? <span className="text-red-400">Contact your admin to get added</span>
+                        Don&apos;t have an account? <span className="text-red-400">Contact your admin to get added</span>
                     </p>
-                    <a
+                    <Link
                         href="/"
                         className="inline-flex items-center gap-2 text-zinc-400 hover:text-white text-sm transition-colors"
                     >
                         ← Go back to home
-                    </a>
+                    </Link>
                 </div>
             </div>
         </main>

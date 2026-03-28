@@ -3,14 +3,8 @@ import crypto from 'crypto';
 import { prisma } from '@/lib/prisma';
 import { ticketStorage } from '@/lib/ticket-storage';
 import { enforceRateLimit } from '@/lib/rate-limit';
-
-// Fallback events data for getting price when DB not available
-const FALLBACK_EVENTS: Record<string, { name: string; price: number }> = {
-    'event-1': { name: 'Tech Conference 2025', price: 50000 },
-    'event-2': { name: 'Music Festival Night', price: 200000 },
-    'event-3': { name: 'Startup Meetup', price: 20000 },
-    'event-4': { name: 'Art Exhibition Opening', price: 10000 },
-};
+import Razorpay from 'razorpay';
+import { calculateDynamicPrice } from '@/lib/pricing';
 
 function generateToken(ticketId: string): string {
     const secret = process.env.TICKET_SECRET_KEY || 'default-secret-key-for-demo';
@@ -27,7 +21,7 @@ export async function POST(request: NextRequest) {
         if (rateLimited) return rateLimited;
 
         const body = await request.json();
-        const { razorpay_order_id, razorpay_payment_id, razorpay_signature, ticketId, email, name, eventName, eventDate, venue, emailStyles } = body;
+        const { razorpay_order_id, razorpay_payment_id, razorpay_signature, ticketId, emailStyles } = body;
 
         console.log('Verifying payment for ticket:', ticketId);
 
@@ -48,6 +42,21 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Invalid payment signature' }, { status: 400 });
         }
 
+        const razorpayKeyId = process.env.RAZORPAY_KEY_ID;
+        if (!razorpayKeyId || !secret) {
+            return NextResponse.json({ error: 'Payment verification not configured' }, { status: 500 });
+        }
+
+        const razorpay = new Razorpay({
+            key_id: razorpayKeyId,
+            key_secret: secret,
+        });
+
+        const payment = await razorpay.payments.fetch(razorpay_payment_id);
+        if (!payment || payment.order_id !== razorpay_order_id || !['authorized', 'captured'].includes(payment.status || '')) {
+            return NextResponse.json({ error: 'Payment could not be verified with Razorpay' }, { status: 400 });
+        }
+
         // Generate token for QR code
         const token = generateToken(ticketId);
         console.log('Generated token for ticket:', ticketId);
@@ -59,10 +68,27 @@ export async function POST(request: NextRequest) {
             // First try to find the ticket
             const existingTicket = await prisma.ticket.findUnique({
                 where: { id: ticketId },
-                include: { Event: true },
+                include: { Event: { include: { PricingRule: true } } },
             });
 
             if (existingTicket) {
+                if (existingTicket.razorpayOrderId !== razorpay_order_id) {
+                    return NextResponse.json({ error: 'Order does not match ticket' }, { status: 400 });
+                }
+
+                let expectedAmount = 0;
+                if (existingTicket.Event.earlyBirdEnabled &&
+                    existingTicket.Event.earlyBirdDeadline &&
+                    new Date(existingTicket.Event.earlyBirdDeadline) > new Date(existingTicket.createdAt)) {
+                    expectedAmount = existingTicket.Event.earlyBirdPrice || existingTicket.Event.price;
+                } else {
+                    expectedAmount = calculateDynamicPrice(existingTicket.Event as any);
+                }
+
+                if (Number(payment.amount || 0) < expectedAmount) {
+                    return NextResponse.json({ error: 'Paid amount does not match ticket price' }, { status: 400 });
+                }
+
                 // Update existing ticket
                 ticketData = await prisma.ticket.update({
                     where: { id: ticketId },
@@ -74,23 +100,20 @@ export async function POST(request: NextRequest) {
                     },
                     include: { Event: true },
                 });
-                amountPaid = ticketData.Event?.price || 0;
+                amountPaid = Number(payment.amount || 0);
                 console.log('Ticket updated in database:', ticketId);
             } else {
-                // Ticket doesn't exist in DB - check in-memory and create in DB
                 const memoryTicket = ticketStorage.get(ticketId);
                 if (memoryTicket) {
-                    // Get event from database
-                    const event = await prisma.event.findUnique({
-                        where: { id: memoryTicket.eventId },
-                    });
+                    if (memoryTicket.razorpayOrderId !== razorpay_order_id) {
+                        return NextResponse.json({ error: 'Order does not match ticket' }, { status: 400 });
+                    }
 
-                    // Create the ticket in database
                     ticketData = await prisma.ticket.create({
                         data: {
                             id: ticketId,
-                            name: memoryTicket.name || name || 'Guest',
-                            email: memoryTicket.email || email,
+                            name: memoryTicket.name || 'Guest',
+                            email: memoryTicket.email,
                             phone: memoryTicket.phone || null,
                             Event: { connect: { id: memoryTicket.eventId } },
                             status: 'paid',
@@ -101,48 +124,49 @@ export async function POST(request: NextRequest) {
                         },
                         include: { Event: true },
                     });
-                    amountPaid = ticketData.Event?.price || 0;
+                    amountPaid = Number(payment.amount || 0);
                     console.log('Ticket created in database from memory:', ticketId);
-                    // Clean up memory storage
                     ticketStorage.delete(ticketId);
                 } else {
                     console.error('Ticket not found anywhere:', ticketId);
+                    return NextResponse.json({ error: 'Ticket not found' }, { status: 404 });
                 }
             }
         } catch (e) {
             console.log('Database operation failed, updating in-memory storage:', e);
-            // Update in shared memory storage
             const existingTicket = ticketStorage.get(ticketId);
             if (existingTicket) {
+                if (existingTicket.razorpayOrderId !== razorpay_order_id) {
+                    return NextResponse.json({ error: 'Order does not match ticket' }, { status: 400 });
+                }
                 ticketStorage.update(ticketId, {
                     status: 'paid',
                     razorpayPaymentId: razorpay_payment_id,
                     razorpayOrderId: razorpay_order_id,
                     token: token,
                 });
-                // Get price from fallback events
-                amountPaid = FALLBACK_EVENTS[existingTicket.eventId]?.price || 0;
+                amountPaid = Number(payment.amount || 0);
                 console.log('Ticket updated in memory:', ticketId);
             } else {
                 console.warn('Ticket not found in memory storage:', ticketId);
+                return NextResponse.json({ error: 'Ticket not found' }, { status: 404 });
             }
         }
 
-        // Send confirmation email with PDF ticket
-        if (email) {
+        const recipientEmail = ticketData?.email || ticketStorage.get(ticketId)?.email;
+        if (recipientEmail && ticketData?.Event) {
             try {
                 const { sendTicketEmail } = await import('@/lib/ticket-email');
 
-                console.log('Sending confirmation email to:', email);
+                console.log('Sending confirmation email to:', recipientEmail);
                 const emailResult = await sendTicketEmail({
-                    to: email,
+                    to: recipientEmail,
                     ticketId,
                     token, // Include token for QR code
-                    eventName: eventName || 'Event',
-                    attendeeName: name || 'Guest',
-                    eventDate: eventDate || 'TBA',
-                    venue: venue || 'TBA',
-                    // Payment details
+                    eventName: ticketData.Event.name,
+                    attendeeName: ticketData.name || 'Guest',
+                    eventDate: ticketData.Event.date?.toISOString?.() || 'TBA',
+                    venue: ticketData.Event.venue || 'TBA',
                     amountPaid,
                     transactionId: razorpay_payment_id,
                     orderId: razorpay_order_id,
@@ -154,10 +178,9 @@ export async function POST(request: NextRequest) {
                 console.log('Email send result:', emailResult);
             } catch (emailError) {
                 console.warn('Email sending failed:', emailError);
-                // Don't fail the payment if email fails
             }
         } else {
-            console.log('No email provided, skipping confirmation email');
+            console.log('No email available, skipping confirmation email');
         }
 
         return NextResponse.json({

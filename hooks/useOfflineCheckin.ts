@@ -39,22 +39,18 @@ function storeCheckins(checkins: OfflineCheckIn[]) {
 }
 
 export function useOfflineCheckin() {
-  const [isOnline, setIsOnline] = useState(true);
-  const [pendingSync, setPendingSync] = useState<OfflineCheckIn[]>([]);
+  const [isOnline, setIsOnline] = useState(() => (typeof navigator === 'undefined' ? true : navigator.onLine));
+  const [pendingSync, setPendingSync] = useState<OfflineCheckIn[]>(() => getStoredCheckins().filter(c => !c.synced));
   const [isSyncing, setIsSyncing] = useState(false);
   const syncIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const deviceId = useRef<string>('');
+  const [deviceId] = useState(() => getDeviceId());
 
   useEffect(() => {
-    deviceId.current = getDeviceId();
-    setPendingSync(getStoredCheckins().filter(c => !c.synced));
-
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
 
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
-    setIsOnline(navigator.onLine);
 
     return () => {
       window.removeEventListener('online', handleOnline);
@@ -63,30 +59,13 @@ export function useOfflineCheckin() {
     };
   }, []);
 
-  // Auto sync when back online
-  useEffect(() => {
-    if (isOnline && pendingSync.length > 0) {
-      syncPending();
-    }
-    // Also start periodic sync
-    if (isOnline) {
-      syncIntervalRef.current = setInterval(() => {
-        const pending = getStoredCheckins().filter(c => !c.synced);
-        if (pending.length > 0) syncPending();
-      }, 30000); // every 30s
-    }
-    return () => {
-      if (syncIntervalRef.current) clearInterval(syncIntervalRef.current);
-    };
-  }, [isOnline]);
-
   const addOfflineCheckin = useCallback((ticketId: string, token: string): OfflineCheckIn => {
     const checkin: OfflineCheckIn = {
       id: `offline-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       ticketId,
       token,
       timestamp: new Date().toISOString(),
-      deviceId: deviceId.current,
+      deviceId,
       synced: false,
     };
 
@@ -100,7 +79,7 @@ export function useOfflineCheckin() {
     setPendingSync(stored.filter(c => !c.synced));
 
     return checkin;
-  }, []);
+  }, [deviceId]);
 
   const syncPending = useCallback(async () => {
     if (isSyncing || !navigator.onLine) return;
@@ -136,6 +115,25 @@ export function useOfflineCheckin() {
     setIsSyncing(false);
   }, [isSyncing]);
 
+  useEffect(() => {
+    if (isOnline) {
+      if (pendingSync.length > 0) {
+        window.setTimeout(() => {
+          void syncPending();
+        }, 0);
+      }
+      syncIntervalRef.current = setInterval(() => {
+        const pending = getStoredCheckins().filter(c => !c.synced);
+        if (pending.length > 0) {
+          void syncPending();
+        }
+      }, 30000);
+    }
+    return () => {
+      if (syncIntervalRef.current) clearInterval(syncIntervalRef.current);
+    };
+  }, [isOnline, pendingSync.length, syncPending]);
+
   const clearSynced = useCallback(() => {
     const stored = getStoredCheckins().filter(c => !c.synced);
     storeCheckins(stored);
@@ -149,6 +147,6 @@ export function useOfflineCheckin() {
     addOfflineCheckin,
     syncPending,
     clearSynced,
-    deviceId: deviceId.current,
+    deviceId,
   };
 }

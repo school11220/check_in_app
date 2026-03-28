@@ -2409,7 +2409,7 @@ export default function AdminPage() {
                                     <div className="space-y-4">
                                         <div className="bg-zinc-900/50 p-3 rounded border border-zinc-800 mb-2">
                                             <p className="text-xs text-zinc-500 leading-relaxed">
-                                                To enable sync, Create a Project in Google Cloud Console, enable "Google Sheets API", create a Service Account, and paste the JSON details below.
+                                                To enable sync, create a project in Google Cloud Console, enable &quot;Google Sheets API&quot;, create a service account, and paste the JSON details below.
                                             </p>
                                         </div>
                                         <div>
@@ -3456,5 +3456,4 @@ function ChartCard({ title, children }: { title: string; children: React.ReactNo
         </div>
     );
 }
-
 

@@ -4,37 +4,25 @@ import { useParams, useRouter } from 'next/navigation';
 import { useApp, CATEGORY_COLORS, type Event } from '@/lib/store';
 import { useToast } from '@/components/Toaster';
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 
 import { Calendar, MapPin, Share2, ArrowLeft, Clock, Users, Trophy, Map, ShieldCheck, Mail, Phone, ExternalLink, Ticket, Info, Globe } from 'lucide-react';
 
-// Countdown Timer Component
-function CountdownTimer({ targetDate }: { targetDate: string }) {
-    const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
-    const [mounted, setMounted] = useState(false);
-
-    useEffect(() => {
-        setMounted(true);
-        const calculateTimeLeft = () => {
-            const difference = new Date(targetDate).getTime() - new Date().getTime();
-            if (difference > 0) {
-                return {
-                    days: Math.floor(difference / (1000 * 60 * 60 * 24)),
-                    hours: Math.floor((difference / (1000 * 60 * 60)) % 24),
-                    minutes: Math.floor((difference / 1000 / 60) % 60),
-                    seconds: Math.floor((difference / 1000) % 60),
-                };
-            }
-            return { days: 0, hours: 0, minutes: 0, seconds: 0 };
+function calculateCountdown(targetDate: string) {
+    const difference = new Date(targetDate).getTime() - new Date().getTime();
+    if (difference > 0) {
+        return {
+            days: Math.floor(difference / (1000 * 60 * 60 * 24)),
+            hours: Math.floor((difference / (1000 * 60 * 60)) % 24),
+            minutes: Math.floor((difference / 1000 / 60) % 60),
+            seconds: Math.floor((difference / 1000) % 60),
         };
+    }
+    return { days: 0, hours: 0, minutes: 0, seconds: 0 };
+}
 
-        setTimeLeft(calculateTimeLeft());
-        const timer = setInterval(() => setTimeLeft(calculateTimeLeft()), 1000);
-        return () => clearInterval(timer);
-    }, [targetDate]);
-
-    if (!mounted) return null;
-
-    const TimeBlock = ({ value, label }: { value: number; label: string }) => (
+function TimeBlock({ value, label }: { value: number; label: string }) {
+    return (
         <div className="flex flex-col items-center">
             <div className="glass rounded-xl px-4 py-3 min-w-[70px] glow-red animate-pulse-glow">
                 <span className="text-3xl md:text-4xl font-bold text-white tabular-nums">
@@ -44,6 +32,23 @@ function CountdownTimer({ targetDate }: { targetDate: string }) {
             <span className="text-xs text-zinc-500 mt-2 uppercase tracking-wider">{label}</span>
         </div>
     );
+}
+
+const PARTICLES = Array.from({ length: 15 }, (_, index) => ({
+    left: (index * 17) % 100,
+    duration: 8 + (index % 6) * 1.5,
+    delay: (index % 5) * 0.6,
+    size: 4 + (index % 4) * 1.5,
+}));
+
+// Countdown Timer Component
+function CountdownTimer({ targetDate }: { targetDate: string }) {
+    const [timeLeft, setTimeLeft] = useState(() => calculateCountdown(targetDate));
+
+    useEffect(() => {
+        const timer = setInterval(() => setTimeLeft(calculateCountdown(targetDate)), 1000);
+        return () => clearInterval(timer);
+    }, [targetDate]);
 
     return (
         <div className="flex gap-3 justify-center">
@@ -86,25 +91,9 @@ function CapacityRing({ soldCount, capacity }: { soldCount: number; capacity: nu
 
 // Floating Particles Background
 function FloatingParticles() {
-    const [particles, setParticles] = useState<Array<{ left: number; duration: number; delay: number; size: number }>>([]);
-
-    useEffect(() => {
-        // Generate random values only on client side to avoid hydration mismatch
-        setParticles(
-            [...Array(15)].map(() => ({
-                left: Math.random() * 100,
-                duration: 8 + Math.random() * 12,
-                delay: Math.random() * 5,
-                size: 4 + Math.random() * 6,
-            }))
-        );
-    }, []);
-
-    if (particles.length === 0) return null;
-
     return (
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-            {particles.map((p, i) => (
+            {PARTICLES.map((p, i) => (
                 <div
                     key={i}
                     className="particle"
@@ -179,10 +168,8 @@ export default function EventDetailsPage() {
     const [reviewData, setReviewData] = useState({ name: '', rating: 5, comment: '' });
     const [activeTab, setActiveTab] = useState<'about' | 'schedule' | 'reviews'>('about');
     const [showFloatingCTA, setShowFloatingCTA] = useState(false);
-    const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
-        setMounted(true);
         const handleScroll = () => {
             setShowFloatingCTA(window.scrollY > 500);
         };
@@ -219,12 +206,12 @@ export default function EventDetailsPage() {
                         <Ticket className="w-10 h-10 text-red-500" />
                     </div>
                     <h1 className="text-2xl font-bold text-white mb-4">Event not found</h1>
-                    <a href="/" className="inline-flex items-center gap-2 px-6 py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-colors">
+                    <Link href="/" className="inline-flex items-center gap-2 px-6 py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-colors">
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                         </svg>
                         Back to Home
-                    </a>
+                    </Link>
                 </div>
             </main>
         );
@@ -264,12 +251,12 @@ export default function EventDetailsPage() {
             return;
         }
         addReview({
-            id: `rev-${Date.now()}`,
+            id: `rev-${event.id}-${eventReviews.length + 1}`,
             eventId: event.id,
             userName: reviewData.name,
             rating: reviewData.rating,
             comment: reviewData.comment,
-            createdAt: new Date().toISOString(),
+            createdAt: event.date,
         });
         setShowReviewForm(false);
         setReviewData({ name: '', rating: 5, comment: '' });
@@ -291,27 +278,25 @@ export default function EventDetailsPage() {
     return (
         <main className="min-h-screen bg-black">
             {/* Floating Back Button */}
-            <a href="/" className="fixed top-4 left-4 z-50 flex items-center gap-2 px-4 py-2 glass rounded-full text-zinc-300 hover:text-white transition-all hover-lift">
+            <Link href="/" className="fixed top-4 left-4 z-50 flex items-center gap-2 px-4 py-2 glass rounded-full text-zinc-300 hover:text-white transition-all hover-lift">
                 <ArrowLeft className="w-4 h-4" />
                 <span className="text-sm font-medium">Back</span>
-            </a>
+            </Link>
 
             {/* Floating Ticket CTA */}
-            {mounted && (
-                <div className={`fixed bottom-4 left-4 right-4 md:left-auto md:bottom-6 md:right-6 z-50 transition-all duration-500 ${showFloatingCTA ? 'translate-y-0 opacity-100' : 'translate-y-20 opacity-0'}`}>
-                    <button
-                        onClick={handleGetTickets}
-                        disabled={isSoldOut || !event.isActive || siteSettings.globalSalesPaused}
-                        className={`w-full md:w-auto justify-center flex items-center gap-3 px-6 py-4 rounded-2xl font-semibold shadow-2xl transition-all animate-float ${isSoldOut || !event.isActive || siteSettings.globalSalesPaused
-                            ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed'
-                            : 'bg-gradient-to-r from-red-600 to-red-700 text-white glow-red hover:scale-105'
-                            }`}
-                    >
-                        <Ticket className="w-5 h-5" />
-                        {isSoldOut ? 'Sold Out' : (!event.isActive || siteSettings.globalSalesPaused) ? (siteSettings.globalSalesPaused ? 'Sales Paused' : 'Unavailable') : `Get Tickets • ₹${(event.price / 100).toLocaleString()}`}
-                    </button>
-                </div>
-            )}
+            <div className={`fixed bottom-4 left-4 right-4 md:left-auto md:bottom-6 md:right-6 z-50 transition-all duration-500 ${showFloatingCTA ? 'translate-y-0 opacity-100' : 'translate-y-20 opacity-0'}`}>
+                <button
+                    onClick={handleGetTickets}
+                    disabled={isSoldOut || !event.isActive || siteSettings.globalSalesPaused}
+                    className={`w-full md:w-auto justify-center flex items-center gap-3 px-6 py-4 rounded-2xl font-semibold shadow-2xl transition-all animate-float ${isSoldOut || !event.isActive || siteSettings.globalSalesPaused
+                        ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed'
+                        : 'bg-gradient-to-r from-red-600 to-red-700 text-white glow-red hover:scale-105'
+                        }`}
+                >
+                    <Ticket className="w-5 h-5" />
+                    {isSoldOut ? 'Sold Out' : (!event.isActive || siteSettings.globalSalesPaused) ? (siteSettings.globalSalesPaused ? 'Sales Paused' : 'Unavailable') : `Get Tickets • ₹${(event.price / 100).toLocaleString()}`}
+                </button>
+            </div>
 
             {/* Hero Section with Parallax Effect */}
             <div className="relative h-[70vh] min-h-[600px] overflow-hidden">

@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, Suspense, useCallback } from 'react';
 import { useApp } from '@/lib/store';
 import { useToast } from '@/components/Toaster';
 import QRScanner from '@/components/QRScanner';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useOfflineCheckin } from '@/hooks/useOfflineCheckin';
 import {
@@ -330,7 +331,7 @@ function CheckinPageContent() {
           </p>
           <p className="text-xs text-[#737373] mb-6">Current role: <span className="text-[#E11D2E] font-mono">{userRole || 'UNAUTHORIZED'}</span></p>
           <div className="flex gap-3">
-            <a href="/" className="flex-1 py-3 bg-[#1A1A1A] text-white rounded-xl hover:bg-[#2A2A2A] text-center text-sm font-medium">Home</a>
+            <Link href="/" className="flex-1 py-3 bg-[#1A1A1A] text-white rounded-xl hover:bg-[#2A2A2A] text-center text-sm font-medium">Home</Link>
             <button onClick={handleLogout} className="flex-1 py-3 bg-[#E11D2E] text-white rounded-xl hover:bg-[#B91C1C] text-sm font-medium">Sign Out</button>
           </div>
         </div>

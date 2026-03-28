@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter, Space_Grotesk, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { ToastProvider } from "@/components/Toaster";
@@ -33,7 +33,6 @@ export const metadata: Metadata = {
   keywords: ["event", "ticketing", "check-in", "QR code", "tickets"],
   authors: [{ name: "Event Ticketing" }],
   manifest: "/manifest.json",
-  themeColor: "#0B0B0B",
   icons: {
     icon: "/favicon.png",
     apple: "/favicon.png",
@@ -45,13 +44,36 @@ export const metadata: Metadata = {
   },
 };
 
+export const viewport: Viewport = {
+  themeColor: "#0B0B0B",
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+
+  if (!publishableKey) {
+    return (
+      <html lang="en" className="dark">
+        <body className="antialiased bg-[#0B0B0B] min-h-screen text-white">
+          <div className="max-w-xl mx-auto py-24 px-6 space-y-4">
+            <h1 className="text-2xl font-bold">Missing Clerk publishable key</h1>
+            <p className="text-zinc-400 text-sm leading-relaxed">
+              Set NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY in your environment (Vercel/CI or .env.local) and rerun the build.
+            </p>
+            <p className="text-xs text-zinc-500">This placeholder prevents build-time crashes when the key is absent.</p>
+          </div>
+        </body>
+      </html>
+    );
+  }
+
   return (
     <ClerkProvider
+      publishableKey={publishableKey}
       appearance={{
         variables: {
           colorPrimary: '#E11D2E',
