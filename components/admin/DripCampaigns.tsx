@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Trash2, Play, Pause, Mail, ChevronDown, ChevronRight, X, Loader2, Edit, Save } from 'lucide-react';
+import { Plus, Trash2, Play, Pause, Mail, ChevronDown, ChevronRight, X, Loader2, Edit, Save, Lightbulb } from 'lucide-react';
 import { useApp } from '@/lib/store';
 import { useToast } from '@/components/Toaster';
 
@@ -155,8 +155,9 @@ export default function DripCampaigns() {
 
             {/* Cron hint */}
             <div className="p-3 bg-zinc-800/50 border border-zinc-700/40 rounded-xl text-xs text-zinc-400">
-                💡 For automatic sending, call <code className="bg-zinc-700 text-zinc-200 px-1 py-0.5 rounded">POST /api/admin/campaigns/process</code> via a cron job (e.g.{' '}
+                <span className="inline-flex items-center gap-1.5"><Lightbulb className="w-3.5 h-3.5 text-yellow-400" /> For automatic sending, call <code className="bg-zinc-700 text-zinc-200 px-1 py-0.5 rounded">POST /api/admin/campaigns/process</code> via a cron job (e.g.{' '}
                 <code className="bg-zinc-700 text-zinc-200 px-1 py-0.5 rounded">vercel.json</code> cron, GitHub Actions, or a scheduler).
+                </span>
             </div>
 
             {/* New campaign form */}

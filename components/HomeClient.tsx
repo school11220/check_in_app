@@ -201,7 +201,7 @@ export default function HomeClient({ initialSettings, initialEvents }: HomeClien
                 <div className="max-w-6xl mx-auto">
                     <div className="flex items-center justify-between mb-6">
                         <h2 className="font-heading text-2xl md:text-3xl font-bold text-white">Upcoming Events</h2>
-                        <a href="/discover" className="text-sm text-[#E11D2E] hover:text-white transition-colors">View all</a>
+                        <a href="/" className="text-sm text-[#E11D2E] hover:text-white transition-colors">View all</a>
                     </div>
 
                     {events.length === 0 ? (
@@ -215,7 +215,7 @@ export default function HomeClient({ initialSettings, initialEvents }: HomeClien
                                 const soldOut = event.soldCount >= event.capacity;
 
                                 return (
-                                    <article key={event.id} className="bg-[#141414] border border-[#1F1F1F] rounded-2xl overflow-hidden">
+                                    <article key={event.id} onClick={() => router.push(`/event/${event.id}`)} className="bg-[#141414] border border-[#1F1F1F] rounded-2xl overflow-hidden cursor-pointer hover:shadow-lg transition-transform">
                                         <div className="h-36 bg-[#0D0D0D]">
                                             {event.imageUrl ? (
                                                 <img src={event.imageUrl} alt={event.name} className="w-full h-full object-cover" />
@@ -232,7 +232,7 @@ export default function HomeClient({ initialSettings, initialEvents }: HomeClien
                                                     {event.price === 0 ? 'Free' : `₹${Math.round(event.price / 100)}`}
                                                 </span>
                                                 <button
-                                                    onClick={() => handleRegisterForEvent(event.id)}
+                                                    onClick={(e) => { e.stopPropagation(); handleRegisterForEvent(event.id); }}
                                                     disabled={soldOut}
                                                     className="px-4 py-2 text-sm font-medium rounded-lg bg-[#E11D2E] text-white hover:bg-[#B91C1C] disabled:bg-zinc-700 disabled:text-zinc-400 transition-colors"
                                                 >

@@ -201,7 +201,7 @@ export async function sendTicketConfirmationWhatsApp(data: {
     }
 
     // Fallback to console log
-    const message = `🎫 *Ticket Confirmed!*\n\nHi ${data.attendeeName}!\n\nYour ticket for *${data.eventName}* on ${data.eventDate} is ready.\n\n📱 Ticket ID: ${data.ticketId.slice(-8).toUpperCase()}\n\n👉 View ticket: ${data.ticketUrl}\n\nShow the QR code at the venue for entry.`;
+    const message = `*Ticket Confirmed!*\n\nHi ${data.attendeeName}!\n\nYour ticket for *${data.eventName}* on ${data.eventDate} is ready.\n\nTicket ID: ${data.ticketId.slice(-8).toUpperCase()}\n\nView ticket: ${data.ticketUrl}\n\nShow the QR code at the venue for entry.`;
 
     return sendWhatsAppText(data.phone, message);
 }

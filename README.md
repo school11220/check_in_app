@@ -138,9 +138,14 @@ Create a `.env` file in the root of the project and add the required configurati
 Example:
 
 ```env
-RAZORPAY_KEY=rzp_test_xxxxxxxxxx
-RAZORPAY_SECRET=xxxxxxxxxx
+POSTGRES_PRISMA_URL=postgresql://username:password@localhost:5432/eventhub
 DATABASE_URL=postgresql://username:password@localhost:5432/eventhub
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_xxxxxxxxxxxxx
+CLERK_SECRET_KEY=sk_test_xxxxxxxxxxxxx
+RAZORPAY_KEY_ID=rzp_test_xxxxxxxxxx
+RAZORPAY_KEY_SECRET=xxxxxxxxxx
+NEXT_PUBLIC_RAZORPAY_KEY_ID=rzp_test_xxxxxxxxxx
+TICKET_SECRET_KEY=change-this-secret
 ```
 
 Depending on your deployment setup, you may also configure additional values for authentication, email delivery, storage, or app URLs.
@@ -185,19 +190,27 @@ Required environment variables:
 
 ## Environment Variables
 
-EventHub requires a small set of core environment variables to handle payments and database connectivity.
+EventHub requires a small set of core environment variables to handle auth, payments, and database connectivity.
 
 ```env
-RAZORPAY_KEY=rzp_test_xxxxxxxxxx
-RAZORPAY_SECRET=xxxxxxxxxxxxxxxx
+POSTGRES_PRISMA_URL=postgresql://username:password@localhost:5432/eventhub
 DATABASE_URL=postgresql://username:password@localhost:5432/eventhub
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_xxxxxxxxxxxxx
+CLERK_SECRET_KEY=sk_test_xxxxxxxxxxxxx
+RAZORPAY_KEY_ID=rzp_test_xxxxxxxxxx
+RAZORPAY_KEY_SECRET=xxxxxxxxxxxxxxxx
+NEXT_PUBLIC_RAZORPAY_KEY_ID=rzp_test_xxxxxxxxxx
+TICKET_SECRET_KEY=change-this-secret
 ```
 
 Recommended usage:
 
-- `RAZORPAY_KEY` for client-facing Razorpay integration
-- `RAZORPAY_SECRET` for secure server-side payment verification
-- `DATABASE_URL` for connecting the application to your database
+- `POSTGRES_PRISMA_URL` and `DATABASE_URL` for Prisma/database access
+- `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY` for authentication
+- `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `NEXT_PUBLIC_RAZORPAY_KEY_ID` for Razorpay flows
+- `TICKET_SECRET_KEY` for QR/ticket integrity logic
+
+For a complete list (including optional integrations), use `.env.example`.
 
 Keep all production credentials private and never commit them to a public repository.
 

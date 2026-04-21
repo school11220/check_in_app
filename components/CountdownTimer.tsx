@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { PartyPopper } from 'lucide-react';
 
 interface CountdownTimerProps {
     targetDate: string | Date;
@@ -55,7 +56,7 @@ export default function CountdownTimer({ targetDate, eventName, onExpire }: Coun
     if (timeLeft.expired) {
         return (
             <div className="bg-gradient-to-r from-green-900/50 to-emerald-900/50 border border-green-700 rounded-2xl p-6 text-center">
-                <div className="text-4xl mb-2">🎉</div>
+                <div className="flex justify-center mb-2"><PartyPopper className="w-10 h-10 text-green-300" /></div>
                 <h3 className="text-xl font-bold text-green-400">Event is Live!</h3>
                 {eventName && <p className="text-green-300 mt-1">{eventName}</p>}
             </div>

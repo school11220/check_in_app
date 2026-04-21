@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const subject = `🎓 Your Certificate for ${eventName}`;
+    const subject = `Your Certificate for ${eventName}`;
 
     // Default message if not provided
     const messageBody = customMessage || `Thank you for your participation in <strong>${eventName}</strong>. We are proud to present you with this certificate of achievement.`;

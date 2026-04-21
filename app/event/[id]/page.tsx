@@ -6,7 +6,7 @@ import { useToast } from '@/components/Toaster';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 
-import { Calendar, MapPin, Share2, ArrowLeft, Clock, Users, Trophy, Map, ShieldCheck, Mail, Phone, ExternalLink, Ticket, Info, Globe } from 'lucide-react';
+import { Calendar, MapPin, Share2, ArrowLeft, Clock, Users, Trophy, Map, ShieldCheck, Mail, Phone, ExternalLink, Ticket, Info, Globe, Star } from 'lucide-react';
 
 function calculateCountdown(targetDate: string) {
     const difference = new Date(targetDate).getTime() - new Date().getTime();
@@ -321,13 +321,13 @@ export default function EventDetailsPage() {
                                 {event.category}
                             </span>
                             {event.isFeatured && (
-                                <span className="px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-gradient-to-r from-yellow-600 to-amber-500 text-white">
-                                    ⭐ Featured
+                                <span className="px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-gradient-to-r from-yellow-600 to-amber-500 text-white inline-flex items-center gap-1.5">
+                                    <Star className="w-3.5 h-3.5" /> Featured
                                 </span>
                             )}
                             {event.prizePool > 0 && (
-                                <span className="px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-gradient-to-r from-green-600 to-emerald-500 text-white">
-                                    🏆 ₹{(event.prizePool / 100).toLocaleString()} Prize
+                                <span className="px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider bg-gradient-to-r from-green-600 to-emerald-500 text-white inline-flex items-center gap-1.5">
+                                    <Trophy className="w-3.5 h-3.5" /> ₹{(event.prizePool / 100).toLocaleString()} Prize
                                 </span>
                             )}
                         </div>
@@ -353,7 +353,10 @@ export default function EventDetailsPage() {
                             </span>
                             {avgRating > 0 && (
                                 <span className="flex items-center gap-2 glass-light px-4 py-2 rounded-full">
-                                    <span className="text-yellow-400">{'★'.repeat(Math.round(avgRating))}</span>
+                                    <span className="inline-flex items-center gap-1 text-yellow-400">
+                                        <Star className="w-4 h-4 fill-current" />
+                                        {avgRating.toFixed(1)}
+                                    </span>
                                     <span className="text-zinc-400">({eventReviews.length} reviews)</span>
                                 </span>
                             )}
@@ -770,8 +773,8 @@ END:VCALENDAR`;
                                         <span className="w-1 h-6 bg-red-500 rounded-full"></span>
                                         Reviews
                                         {avgRating > 0 && (
-                                            <span className="ml-2 px-3 py-1 bg-yellow-600/20 text-yellow-400 rounded-lg text-sm">
-                                                ★ {avgRating.toFixed(1)}
+                                            <span className="ml-2 px-3 py-1 bg-yellow-600/20 text-yellow-400 rounded-lg text-sm inline-flex items-center gap-1">
+                                                <Star className="w-3.5 h-3.5 fill-current" /> {avgRating.toFixed(1)}
                                             </span>
                                         )}
                                     </h2>
@@ -799,7 +802,7 @@ END:VCALENDAR`;
                                                     onClick={() => setReviewData({ ...reviewData, rating: n })}
                                                     className={`text-3xl transition-all hover:scale-110 ${n <= reviewData.rating ? 'text-yellow-400 drop-shadow-lg' : 'text-zinc-600'}`}
                                                 >
-                                                    ★
+                                                    <Star className="w-7 h-7 fill-current" />
                                                 </button>
                                             ))}
                                         </div>
@@ -839,7 +842,11 @@ END:VCALENDAR`;
                                                     <div className="flex-1">
                                                         <div className="flex items-center justify-between mb-1">
                                                             <p className="font-semibold text-white">{review.userName}</p>
-                                                            <span className="text-yellow-400 text-sm">{'★'.repeat(review.rating)}<span className="text-zinc-700">{'★'.repeat(5 - review.rating)}</span></span>
+                                                            <span className="text-yellow-400 text-sm inline-flex items-center gap-0.5">
+                                                                {Array.from({ length: 5 }).map((_, i) => (
+                                                                    <Star key={i} className={`w-3.5 h-3.5 ${i < review.rating ? 'fill-current text-yellow-400' : 'text-zinc-700'}`} />
+                                                                ))}
+                                                            </span>
                                                         </div>
                                                         <p className="text-zinc-400 text-sm leading-relaxed">{review.comment}</p>
                                                         <p className="text-xs text-zinc-600 mt-2">

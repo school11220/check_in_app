@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
       const transactionId = body.transactionId;
       const paymentStatus = body.status;
 
-      console.log('📱 Mock payment callback:', { transactionId, paymentStatus });
+      console.log('Mock payment callback:', { transactionId, paymentStatus });
 
       if (paymentStatus === 'SUCCESS') {
         try {
@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
             },
           });
 
-          console.log(`✅ Ticket ${transactionId} marked as paid with token`);
+          console.log(`Ticket ${transactionId} marked as paid with token`);
 
           return NextResponse.json({
             success: true,
@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
           );
         }
       } else {
-        console.log(`❌ Payment failed for ticket ${transactionId}`);
+        console.log(`Payment failed for ticket ${transactionId}`);
         return NextResponse.json(
           { success: false, message: 'Payment failed' },
           { status: 400 }
@@ -97,7 +97,7 @@ export async function POST(req: NextRequest) {
           },
         });
 
-        console.log(`✅ Ticket ${transactionId} marked as paid with token`);
+        console.log(`Ticket ${transactionId} marked as paid with token`);
 
         // Redirect user to ticket page
         return NextResponse.redirect(
@@ -117,7 +117,7 @@ export async function POST(req: NextRequest) {
       );
     } else {
       // Payment failed
-      console.log(`❌ Payment failed for ticket ${transactionId}`);
+      console.log(`Payment failed for ticket ${transactionId}`);
       return NextResponse.redirect(
         `${process.env.NEXT_PUBLIC_APP_URL}/?payment_failed=true`
       );

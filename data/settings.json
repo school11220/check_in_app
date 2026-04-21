@@ -108,7 +108,7 @@
       "name": "Ticket Confirmation",
       "type": "confirmation",
       "subject": "Your ticket for {{eventName}} is confirmed!",
-      "body": "Hi {{name}},\n\nThank you for purchasing a ticket for {{eventName}}!\n\nEvent Details:\n📅 Date: {{eventDate}}\n🕐 Time: {{eventTime}}\n📍 Venue: {{eventVenue}}\n\nYour Ticket ID: {{ticketId}}\n\nPlease bring this email or show your QR code at the venue for entry.\n\nSee you there!\nThe {{siteName}} Team",
+      "body": "Hi {{name}},\n\nThank you for purchasing a ticket for {{eventName}}!\n\nEvent Details:\nDate: {{eventDate}}\nTime: {{eventTime}}\nVenue: {{eventVenue}}\n\nYour Ticket ID: {{ticketId}}\n\nPlease bring this email or show your QR code at the venue for entry.\n\nSee you there!\nThe {{siteName}} Team",
       "isActive": true
     },
     {
@@ -116,7 +116,7 @@
       "name": "Event Reminder",
       "type": "reminder",
       "subject": "Reminder: {{eventName}} is coming up!",
-      "body": "Hi {{name}},\n\nJust a friendly reminder that {{eventName}} is happening soon!\n\n📅 Date: {{eventDate}}\n🕐 Time: {{eventTime}}\n📍 Venue: {{eventVenue}}\n\nDon't forget to bring your ticket or QR code.\n\nSee you there!\nThe {{siteName}} Team",
+      "body": "Hi {{name}},\n\nJust a friendly reminder that {{eventName}} is happening soon!\n\nDate: {{eventDate}}\nTime: {{eventTime}}\nVenue: {{eventVenue}}\n\nDon't forget to bring your ticket or QR code.\n\nSee you there!\nThe {{siteName}} Team",
       "isActive": true
     },
     {

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useToast } from './Toaster';
+import { Camera } from 'lucide-react';
 
 interface Photo {
     id: string;
@@ -148,7 +149,8 @@ export default function PhotoWall({ eventId, isAdmin = false, attendeeName = '' 
             <div className="flex items-center justify-between">
                 <div>
                     <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-                        📸 Photo Wall
+                        <Camera className="w-6 h-6 text-red-400" />
+                        Photo Wall
                     </h2>
                     <p className="text-zinc-400 text-sm">{photos.length} photos shared</p>
                 </div>
@@ -239,7 +241,10 @@ export default function PhotoWall({ eventId, isAdmin = false, attendeeName = '' 
             {showUploadModal && (
                 <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
                     <div className="bg-zinc-900 border border-zinc-700 rounded-2xl p-6 max-w-md w-full">
-                        <h3 className="text-xl font-bold text-white mb-4">📸 Share a Photo</h3>
+                        <h3 className="text-xl font-bold text-white mb-4 inline-flex items-center gap-2">
+                            <Camera className="w-5 h-5 text-red-400" />
+                            Share a Photo
+                        </h3>
 
                         <div className="space-y-4">
                             <input

@@ -524,7 +524,7 @@ export default function CertificateManager({ eventName = 'Event', eventDate, sho
 
                     {bulkResults && (
                         <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-6 animate-in fade-in slide-in-from-bottom-4">
-                            <h4 className="text-lg font-bold text-green-500 mb-4">Distribution Complete! 🚀</h4>
+                            <h4 className="text-lg font-bold text-green-500 mb-4">Distribution Complete</h4>
                             <div className="grid grid-cols-3 gap-4 text-center">
                                 <div>
                                     <div className="text-2xl font-bold text-white">{bulkResults.total}</div>

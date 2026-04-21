@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { Sparkles } from 'lucide-react';
 
 interface AnnouncementBarProps {
     message: string;
@@ -38,7 +39,7 @@ export function AnnouncementBar({
     return (
         <div className={`${variantStyles[variant]} py-2.5 px-4 text-center text-sm font-medium relative`}>
             <div className="container mx-auto flex items-center justify-center gap-2">
-                <span className="animate-pulse">✨</span>
+                <Sparkles className="w-4 h-4 animate-pulse" />
                 <span>{message}</span>
                 {linkText && linkHref && (
                     <a

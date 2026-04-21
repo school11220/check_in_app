@@ -105,7 +105,7 @@ async function networkFirst(request) {
         <style>body{background:#0B0B0B;color:#fff;font-family:system-ui;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;text-align:center}
         .c{max-width:400px;padding:2rem}.icon{font-size:3rem;margin-bottom:1rem}h1{font-size:1.5rem;margin-bottom:.5rem}p{color:#737373;font-size:.9rem}
         button{margin-top:1.5rem;padding:.75rem 2rem;background:#E11D2E;color:#fff;border:none;border-radius:12px;font-size:.9rem;cursor:pointer}</style>
-        </head><body><div class="c"><div class="icon">📡</div><h1>You're Offline</h1><p>Check your internet connection and try again.</p>
+        </head><body><div class="c"><div class="icon">OFFLINE</div><h1>You're Offline</h1><p>Check your internet connection and try again.</p>
         <button onclick="location.reload()">Retry</button></div></body></html>`,
                 { status: 503, headers: { 'Content-Type': 'text/html' } }
             );

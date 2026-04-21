@@ -1584,6 +1584,7 @@ export default function AdminPage() {
                                                     </div>
                                                 </div>
                                                 <div className="flex gap-1">
+                                                    <a href={`/event/${event.id}`} target="_blank" rel="noopener noreferrer" className="flex-1 px-2 py-1.5 bg-zinc-800 text-white rounded-lg hover:bg-zinc-700 text-xs text-center">View</a>
                                                     <button onClick={() => { setEditingEvent(event); setShowEventModal(true); }} className="flex-1 px-2 py-1.5 bg-zinc-800 text-white rounded-lg hover:bg-zinc-700 text-xs">Edit</button>
                                                     <button onClick={() => handleDuplicateEvent(event.id)} className="px-2 py-1.5 bg-zinc-800 text-white rounded-lg hover:bg-zinc-700 text-xs" title="Duplicate">
                                                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
@@ -2064,7 +2065,7 @@ export default function AdminPage() {
 
                                                 <div className="bg-yellow-900/20 border border-yellow-700/30 rounded-lg p-4">
                                                     <p className="text-yellow-500 text-sm">
-                                                        ⚠️ This will send emails to <strong>ALL paid attendees</strong> of the selected event immediately.
+                                                        Important: This will send emails to <strong>ALL paid attendees</strong> of the selected event immediately.
                                                     </p>
                                                 </div>
                                             </div>
@@ -2491,7 +2492,7 @@ export default function AdminPage() {
                                         <div>
                                             <h3 className="text-lg font-semibold text-white">Global Sales Status</h3>
                                             <p className={`text-sm ${siteSettings.globalSalesPaused ? 'text-red-400' : 'text-green-400'}`}>
-                                                {siteSettings.globalSalesPaused ? '⏸ All sales are PAUSED' : '▶ Sales are ACTIVE'}
+                                                {siteSettings.globalSalesPaused ? 'All sales are PAUSED' : 'Sales are ACTIVE'}
                                             </p>
                                         </div>
                                     </div>
@@ -2955,7 +2956,7 @@ export default function AdminPage() {
                                                 <RichTextEditor
                                                     value={siteSettings.announcement?.message || ''}
                                                     onChange={(value) => updateSiteSettings({ announcement: { ...siteSettings.announcement!, message: value } })}
-                                                    placeholder="e.g. 🎉 New Year Sale - 20% off all events!"
+                                                    placeholder="e.g. New Year Sale - 20% off all events!"
                                                 />
                                             </div>
                                             <div className="grid grid-cols-2 gap-3">

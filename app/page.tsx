@@ -46,13 +46,17 @@ export default async function Home() {
     capacity: number;
   }[] = [];
 
-  try {
-    siteConfig = await getCachedSiteConfig();
-    initialEvents = await getCachedHomeEvents();
-  } catch (error) {
-    console.error("Database connection failed:", error);
-    siteConfig = null;
-    initialEvents = [];
+  const hasDatabaseUrl = Boolean(process.env.POSTGRES_PRISMA_URL || process.env.DATABASE_URL);
+
+  if (hasDatabaseUrl) {
+    try {
+      siteConfig = await getCachedSiteConfig();
+      initialEvents = await getCachedHomeEvents();
+    } catch (error) {
+      console.error("Database connection failed:", error);
+      siteConfig = null;
+      initialEvents = [];
+    }
   }
 
   let settings = DEFAULT_SITE_SETTINGS;

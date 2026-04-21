@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useToast } from './Toaster';
+import { MessageSquare, HelpCircle, BarChart3, Pencil, Star } from 'lucide-react';
 
 interface Question {
     id: string;
@@ -152,7 +153,10 @@ export default function LivePollQA({ eventId, isAdmin = false, userName = '' }: 
         <div className="space-y-6">
             {/* Header */}
             <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-bold text-white">💬 Live Q&A & Polls</h2>
+                <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+                    <MessageSquare className="w-6 h-6 text-red-400" />
+                    Live Q&A & Polls
+                </h2>
                 <button
                     onClick={() => setShowAddModal(true)}
                     className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl font-medium flex items-center gap-2"
@@ -198,7 +202,7 @@ export default function LivePollQA({ eventId, isAdmin = false, userName = '' }: 
                             {/* Header */}
                             <div className="flex items-start justify-between mb-3">
                                 <div className="flex items-center gap-2">
-                                    {q.featured && <span className="text-yellow-400">⭐</span>}
+                                    {q.featured && <Star className="w-4 h-4 text-yellow-400" />}
                                     {!q.approved && <span className="px-2 py-0.5 bg-yellow-600 text-white text-xs rounded">Pending</span>}
                                     <span className="text-zinc-400 text-sm">by {q.askerName}</span>
                                 </div>
@@ -219,7 +223,7 @@ export default function LivePollQA({ eventId, isAdmin = false, userName = '' }: 
                                             className={`p-1.5 rounded-lg ${q.featured ? 'bg-yellow-600/20 text-yellow-400' : 'bg-zinc-700 text-zinc-400'}`}
                                             title="Feature"
                                         >
-                                            ⭐
+                                            <Star className="w-4 h-4" />
                                         </button>
                                         <button
                                             onClick={() => { setEditingQuestion({ ...q }); setShowEditModal(true); }}
@@ -340,7 +344,11 @@ export default function LivePollQA({ eventId, isAdmin = false, userName = '' }: 
                 <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
                     <div className="bg-zinc-900 border border-zinc-700 rounded-2xl p-6 max-w-md w-full">
                         <h3 className="text-xl font-bold text-white mb-4">
-                            {newQuestion.type === 'qna' ? '❓ Ask a Question' : '📊 Create a Poll'}
+                            {newQuestion.type === 'qna' ? (
+                                <span className="inline-flex items-center gap-2"><HelpCircle className="w-5 h-5" /> Ask a Question</span>
+                            ) : (
+                                <span className="inline-flex items-center gap-2"><BarChart3 className="w-5 h-5" /> Create a Poll</span>
+                            )}
                         </h3>
 
                         <div className="flex gap-2 mb-4">
@@ -416,7 +424,10 @@ export default function LivePollQA({ eventId, isAdmin = false, userName = '' }: 
             {showEditModal && editingQuestion && (
                 <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
                     <div className="bg-zinc-900 border border-zinc-700 rounded-2xl p-6 max-w-md w-full">
-                        <h3 className="text-xl font-bold text-white mb-4">✏️ Edit Question</h3>
+                        <h3 className="text-xl font-bold text-white mb-4 inline-flex items-center gap-2">
+                            <Pencil className="w-5 h-5" />
+                            Edit Question
+                        </h3>
 
                         <div className="space-y-3">
                             <textarea

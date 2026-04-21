@@ -47,7 +47,7 @@ export default async function Image({ params }: { params: Promise<{ id: string }
                     {event.imageUrl
                         // eslint-disable-next-line @next/next/no-img-element
                         ? <img src={event.imageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        : <div style={{ width: '100%', height: '100%', background: `linear-gradient(180deg, ${catColor}44 0%, #000 100%)`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><div style={{ fontSize: 120, opacity: 0.15 }}>🎟</div></div>
+                        : <div style={{ width: '100%', height: '100%', background: `linear-gradient(180deg, ${catColor}44 0%, #000 100%)`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><div style={{ width: 120, height: 120, opacity: 0.2, border: '8px solid #fff', borderRadius: 16 }} /></div>
                     }
                     <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg, transparent 60%, #0a0a0a 100%)' }} />
                 </div>

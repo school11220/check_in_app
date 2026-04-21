@@ -52,7 +52,7 @@ export async function createPhonePePayment(data: PaymentData): Promise<PaymentRe
   // MOCK MODE - For testing without real PhonePe credentials
   // TODO: Replace with real PhonePe API when you have production credentials
 
-  console.log('🧪 MOCK PAYMENT MODE - Simulating PhonePe payment...');
+  console.log('[MOCK] Simulating PhonePe payment...');
   console.log(`Ticket ID: ${data.ticketId}, Amount: ₹${data.amount / 100} `);
 
   // Simulate payment page URL

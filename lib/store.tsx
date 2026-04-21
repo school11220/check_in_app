@@ -515,9 +515,9 @@ export const DEFAULT_EMAIL_TEMPLATES: EmailTemplate[] = [
 Thank you for purchasing a ticket for {{eventName}}!
 
 Event Details:
-📅 Date: {{eventDate}}
-🕐 Time: {{eventTime}}
-📍 Venue: {{eventVenue}}
+Date: {{eventDate}}
+Time: {{eventTime}}
+Venue: {{eventVenue}}
 
 Your Ticket ID: {{ticketId}}
 
@@ -536,9 +536,9 @@ The {{siteName}} Team`,
 
 Just a friendly reminder that {{eventName}} is happening soon!
 
-📅 Date: {{eventDate}}
-🕐 Time: {{eventTime}}
-📍 Venue: {{eventVenue}}
+Date: {{eventDate}}
+Time: {{eventTime}}
+Venue: {{eventVenue}}
 
 Don't forget to bring your ticket or QR code.
 
