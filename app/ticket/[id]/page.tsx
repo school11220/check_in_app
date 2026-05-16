@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { useParams, useSearchParams } from 'next/navigation';
 import { useApp } from '@/lib/store';
-import { generateQRCode } from '@/lib/utils';
+import { formatINR, generateQRCode } from '@/lib/utils';
 import { useToast } from '@/components/Toaster';
 import { downloadCalendarEvent, getGoogleCalendarUrl, canShare, shareTicket } from '@/lib/calendar-utils';
 
@@ -15,6 +15,7 @@ interface TicketData {
   phone: string | null;
   eventId: string;
   status: string;
+  amountPaid?: number | null;
   token: string | null;
   checkedIn: boolean;
   createdAt: string;
@@ -54,6 +55,13 @@ export default function TicketPage() {
   const getEventDate = () => {
     if (!ticket?.event?.date) return new Date();
     return new Date(ticket.event.date);
+  };
+
+  const getDisplayAmount = () => {
+    if (!ticket) return 0;
+    return ticket.amountPaid && ticket.amountPaid > 0
+      ? ticket.amountPaid
+      : ticket.event?.price || 0;
   };
 
   // Handle Add to Calendar (.ics download)
@@ -206,6 +214,7 @@ export default function TicketPage() {
       }
     } catch (error) {
       console.error('Error fetching ticket:', error);
+      setError('Ticket not found');
       showToast('Failed to load ticket details', 'error');
     } finally {
       setLoading(false);
@@ -480,8 +489,8 @@ export default function TicketPage() {
               <div>
                 {siteSettings.ticketShowPrice !== false && (
                   <>
-                    <p className="text-xl font-bold font-mono" style={{ color: siteSettings.ticketTextColor || '#ffffff' }}>₹{((ticket.event?.price || 0) / 100).toLocaleString()}</p>
-                    <p className="text-xs opacity-70" style={{ color: siteSettings.ticketTextColor || '#ffffff' }}>Paid</p>
+                    <p className="text-xl font-bold font-mono" style={{ color: siteSettings.ticketTextColor || '#ffffff' }}>{formatINR(getDisplayAmount())}</p>
+                    <p className="text-xs opacity-70" style={{ color: siteSettings.ticketTextColor || '#ffffff' }}>{ticket.status === 'paid' ? 'Paid' : ticket.status}</p>
                   </>
                 )}
                 {siteSettings.ticketFooterText && (

@@ -40,6 +40,16 @@ function generateToken(ticketId: string): string {
   return crypto.createHmac('sha256', secret).update(ticketId).digest('hex');
 }
 
+function serializeTicket(ticket: any) {
+  const { Event, event, ...ticketData } = ticket;
+  const eventData = event || Event;
+  return {
+    ...ticketData,
+    amountPaid: ticketData.amountPaid || (ticketData.status === 'paid' ? eventData?.price || 0 : 0),
+    event: eventData,
+  };
+}
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -98,6 +108,7 @@ export async function GET(
         eventId: 'event-4',
         status: 'paid',
         token: token,
+        amountPaid: FALLBACK_EVENTS['event-4'].price,
         checkedIn: false,
         createdAt: new Date().toISOString(),
         event: {
@@ -114,6 +125,7 @@ export async function GET(
         eventId: 'event-4',
         status: 'paid',
         token: token,
+        amountPaid: FALLBACK_EVENTS['event-4'].price,
         checkedIn: false,
         createdAt: new Date(),
       });
@@ -132,7 +144,7 @@ export async function GET(
       ticket.token = generateToken(id);
     }
 
-    return NextResponse.json({ ticket });
+    return NextResponse.json({ ticket: serializeTicket(ticket) });
   } catch (error) {
     console.error('Error fetching ticket:', error);
     return NextResponse.json(

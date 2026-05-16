@@ -13,8 +13,6 @@ export async function GET() {
             orderBy: { date: 'asc' },
         });
 
-        // Calculate dynamic price for each event
-        // Calculate dynamic price for each event
         const eventsWithPrice = events.map(event => {
             const eventForPricing = {
                 ...event,
@@ -40,9 +38,8 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        // Remove ID if present to ensure DB generates it
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { id, ...rest } = await request.json();
+        const rest = await request.json();
+        delete rest.id;
 
         // Validate required fields
         if (!rest.name || !rest.date) {
@@ -51,6 +48,7 @@ export async function POST(request: Request) {
 
         const event = await prisma.event.create({
             data: {
+                id: crypto.randomUUID(),
                 ...rest,
                 organizer: rest.organizer || session.user.name || session.user.email,
                 organizerId: session.user.id,

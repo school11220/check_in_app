@@ -1,27 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { auth, clerkClient } from '@clerk/nextjs/server';
-
-async function getUserRole(userId: string): Promise<string> {
-  try {
-    const client = await clerkClient();
-    const user = await client.users.getUser(userId);
-    return (user.publicMetadata?.role as string) || 'UNAUTHORIZED';
-  } catch { return 'UNAUTHORIZED'; }
-}
 
 // POST: Validate and apply a promo code
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const { code, eventId, quantity, userEmail } = body;
+    const normalizedCode = typeof code === 'string' ? code.trim().toUpperCase() : '';
+    const ticketQuantity = Number(quantity || 1);
 
-    if (!code || !eventId) {
+    if (!normalizedCode || !eventId) {
       return NextResponse.json({ error: 'Code and eventId required' }, { status: 400 });
     }
 
     const promo = await prisma.promoCodeRecord.findUnique({
-      where: { code: code.toUpperCase() },
+      where: { code: normalizedCode },
     });
 
     if (!promo) {
@@ -53,7 +46,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Check min tickets
-    if (quantity && quantity < promo.minTickets) {
+    if (ticketQuantity < promo.minTickets) {
       return NextResponse.json({ valid: false, error: `Minimum ${promo.minTickets} ticket(s) required for this promo` });
     }
 

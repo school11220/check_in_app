@@ -12,6 +12,7 @@ export interface TicketData {
   phone: string | null;
   eventId: string;
   status: string;
+  amountPaid?: number;
   token: string | null;
   checkedIn: boolean;
   createdAt: Date;

@@ -11,6 +11,8 @@ export interface InMemoryTicket {
     token: string | null;
     razorpayOrderId?: string;
     razorpayPaymentId?: string;
+    amountPaid?: number;
+    promoCodeId?: string | null;
     checkedIn: boolean;
     checkedInAt?: Date;
     createdAt: Date;

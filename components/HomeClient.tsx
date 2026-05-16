@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { ScanLine, LayoutDashboard, LogIn, X, Menu, Ticket, LogOut, Home as HomeIcon } from 'lucide-react';
 import { useAuth, useClerk } from '@clerk/nextjs';
 import Image from 'next/image';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { SiteSettings } from '@/lib/store';
 
@@ -184,7 +185,7 @@ export default function HomeClient({ initialSettings, initialEvents }: HomeClien
                     <p className="text-base md:text-xl text-[#B3B3B3] max-w-2xl mx-auto leading-relaxed mb-10 px-4">
                         {siteSettings.heroSubtitle}
                     </p>
-                    <a
+                    <Link
                         href="/register"
                         target="_blank"
                         rel="noopener noreferrer"
@@ -192,7 +193,7 @@ export default function HomeClient({ initialSettings, initialEvents }: HomeClien
                     >
                         <Ticket className="w-5 h-5" />
                         Register Now
-                    </a>
+                    </Link>
                 </div>
             </div>
 
@@ -201,7 +202,7 @@ export default function HomeClient({ initialSettings, initialEvents }: HomeClien
                 <div className="max-w-6xl mx-auto">
                     <div className="flex items-center justify-between mb-6">
                         <h2 className="font-heading text-2xl md:text-3xl font-bold text-white">Upcoming Events</h2>
-                        <a href="/" className="text-sm text-[#E11D2E] hover:text-white transition-colors">View all</a>
+                        <Link href="/" className="text-sm text-[#E11D2E] hover:text-white transition-colors">View all</Link>
                     </div>
 
                     {events.length === 0 ? (

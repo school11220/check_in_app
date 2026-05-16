@@ -103,11 +103,11 @@ export async function GET(req: NextRequest) {
     try {
       const revenueData = await prisma.ticket.findMany({
         where: { status: 'paid', ...(eventId ? { eventId } : {}) },
-        select: { createdAt: true, Event: { select: { price: true } } },
+        select: { createdAt: true, amountPaid: true, Event: { select: { price: true } } },
       });
 
       for (const t of revenueData) {
-        const price = t.Event.price || 0;
+        const price = t.amountPaid || t.Event.price || 0;
         totalRevenue += price;
         if (t.createdAt >= todayStart) todayRevenue += price;
         if (t.createdAt >= weekStart) weekRevenue += price;

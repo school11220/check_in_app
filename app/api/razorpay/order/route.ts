@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Razorpay from 'razorpay';
 import { prisma } from '@/lib/prisma';
-import { calculateDynamicPrice } from '@/lib/pricing';
+import { calculatePromoDiscount, calculateTicketUnitPrice } from '@/lib/pricing';
 import { enforceRateLimit } from '@/lib/rate-limit';
 
 // In-memory ticket storage
@@ -25,6 +25,50 @@ function getRazorpayInstance(keyId?: string, keySecret?: string) {
     });
 }
 
+function createRequestError(message: string, status = 400) {
+    const error = new Error(message) as Error & { status?: number };
+    error.status = status;
+    return error;
+}
+
+async function validatePromoForOrder(
+    code: unknown,
+    eventId: string,
+    quantity: number,
+    userEmail?: string | null
+) {
+    if (typeof code !== 'string' || !code.trim()) return null;
+
+    const promo = await prisma.promoCodeRecord.findUnique({
+        where: { code: code.trim().toUpperCase() },
+    });
+
+    if (!promo) throw createRequestError('Promo code not found', 404);
+    if (!promo.isActive) throw createRequestError('This promo code is no longer active');
+
+    const now = new Date();
+    if (now < promo.startsAt) throw createRequestError('This promo code is not yet active');
+    if (now > promo.expiresAt) throw createRequestError('This promo code has expired');
+    if (promo.usedCount >= promo.maxUses) throw createRequestError('This promo code has reached its usage limit');
+    if (promo.eventIds.length > 0 && !promo.eventIds.includes(eventId)) {
+        throw createRequestError('This promo code is not valid for this event');
+    }
+    if (quantity < promo.minTickets) {
+        throw createRequestError(`Minimum ${promo.minTickets} ticket(s) required for this promo`);
+    }
+
+    if (userEmail && promo.maxUsesPerUser > 0) {
+        const userUsages = await prisma.promoUsage.count({
+            where: { promoCode: promo.code, userId: userEmail },
+        });
+        if (userUsages >= promo.maxUsesPerUser) {
+            throw createRequestError('You have already used this promo code the maximum number of times');
+        }
+    }
+
+    return promo;
+}
+
 // Create a Razorpay order
 export async function POST(request: NextRequest) {
     try {
@@ -32,7 +76,7 @@ export async function POST(request: NextRequest) {
         if (rateLimited) return rateLimited;
 
         const body = await request.json();
-        const { ticketId, ticketIds, quantity } = body;
+        const { ticketId, ticketIds, quantity, promoCode } = body;
 
         const requestedTicketIds = Array.isArray(ticketIds) && ticketIds.length > 0 ? ticketIds : [ticketId];
         if (!requestedTicketIds[0]) {
@@ -83,22 +127,28 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        let eventPrice = 0;
-        if (primaryTicket.Event.earlyBirdEnabled &&
-            primaryTicket.Event.earlyBirdDeadline &&
-            new Date(primaryTicket.Event.earlyBirdDeadline) > new Date()) {
-            eventPrice = primaryTicket.Event.earlyBirdPrice || primaryTicket.Event.price;
-        } else {
-            eventPrice = calculateDynamicPrice(primaryTicket.Event as any);
+        const paidTicketCount = await prisma.ticket.count({
+            where: { eventId, status: 'paid' },
+        });
+        if (paidTicketCount + requestedTicketIds.length > primaryTicket.Event.capacity) {
+            return NextResponse.json({ error: 'Not enough tickets are available for this event' }, { status: 409 });
         }
 
         const ticketCount = requestedTicketIds.length;
+        if (ticketCount < 1 || ticketCount > 10) {
+            return NextResponse.json({ error: 'You can pay for between 1 and 10 tickets per order' }, { status: 400 });
+        }
+
         const requestedQuantity = quantity ? Number(quantity) : ticketCount;
         if (requestedQuantity !== ticketCount) {
             return NextResponse.json({ error: 'Ticket quantity mismatch' }, { status: 400 });
         }
 
-        const orderAmount = eventPrice * ticketCount;
+        const unitPrice = calculateTicketUnitPrice(primaryTicket.Event as any);
+        const subtotal = unitPrice * ticketCount;
+        const promo = await validatePromoForOrder(promoCode, eventId, ticketCount, primaryTicket.email);
+        const discountAmount = calculatePromoDiscount(subtotal, promo);
+        const orderAmount = subtotal - discountAmount;
         if (orderAmount <= 0) {
             return NextResponse.json({ error: 'Invalid order amount' }, { status: 400 });
         }
@@ -120,6 +170,10 @@ export async function POST(request: NextRequest) {
                 ticketIds: requestedTicketIds.join(','),
                 quantity: ticketCount,
                 eventId,
+                unitPrice,
+                subtotal,
+                discountAmount,
+                promoCode: promo?.code || '',
             },
         });
 
@@ -132,7 +186,10 @@ export async function POST(request: NextRequest) {
 
         await prisma.ticket.updateMany({
             where: { id: { in: requestedTicketIds } },
-            data: { razorpayOrderId: order.id },
+            data: {
+                razorpayOrderId: order.id,
+                promoCodeId: promo?.code || null,
+            },
         });
 
         return NextResponse.json({
@@ -141,9 +198,15 @@ export async function POST(request: NextRequest) {
             currency: order.currency,
             keyId: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || razorpayKeyId,
             quantity: ticketCount,
+            unitPrice,
+            subtotal,
+            discountAmount,
         });
-    } catch (error) {
+    } catch (error: any) {
         console.error('Razorpay order creation failed:', error);
+        if (error?.status) {
+            return NextResponse.json({ error: error.message }, { status: error.status });
+        }
         return NextResponse.json(
             { error: 'Failed to create payment order' },
             { status: 500 }

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { TicketFormData } from '@/types';
 import { ticketStorage } from '@/lib/ticket-storage';
 import { auth } from '@clerk/nextjs/server';
 
@@ -12,19 +11,44 @@ const FALLBACK_EVENTS: Record<string, { name: string; price: number }> = {
   'event-4': { name: 'Art Exhibition Opening', price: 30000 },
 };
 
+function serializeTicket(ticket: any) {
+  const { Event, ...ticketData } = ticket;
+  return {
+    ...ticketData,
+    amountPaid: ticketData.amountPaid || (ticketData.status === 'paid' ? Event?.price || 0 : 0),
+    event: Event,
+  };
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const { userId } = await auth();
 
     // Support both single and multi-ticket purchase
-    const quantity = body.quantity || 1;
-    const attendees = body.attendees || [{ name: body.name, email: body.email, phone: body.phone }];
+    const attendees = Array.isArray(body.attendees) && body.attendees.length > 0
+      ? body.attendees
+      : [{ name: body.name, email: body.email, phone: body.phone }];
+    const quantity = Number(body.quantity || attendees.length || 1);
 
     // Validate required fields
-    if (attendees.length === 0 || !attendees[0].name || !body.eventId) {
+    if (attendees.length === 0 || !body.eventId || attendees.some((attendee: any) => !String(attendee.name || '').trim())) {
       return NextResponse.json(
-        { error: 'Name and event are required' },
+        { error: 'Name and event are required for every ticket' },
+        { status: 400 }
+      );
+    }
+
+    if (quantity !== attendees.length) {
+      return NextResponse.json(
+        { error: 'Ticket quantity does not match attendee count' },
+        { status: 400 }
+      );
+    }
+
+    if (quantity < 1 || quantity > 10) {
+      return NextResponse.json(
+        { error: 'You can register between 1 and 10 tickets per order' },
         { status: 400 }
       );
     }
@@ -71,6 +95,19 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    if (event) {
+      const paidTicketCount = await prisma.ticket.count({
+        where: { eventId: event.id, status: 'paid' },
+      });
+
+      if (paidTicketCount + attendees.length > event.capacity) {
+        return NextResponse.json(
+          { error: 'Not enough tickets are available for this event' },
+          { status: 409 }
+        );
+      }
+    }
+
     // Use fallback if no database event
     if (!event && fallbackEvent) {
       eventName = fallbackEvent.name;
@@ -82,17 +119,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Create tickets for all attendees
-    const ticketIds: string[] = [];
-
-    // Transactional creation (or simple loop with error bubbling)
-    for (let i = 0; i < attendees.length; i++) {
-      const attendee = attendees[i];
-
-      const ticket = await prisma.ticket.create({
+    const tickets = await prisma.$transaction(
+      attendees.map((attendee: any) => prisma.ticket.create({
         data: {
           id: crypto.randomUUID(),
-          name: attendee.name,
+          name: String(attendee.name || '').trim(),
           email: attendee.email || body.email || null,
           phone: attendee.phone || body.phone || null,
           userId: userId || null,
@@ -101,11 +132,10 @@ export async function POST(req: NextRequest) {
           customAnswers: body.customAnswers || {},
           updatedAt: new Date(),
         },
-      });
+      }))
+    );
 
-      console.log(`Ticket ${i + 1}/${attendees.length} created in database:`, ticket.id);
-      ticketIds.push(ticket.id);
-    }
+    const ticketIds = tickets.map((ticket) => ticket.id);
 
     return NextResponse.json({
       ticketId: ticketIds[0], // Primary ticket ID for backwards compatibility
@@ -146,7 +176,7 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    return NextResponse.json(tickets);
+    return NextResponse.json(tickets.map(serializeTicket));
   } catch (error) {
     console.error('Error fetching tickets:', error);
     return NextResponse.json(

@@ -43,6 +43,7 @@ export interface Event {
     venue: string;
     address: string;
     price: number;
+    currentPrice?: number;
     entryFee: number;
     prizePool: number;
     category: 'music' | 'tech' | 'art' | 'sports' | 'food' | 'gaming' | 'business' | 'other';
@@ -81,6 +82,7 @@ export interface Ticket {
     phone: string;
     eventId: string;
     status: 'pending' | 'paid' | 'cancelled' | 'refunded';
+    amountPaid?: number;
     checkedIn: boolean;
     checkedInAt?: string;
     updatedAt?: string;

@@ -16,13 +16,18 @@ interface EventWithRules {
     capacity: number;
     date: Date | string;
     startTime: string;
-    pricingRules: PricingRule[];
+    pricingRules?: PricingRule[];
+    PricingRule?: PricingRule[];
+    earlyBirdEnabled?: boolean;
+    earlyBirdPrice?: number;
+    earlyBirdDeadline?: string | null;
 }
 
 export function calculateDynamicPrice(event: EventWithRules): number {
     let finalPrice = event.price;
+    const pricingRules = event.pricingRules ?? event.PricingRule ?? [];
 
-    if (!event.pricingRules || event.pricingRules.length === 0) {
+    if (pricingRules.length === 0) {
         return finalPrice;
     }
 
@@ -33,7 +38,7 @@ export function calculateDynamicPrice(event: EventWithRules): number {
     const hoursRemaining = (eventDate.getTime() - Date.now()) / (1000 * 60 * 60);
     const percentSold = event.capacity > 0 ? (event.soldCount / event.capacity) * 100 : 0;
 
-    for (const rule of event.pricingRules) {
+    for (const rule of pricingRules) {
         if (!rule.active) continue;
 
         let isTriggered = false;
@@ -92,4 +97,41 @@ export function calculateDynamicPrice(event: EventWithRules): number {
     }
 
     return Math.round(finalPrice);
+}
+
+export function calculateTicketUnitPrice(event: EventWithRules, referenceDate = new Date()): number {
+    if (
+        event.earlyBirdEnabled &&
+        event.earlyBirdDeadline &&
+        new Date(event.earlyBirdDeadline) > referenceDate
+    ) {
+        return event.earlyBirdPrice || event.price;
+    }
+
+    return calculateDynamicPrice(event);
+}
+
+export function calculatePromoDiscount(
+    subtotal: number,
+    promo?: { discountType: string; discountValue: number } | null
+): number {
+    if (!promo || subtotal <= 0) return 0;
+
+    if (promo.discountType === 'percentage') {
+        const percentage = Math.max(0, Math.min(100, promo.discountValue));
+        return Math.min(subtotal, Math.round(subtotal * (percentage / 100)));
+    }
+
+    if (promo.discountType === 'fixed') {
+        return Math.min(subtotal, Math.max(0, promo.discountValue));
+    }
+
+    return 0;
+}
+
+export function allocatePaidAmount(totalAmount: number, ticketCount: number, index: number): number {
+    if (ticketCount <= 0) return 0;
+    const baseAmount = Math.floor(totalAmount / ticketCount);
+    const remainder = totalAmount % ticketCount;
+    return baseAmount + (index < remainder ? 1 : 0);
 }

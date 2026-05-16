@@ -50,8 +50,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Only paid tickets can be refunded' }, { status: 400 });
     }
 
-    const eventPrice = ticket.Event.price || 0;
-    const actualRefund = refundType === 'partial' && refundAmount ? Math.min(refundAmount, eventPrice) : eventPrice;
+    const paidAmount = ticket.amountPaid || ticket.Event.price || 0;
+    const actualRefund = refundType === 'partial' && refundAmount ? Math.min(refundAmount, paidAmount) : paidAmount;
 
     // Try Razorpay refund if payment ID exists
     let razorpayRefund = null;

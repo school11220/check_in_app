@@ -31,6 +31,7 @@ model User {
   firstName        String?
   lastName         String?
   name             String?
+  password         String?
   imageUrl         String?
   role             String   @default("UNAUTHORIZED")
   assignedEventIds String[] @default([])
@@ -171,6 +172,7 @@ model Ticket {
   token             String?
   razorpayOrderId   String?
   razorpayPaymentId String?
+  amountPaid        Int          @default(0)
   checkedIn         Boolean      @default(false)
   checkedInAt       DateTime?
   checkedInBy       String?

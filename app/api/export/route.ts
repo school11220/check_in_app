@@ -58,7 +58,7 @@ async function exportTickets(eventId: string, event: any, format: string) {
   });
 
   const registrationFields = (event.registrationFields as any[]) || [];
-  const standardHeaders = ['Ticket ID', 'Name', 'Email', 'Phone', 'Status', 'Checked In', 'Checked In At', 'Purchase Date', 'Promo Code'];
+  const standardHeaders = ['Ticket ID', 'Name', 'Email', 'Phone', 'Status', 'Amount Paid', 'Checked In', 'Checked In At', 'Purchase Date', 'Promo Code'];
   const customHeaders = registrationFields.map((field: any) => field.label);
   const allHeaders = [...standardHeaders, ...customHeaders];
 
@@ -70,6 +70,7 @@ async function exportTickets(eventId: string, event: any, format: string) {
       ticket.email || '',
       ticket.phone || '',
       ticket.status,
+      ticket.amountPaid || 0,
       ticket.checkedIn ? 'Yes' : 'No',
       ticket.checkedInAt ? new Date(ticket.checkedInAt).toISOString() : '',
       new Date(ticket.createdAt).toISOString(),

@@ -13,7 +13,7 @@ declare global {
 }
 
 export default function TicketForm() {
-  const { siteSettings, promoCodes } = useApp();
+  const { siteSettings } = useApp();
   const [events, setEvents] = useState<Event[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<string>('');
   const [quantity, setQuantity] = useState(1);
@@ -28,6 +28,7 @@ export default function TicketForm() {
   const [discount, setDiscount] = useState<{ amount: number; type: 'percentage' | 'fixed'; code: string } | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadingEvents, setLoadingEvents] = useState(true);
+  const [applyingPromo, setApplyingPromo] = useState(false);
   const { showToast } = useToast();
 
 
@@ -39,6 +40,10 @@ export default function TicketForm() {
   // Update attendees array when quantity changes
   const handleQuantityChange = (newQty: number) => {
     const qty = Math.max(1, Math.min(MAX_TICKETS, newQty));
+    if (qty !== quantity && discount) {
+      setDiscount(null);
+      setPromoCode('');
+    }
     setQuantity(qty);
 
     const newAttendees = [...attendees];
@@ -63,23 +68,22 @@ export default function TicketForm() {
     }
   };
 
+  const getUnitPrice = (event?: Event) => {
+    if (!event) return 0;
+
+    if (event.earlyBirdEnabled &&
+      event.earlyBirdDeadline &&
+      new Date(event.earlyBirdDeadline) > new Date()) {
+      return event.earlyBirdPrice || event.price;
+    }
+
+    return event.currentPrice !== undefined ? event.currentPrice : event.price;
+  };
+
   // Calculate total price
   const calculateTotalPrice = () => {
     if (!selectedEventData) return 0;
-
-    // Check Early Bird first (override dynamic)
-    if (selectedEventData.earlyBirdEnabled &&
-      selectedEventData.earlyBirdDeadline &&
-      new Date(selectedEventData.earlyBirdDeadline) > new Date()) {
-      return (selectedEventData.earlyBirdPrice || selectedEventData.price) * quantity;
-    }
-
-    // Use Dynamic Price if available, else Base Price
-    const pricePerTicket = selectedEventData.currentPrice !== undefined
-      ? selectedEventData.currentPrice
-      : selectedEventData.price;
-
-    let total = pricePerTicket * quantity;
+    let total = getUnitPrice(selectedEventData) * quantity;
 
     // Apply Discount
     if (discount) {
@@ -94,17 +98,44 @@ export default function TicketForm() {
   };
 
   const handleApplyPromo = async () => {
-    if (!promoCode.trim()) return;
+    const code = promoCode.trim().toUpperCase();
+    if (!code) return;
     if (!selectedEvent) {
       showToast('Please select an event first', 'error');
       return;
     }
 
-    // Since we don't have a backend endpoint for verification in this demo, 
-    // we'll fetch all codes and check client side (INSECURE for production, but fits current architecture)
-    // Or better, use the validatePromoCode from store if available, but ticket form is client component.
-    // Let's assume we can fetch from /api/promocodes or just use the store if we have access.
-    // We have useApp!
+    setApplyingPromo(true);
+    try {
+      const res = await fetch('/api/promo/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          code,
+          eventId: selectedEvent,
+          quantity,
+          userEmail: attendees[0]?.email || formData.email,
+        }),
+      });
+      const data = await res.json();
+
+      if (!res.ok || !data.valid) {
+        showToast(data.error || 'Invalid or expired promo code', 'error');
+        return;
+      }
+
+      setDiscount({
+        amount: data.promo.discountValue,
+        type: data.promo.discountType,
+        code: data.promo.code,
+      });
+      setPromoCode(data.promo.code);
+      showToast('Promo code applied!', 'success');
+    } catch {
+      showToast('Failed to validate promo code', 'error');
+    } finally {
+      setApplyingPromo(false);
+    }
   };
 
   useEffect(() => {
@@ -206,8 +237,6 @@ export default function TicketForm() {
     setLoading(true);
 
     try {
-      const totalAmount = calculateTotalPrice();
-
       // Create tickets for all attendees
       const ticketRes = await fetch('/api/tickets', {
         method: 'POST',
@@ -247,8 +276,8 @@ export default function TicketForm() {
         body: JSON.stringify({
           ticketId: ticketData.ticketId, // Primary ticket ID
           ticketIds: ticketData.ticketIds, // All ticket IDs for multi-ticket
-          amount: totalAmount,
           quantity,
+          promoCode: discount?.code,
         }),
       });
 
@@ -403,12 +432,16 @@ export default function TicketForm() {
               ) : (
                 <select
                   value={selectedEvent}
-                  onChange={(e) => setSelectedEvent(e.target.value)}
+                  onChange={(e) => {
+                    setSelectedEvent(e.target.value);
+                    setDiscount(null);
+                    setPromoCode('');
+                  }}
                   className="w-full px-4 py-4 bg-[#0D0D0D] border border-[#2A2A2A] rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[#E11D2E]/50 focus:border-[#E11D2E] text-white transition-all appearance-none cursor-pointer"
                 >
                   {events.map((event) => (
                     <option key={event.id} value={event.id}>
-                      {event.name} - ₹{(event.price / 100).toFixed(0)}
+                      {event.name} - ₹{(getUnitPrice(event) / 100).toFixed(0)}
                     </option>
                   ))}
                 </select>
@@ -477,7 +510,7 @@ export default function TicketForm() {
                         <p className="font-mono text-sm text-[#737373] line-through">₹{(selectedEventData.price / 100).toFixed(0)}</p>
                       </>
                     ) : (
-                      <p className="font-mono text-2xl font-bold text-white">₹{(selectedEventData.price / 100).toFixed(0)}</p>
+                      <p className="font-mono text-2xl font-bold text-white">₹{(getUnitPrice(selectedEventData) / 100).toFixed(0)}</p>
                     )}
                   </div>
                 </div>
@@ -555,29 +588,11 @@ export default function TicketForm() {
                   ) : (
                     <button
                       type="button"
-                      onClick={() => {
-                        const code = promoCodes.find(p =>
-                          p.code === promoCode &&
-                          p.isActive &&
-                          new Date(p.expiresAt) > new Date() &&
-                          p.usedCount < p.maxUses &&
-                          (p.eventIds.length === 0 || p.eventIds.includes(selectedEvent))
-                        );
-
-                        if (code) {
-                          setDiscount({
-                            amount: code.discountValue,
-                            type: code.discountType,
-                            code: code.code
-                          });
-                          showToast('Promo code applied!', 'success');
-                        } else {
-                          showToast('Invalid or expired promo code', 'error');
-                        }
-                      }}
+                      onClick={handleApplyPromo}
+                      disabled={applyingPromo}
                       className="px-6 py-3 bg-[#E11D2E]/10 text-[#E11D2E] border border-[#E11D2E]/30 rounded-[10px] hover:bg-[#E11D2E]/20 font-medium transition-colors"
                     >
-                      Apply
+                      {applyingPromo ? 'Checking...' : 'Apply'}
                     </button>
                   )}
                 </div>

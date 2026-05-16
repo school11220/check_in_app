@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
               eventName: ticket.Event.name,
               eventDate: formattedDate,
               venue: ticket.Event.venue || 'TBA',
-              amountPaid: ticket.Event.price || 0,
+              amountPaid: ticket.amountPaid || ticket.Event.price || 0,
               transactionId: ticket.razorpayPaymentId || 'N/A',
               orderId: ticket.razorpayOrderId || 'N/A',
               paymentDate: new Date(ticket.createdAt).toLocaleString('en-IN'),
