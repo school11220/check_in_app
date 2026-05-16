@@ -113,16 +113,26 @@ async function exportCheckins(eventId: string, event: any, format: string) {
 }
 
 async function exportAnalytics(eventId: string, event: any, format: string) {
-  const [totalTickets, paidTickets, checkedIn, revenue] = await Promise.all([
+  const [totalTickets, paidTickets, checkedIn, ticketsForRevenue] = await Promise.all([
     prisma.ticket.count({ where: { eventId } }),
     prisma.ticket.count({ where: { eventId, status: 'paid' } }),
     prisma.ticket.count({ where: { eventId, checkedIn: true } }),
-    prisma.ticket.findMany({ where: { eventId, status: 'paid' }, select: { createdAt: true } }),
+    prisma.ticket.findMany({
+      where: { eventId, status: { in: ['paid', 'refunded'] } },
+      select: { createdAt: true, status: true, amountPaid: true, Event: { select: { price: true } } },
+    }),
   ]);
+
+  const netRevenue = ticketsForRevenue
+    .filter((ticket: any) => ticket.status === 'paid')
+    .reduce((sum: number, ticket: any) => sum + (ticket.amountPaid || ticket.Event.price || 0), 0);
+  const refundedAmount = ticketsForRevenue
+    .filter((ticket: any) => ticket.status === 'refunded')
+    .reduce((sum: number, ticket: any) => sum + (ticket.amountPaid || ticket.Event.price || 0), 0);
 
   // Daily breakdown
   const dailyMap: Record<string, number> = {};
-  revenue.forEach((t: any) => {
+  ticketsForRevenue.filter((ticket: any) => ticket.status === 'paid').forEach((t: any) => {
     const day = new Date(t.createdAt).toISOString().split('T')[0];
     dailyMap[day] = (dailyMap[day] || 0) + 1;
   });
@@ -134,6 +144,9 @@ async function exportAnalytics(eventId: string, event: any, format: string) {
     ['Paid Tickets', paidTickets.toString()],
     ['Checked In', checkedIn.toString()],
     ['Check-in Rate', paidTickets > 0 ? `${((checkedIn / paidTickets) * 100).toFixed(1)}%` : '0%'],
+    ['Gross Revenue', ((netRevenue + refundedAmount) / 100).toFixed(2)],
+    ['Refunded Amount', (refundedAmount / 100).toFixed(2)],
+    ['Net Revenue', (netRevenue / 100).toFixed(2)],
     ['Capacity', event.capacity.toString()],
     ['Sold Rate', event.capacity > 0 ? `${((paidTickets / event.capacity) * 100).toFixed(1)}%` : 'N/A'],
     ['', ''],

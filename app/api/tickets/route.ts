@@ -1,16 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { ticketStorage } from '@/lib/ticket-storage';
 import { auth } from '@clerk/nextjs/server';
 import { getSession, hasEventAccess } from '@/lib/auth';
-
-// Fallback events data (same as events/route.ts)
-const FALLBACK_EVENTS: Record<string, { name: string; price: number }> = {
-  'event-1': { name: 'Tech Conference 2025', price: 50000 },
-  'event-2': { name: 'Music Festival Night', price: 200000 },
-  'event-3': { name: 'Startup Meetup', price: 20000 },
-  'event-4': { name: 'Art Exhibition Opening', price: 30000 },
-};
+import { enforceRateLimit } from '@/lib/rate-limit';
 
 function serializeTicket(ticket: any) {
   const { Event, ...ticketData } = ticket;
@@ -25,6 +17,8 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const { userId } = await auth();
+    const rateLimited = await enforceRateLimit(req, 'ticket-create', { requests: 20, window: '1 m' }, userId || body.email || undefined);
+    if (rateLimited) return rateLimited;
 
     // Support both single and multi-ticket purchase
     const attendees = Array.isArray(body.attendees) && body.attendees.length > 0
@@ -54,25 +48,19 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Check fallback events first
-    const fallbackEvent = FALLBACK_EVENTS[body.eventId];
+    const event = await prisma.event.findUnique({
+      where: { id: body.eventId },
+    });
 
-    // Try database first, then fallback
-    let event = null;
-    let eventName = '';
-    let eventPrice = 0;
-
-    try {
-      event = await prisma.event.findUnique({
-        where: { id: body.eventId },
-      });
-      if (event) {
-        eventName = event.name;
-        eventPrice = event.price;
-      }
-    } catch (e) {
-      console.log('Database not available, using fallback events');
+    if (!event) {
+      return NextResponse.json(
+        { error: 'Event not found' },
+        { status: 404 }
+      );
     }
+
+    const eventName = event.name;
+    const eventPrice = event.price;
 
     // Check if event is active or global sales paused
     // Check Global Sales Pause
@@ -89,34 +77,21 @@ export async function POST(req: NextRequest) {
     // Since we don't have easy access to store settings here, we rely on event.isActive for now.
     // Ideally, global settings should be in DB. 
     // For now, we'll check event.isActive if event exists.
-    if (event && !event.isActive) {
+    if (!event.isActive) {
       return NextResponse.json(
         { error: 'Ticket sales are currently paused for this event' },
         { status: 403 }
       );
     }
 
-    if (event) {
-      const paidTicketCount = await prisma.ticket.count({
-        where: { eventId: event.id, status: 'paid' },
-      });
+    const paidTicketCount = await prisma.ticket.count({
+      where: { eventId: event.id, status: 'paid' },
+    });
 
-      if (paidTicketCount + attendees.length > event.capacity) {
-        return NextResponse.json(
-          { error: 'Not enough tickets are available for this event' },
-          { status: 409 }
-        );
-      }
-    }
-
-    // Use fallback if no database event
-    if (!event && fallbackEvent) {
-      eventName = fallbackEvent.name;
-      eventPrice = fallbackEvent.price;
-    } else if (!event && !fallbackEvent) {
+    if (paidTicketCount + attendees.length > event.capacity) {
       return NextResponse.json(
-        { error: 'Event not found' },
-        { status: 404 }
+        { error: 'Not enough tickets are available for this event' },
+        { status: 409 }
       );
     }
 
@@ -174,21 +149,11 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Event ID is required' }, { status: 400 });
     }
 
-    let tickets: any[] = [];
-
-    try {
-      tickets = await prisma.ticket.findMany({
-        where: eventId ? { eventId } : {},
-        include: { Event: true },
-        orderBy: { createdAt: 'desc' },
-      });
-    } catch (e) {
-      // Return in-memory tickets if database not available
-      tickets = ticketStorage.getAll();
-      if (eventId) {
-        tickets = tickets.filter(t => t.eventId === eventId);
-      }
-    }
+    const tickets = await prisma.ticket.findMany({
+      where: eventId ? { eventId } : {},
+      include: { Event: true },
+      orderBy: { createdAt: 'desc' },
+    });
 
     return NextResponse.json(tickets.map(serializeTicket));
   } catch (error) {

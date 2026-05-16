@@ -62,7 +62,7 @@ export async function sendTicketEmail(data: TicketEmailData) {
   }
 
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-  const ticketUrl = `${baseUrl}/ticket/${ticketId}?success=true`;
+  const ticketUrl = `${baseUrl}/ticket/${ticketId}?success=true&token=${encodeURIComponent(token)}`;
   const formattedPaymentDate = paymentDate || new Date().toLocaleString('en-IN', {
     dateStyle: 'medium',
     timeStyle: 'short',

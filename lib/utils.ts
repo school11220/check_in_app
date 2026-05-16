@@ -1,19 +1,7 @@
-import crypto from 'crypto';
 import QRCode from 'qrcode';
+import { generateTicketToken, ticketTokenMatches } from './ticket-security';
 
-/**
- * Generate HMAC signature for ticket validation
- */
-export function generateTicketToken(ticketId: string): string {
-  const secret = process.env.TICKET_SECRET_KEY;
-  if (!secret) {
-    throw new Error('TICKET_SECRET_KEY not configured');
-  }
-
-  const hmac = crypto.createHmac('sha256', secret);
-  hmac.update(ticketId);
-  return hmac.digest('hex');
-}
+export { generateTicketToken };
 
 /**
  * Verify HMAC signature
@@ -21,14 +9,7 @@ export function generateTicketToken(ticketId: string): string {
 export function verifyTicketToken(ticketId: string, token: string): boolean {
   try {
     const expectedToken = generateTicketToken(ticketId);
-    const tokenBuffer = Buffer.from(token, 'hex');
-    const expectedBuffer = Buffer.from(expectedToken, 'hex');
-
-    if (tokenBuffer.length !== expectedBuffer.length) {
-      return false;
-    }
-
-    return crypto.timingSafeEqual(tokenBuffer, expectedBuffer);
+    return ticketTokenMatches(expectedToken, token);
   } catch (error) {
     console.error('Token verification error:', error);
     return false;

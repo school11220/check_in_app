@@ -35,6 +35,7 @@ export default function TicketPage() {
   const searchParams = useSearchParams();
   const ticketId = params.id as string;
   const success = searchParams.get('success');
+  const accessToken = searchParams.get('token') || '';
   // Get siteSettings from store
   const { siteSettings } = useApp();
   const { showToast } = useToast();
@@ -93,7 +94,9 @@ export default function TicketPage() {
 
   // Handle Share
   const handleShare = async () => {
-    const ticketUrl = `${window.location.origin}/ticket/${ticket?.id}`;
+    const tokenForLink = accessToken || ticket?.token || '';
+    const tokenQuery = tokenForLink ? `?token=${encodeURIComponent(tokenForLink)}` : '';
+    const ticketUrl = `${window.location.origin}/ticket/${ticket?.id}${tokenQuery}`;
     const shareData = {
       title: `Ticket for ${ticket?.event?.name || 'Event'}`,
       text: `Check out my ticket for ${ticket?.event?.name}!`,
@@ -142,7 +145,8 @@ export default function TicketPage() {
     if (!ticket) return;
     setDownloadingServerPdf(true);
     try {
-      const res = await fetch(`/api/tickets/${ticket.id}/pdf`);
+      const tokenQuery = accessToken ? `?token=${encodeURIComponent(accessToken)}` : '';
+      const res = await fetch(`/api/tickets/${ticket.id}/pdf${tokenQuery}`);
       if (res.ok) {
         const blob = await res.blob();
         const url = URL.createObjectURL(blob);
@@ -173,7 +177,8 @@ export default function TicketPage() {
     if (!ticket || ticket.checkedIn || !useTimedQR) return;
     const refreshQR = async () => {
       try {
-        const res = await fetch(`/api/tickets/${ticket.id}/qr`);
+        const tokenQuery = accessToken ? `?token=${encodeURIComponent(accessToken)}` : '';
+        const res = await fetch(`/api/tickets/${ticket.id}/qr${tokenQuery}`);
         if (res.ok) {
           const data = await res.json();
           setQrCode(data.qrCode);
@@ -184,7 +189,7 @@ export default function TicketPage() {
     refreshQR();
     const interval = setInterval(refreshQR, 4 * 60 * 1000); // refresh every 4 min
     return () => clearInterval(interval);
-  }, [ticket, useTimedQR]);
+  }, [accessToken, ticket, useTimedQR]);
 
   // Countdown timer for QR expiry
   useEffect(() => {
@@ -198,7 +203,8 @@ export default function TicketPage() {
 
   const fetchTicket = async () => {
     try {
-      const response = await fetch(`/api/tickets/${ticketId}`);
+      const tokenQuery = accessToken ? `?token=${encodeURIComponent(accessToken)}` : '';
+      const response = await fetch(`/api/tickets/${ticketId}${tokenQuery}`);
       if (!response.ok) throw new Error('Ticket not found');
       const data = await response.json();
 

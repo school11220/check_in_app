@@ -159,7 +159,8 @@ export default function ScannerPage() {
     };
 
     const verifyTicket = async (parsed: ParsedScanPayload) => {
-        const res = await fetch(`/api/tickets/${encodeURIComponent(parsed.ticketId)}`);
+        const tokenQuery = parsed.token ? `?token=${encodeURIComponent(parsed.token)}` : '';
+        const res = await fetch(`/api/tickets/${encodeURIComponent(parsed.ticketId)}${tokenQuery}`);
         const result = await res.json().catch(() => ({}));
         const ticket = result.ticket;
 

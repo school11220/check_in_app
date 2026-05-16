@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { generateTicketPDF } from '@/lib/pdf-generator';
+import { authorizeTicketAccess } from '@/lib/ticket-access';
+import { generateTicketToken } from '@/lib/ticket-security';
 
 export async function GET(
   req: NextRequest,
@@ -8,14 +10,32 @@ export async function GET(
 ) {
   try {
     const { id: ticketId } = await params;
+    const url = new URL(req.url);
+    const providedToken = url.searchParams.get('token');
 
-    const ticket = await prisma.ticket.findUnique({
+    let ticket = await prisma.ticket.findUnique({
       where: { id: ticketId },
       include: { Event: true },
     });
 
     if (!ticket) {
       return NextResponse.json({ error: 'Ticket not found' }, { status: 404 });
+    }
+
+    const access = await authorizeTicketAccess(ticket, providedToken);
+    if (!access.allowed) {
+      return NextResponse.json({ error: 'Ticket token or authorized session required' }, { status: 401 });
+    }
+    if (ticket.status !== 'paid') {
+      return NextResponse.json({ error: 'Only paid tickets can be downloaded' }, { status: 400 });
+    }
+
+    if (ticket.status === 'paid' && !ticket.token && (access.canManage || access.isOwner || access.hasValidToken)) {
+      ticket = await prisma.ticket.update({
+        where: { id: ticketId },
+        data: { token: generateTicketToken(ticketId) },
+        include: { Event: true },
+      });
     }
 
     // Load site settings for styling
@@ -31,7 +51,7 @@ export async function GET(
 
     const pdfBase64 = await generateTicketPDF({
       ticketId: ticket.id,
-      token: ticket.token || ticket.id,
+      token: ticket.token || generateTicketToken(ticket.id),
       attendeeName: ticket.name,
       eventName: ticket.Event.name,
       eventDate: formattedDate,

@@ -93,8 +93,6 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        console.log('Razorpay order request:', { ticketId, ticketIds: requestedTicketIds, quantity });
-
         const tickets = await prisma.ticket.findMany({
             where: { id: { in: requestedTicketIds } },
             include: { Event: { include: { PricingRule: true } } },
@@ -152,8 +150,6 @@ export async function POST(request: NextRequest) {
         if (orderAmount <= 0) {
             return NextResponse.json({ error: 'Invalid order amount' }, { status: 400 });
         }
-
-        console.log('Creating Razorpay order with amount:', orderAmount);
 
         // Fetch Dynamic Config
         const razorpayKeyId = ENV_RAZORPAY_KEY_ID;

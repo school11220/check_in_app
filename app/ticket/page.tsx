@@ -17,13 +17,18 @@ function TicketLookupContent() {
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
     const id = ticketId.trim();
+    const securityToken = token.trim();
     if (!id) {
       setError("Enter a ticket ID to continue");
       return;
     }
+    if (!securityToken) {
+      setError("Enter the ticket token from your email or QR link");
+      return;
+    }
 
     const encodedId = encodeURIComponent(id);
-    const tokenQuery = token.trim() ? `?token=${encodeURIComponent(token.trim())}` : "";
+    const tokenQuery = `?token=${encodeURIComponent(securityToken)}`;
     router.push(`/ticket/${encodedId}${tokenQuery}`);
   };
 
@@ -37,7 +42,7 @@ function TicketLookupContent() {
             </div>
             <div>
               <h1 className="text-2xl font-bold">Lookup Ticket</h1>
-              <p className="text-sm text-zinc-400">Enter a ticket ID to open ticket details.</p>
+              <p className="text-sm text-zinc-400">Enter the ticket ID and token from your confirmation email.</p>
             </div>
           </div>
 
@@ -57,12 +62,12 @@ function TicketLookupContent() {
             </div>
 
             <div>
-              <label htmlFor="token" className="block text-sm text-zinc-300 mb-2">Token (optional)</label>
+              <label htmlFor="token" className="block text-sm text-zinc-300 mb-2">Ticket Token</label>
               <input
                 id="token"
                 value={token}
                 onChange={(e) => setToken(e.target.value)}
-                placeholder="Optional security token"
+                placeholder="Security token from your ticket link"
                 className="w-full px-3 py-2 bg-black border border-zinc-700 rounded-lg text-sm focus:border-red-500 focus:outline-none"
               />
             </div>

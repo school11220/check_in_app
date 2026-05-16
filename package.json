@@ -7,9 +7,13 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx scripts/run-tests.ts",
+    "ci": "npm run test && npm run typecheck && npm run lint && npm run build",
     "postinstall": "prisma generate",
     "backfill:users": "tsx scripts/backfill-clerk-users.ts",
-    "backfill:users:dry": "tsx scripts/backfill-clerk-users.ts --dry-run"
+    "backfill:users:dry": "tsx scripts/backfill-clerk-users.ts --dry-run",
+    "reconcile:sold-count": "tsx scripts/reconcile-sold-count.ts"
   },
   "dependencies": {
     "@upstash/ratelimit": "^2.0.6",

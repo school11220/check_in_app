@@ -1,20 +1,22 @@
-import axios, { AxiosError } from 'axios';
+import axios from 'axios';
 import crypto from 'crypto';
 
 const PHONEPE_API_URL = process.env.PHONEPE_API_URL || 'https://api-preprod.phonepe.com/apis/pg-sandbox';
-const MERCHANT_ID = process.env.PHONEPE_MERCHANT_ID || 'dummy-merchant-id';
-const SALT_KEY = process.env.PHONEPE_SALT_KEY || 'dummy-salt-key';
+const MERCHANT_ID = process.env.PHONEPE_MERCHANT_ID || '';
+const SALT_KEY = process.env.PHONEPE_SALT_KEY || '';
 const SALT_INDEX = process.env.PHONEPE_SALT_INDEX || '1';
 
-// Remove the strict check to allow build to pass
-// if (!process.env.PHONEPE_MERCHANT_ID) {
-//   console.warn('PhonePe credentials not configured. Please set PHONEPE_MERCHANT_ID and PHONEPE_SALT_KEY in .env');
-// }
+function assertPhonePeConfigured() {
+  if (!MERCHANT_ID || !SALT_KEY) {
+    throw new Error('PhonePe credentials are not configured');
+  }
+}
 
 /**
  * Generate SHA256 checksum for PhonePe API
  */
 export function generateChecksum(payload: string): string {
+  assertPhonePeConfigured();
   const checksumString = payload + '/pg/v1/pay' + SALT_KEY;
   const checksum = crypto.createHash('sha256').update(checksumString).digest('hex');
   return checksum + '###' + SALT_INDEX;
@@ -24,6 +26,7 @@ export function generateChecksum(payload: string): string {
  * Verify PhonePe callback checksum
  */
 export function verifyChecksum(receivedChecksum: string, payload: string): boolean {
+  if (!MERCHANT_ID || !SALT_KEY) return false;
   const checksumString = payload + SALT_KEY;
   const calculatedChecksum = crypto.createHash('sha256').update(checksumString).digest('hex');
   const receivedChecksumValue = receivedChecksum.split('###')[0];
@@ -45,26 +48,20 @@ interface PaymentResponse {
 }
 
 /**
- * Create PhonePe payment request
- * NOTE: Using MOCK mode for testing. For production, get real PhonePe credentials.
+ * Create PhonePe payment request.
+ * Local mock payments require ALLOW_MOCK_PAYMENTS=true and are never enabled in production.
  */
 export async function createPhonePePayment(data: PaymentData): Promise<PaymentResponse> {
-  // MOCK MODE - For testing without real PhonePe credentials
-  // TODO: Replace with real PhonePe API when you have production credentials
+  if (process.env.NODE_ENV !== 'production' && process.env.ALLOW_MOCK_PAYMENTS === 'true') {
+    const mockPaymentUrl = `${process.env.NEXT_PUBLIC_APP_URL}/mock-payment?ticketId=${encodeURIComponent(data.ticketId)}&amount=${data.amount}`;
+    return {
+      success: true,
+      paymentUrl: mockPaymentUrl,
+      transactionId: data.ticketId,
+    };
+  }
 
-  console.log('[MOCK] Simulating PhonePe payment...');
-  console.log(`Ticket ID: ${data.ticketId}, Amount: ₹${data.amount / 100} `);
-
-  // Simulate payment page URL
-  const mockPaymentUrl = `${process.env.NEXT_PUBLIC_APP_URL}/mock-payment?ticketId=${data.ticketId}&amount=${data.amount}`;
-
-  return {
-    success: true,
-    paymentUrl: mockPaymentUrl,
-    transactionId: data.ticketId,
-  };
-
-  /* REAL PHONEPE IMPLEMENTATION (Uncomment when you have real credentials):
+  assertPhonePeConfigured();
   
   try {
     // Create payment payload
@@ -119,7 +116,6 @@ export async function createPhonePePayment(data: PaymentData): Promise<PaymentRe
     console.error('PhonePe payment error:', error);
     throw new Error('Failed to create payment');
   }
-  */
 }
 
 interface StatusResponse {
@@ -132,6 +128,7 @@ interface StatusResponse {
  * Check PhonePe payment status
  */
 export async function checkPaymentStatus(transactionId: string): Promise<StatusResponse> {
+  assertPhonePeConfigured();
   try {
     const endpoint = `/pg/v1/status/${MERCHANT_ID}/${transactionId}`;
     const checksumString = endpoint + SALT_KEY;

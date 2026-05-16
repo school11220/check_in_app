@@ -339,9 +339,12 @@ export default function TicketForm() {
 
           const verifyData = await verifyRes.json();
           if (verifyRes.ok) {
+            if (!verifyData.token && !verifyData.ticketUrl) {
+              showToast('Payment verified, but secure ticket access could not be generated. Please contact support.', 'error');
+              return;
+            }
             showToast('Payment successful! Check your email for ticket.', 'success');
-            // Redirect to ticket page
-            window.location.href = `/ticket/${ticketData.ticketId}?success=true`;
+            window.location.href = verifyData.ticketUrl || `/ticket/${ticketData.ticketId}?success=true&token=${encodeURIComponent(verifyData.token)}`;
           } else {
             showToast(verifyData.error || 'Payment verification failed', 'error');
           }

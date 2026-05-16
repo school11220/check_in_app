@@ -2,11 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { generateAuditChecksum, verifyTimedQRToken } from '@/lib/qr-security';
 import { CheckInResponse } from '@/types';
-import { auth, clerkClient } from '@clerk/nextjs/server';
 import { fireWebhook } from '@/lib/webhooks';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { getSession, hasEventAccess } from '@/lib/auth';
-import crypto from 'crypto';
+import { ticketTokenMatches } from '@/lib/ticket-security';
 
 const ALLOWED_ROLES = ['ADMIN', 'ORGANIZER', 'ORGANISER', 'SCANNER'];
 
@@ -15,23 +14,6 @@ const ALLOWED_ROLES = ['ADMIN', 'ORGANIZER', 'ORGANISER', 'SCANNER'];
 const usedNonces = new Set<string>();
 const NONCE_CLEANUP_INTERVAL = 10 * 60 * 1000; // cleanup every 10 min
 setInterval(() => usedNonces.clear(), NONCE_CLEANUP_INTERVAL);
-
-function tokenMatches(storedToken: string | null, providedToken: string | undefined): boolean {
-  if (!storedToken || !providedToken) return false;
-  const stored = Buffer.from(storedToken);
-  const provided = Buffer.from(providedToken);
-  return stored.length === provided.length && crypto.timingSafeEqual(stored, provided);
-}
-
-async function getUserRole(userId: string): Promise<string> {
-  try {
-    const client = await clerkClient();
-    const user = await client.users.getUser(userId);
-    return (user.publicMetadata?.role as string) || 'UNAUTHORIZED';
-  } catch {
-    return 'UNAUTHORIZED';
-  }
-}
 
 async function logDuplicateAttempt(params: {
   ticketId: string;
@@ -64,19 +46,20 @@ async function logDuplicateAttempt(params: {
 
 export async function POST(req: NextRequest) {
   try {
-    // Verify caller is authenticated and has check-in permission
-    const { userId } = await auth();
-    if (!userId) {
+    const session = await getSession();
+    if (!session) {
       return NextResponse.json<CheckInResponse>(
         { success: false, message: 'Authentication required' },
         { status: 401 }
       );
     }
 
+    const userId = session.user.id;
+    const role = session.user.role;
+
     const rateLimited = await enforceRateLimit(req, 'checkin-post', { requests: 120, window: '1 m' }, userId);
     if (rateLimited) return rateLimited;
 
-    const role = await getUserRole(userId);
     if (!ALLOWED_ROLES.includes(role)) {
       return NextResponse.json<CheckInResponse>(
         { success: false, message: 'Insufficient permissions for check-in' },
@@ -114,8 +97,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const session = await getSession();
-    if (!session || !hasEventAccess(session, ticket.eventId)) {
+    if (!hasEventAccess(session, ticket.eventId)) {
       return NextResponse.json<CheckInResponse>(
         { success: false, message: 'You do not have access to this event' },
         { status: 403 }
@@ -150,7 +132,7 @@ export async function POST(req: NextRequest) {
       tokenValid = true;
     } else if (token) {
       // Plain token stored on the ticket (backwards compatible with generated HMAC tokens).
-      if (!tokenMatches(ticket.token, token)) {
+      if (!ticketTokenMatches(ticket.token, token)) {
         return NextResponse.json<CheckInResponse>(
           { success: false, message: 'Invalid ticket token' },
           { status: 403 }
@@ -308,26 +290,21 @@ export async function POST(req: NextRequest) {
 // GET: Fetch check-in history/stats/logs for an event
 export async function GET(req: NextRequest) {
   try {
-    const { userId } = await auth();
-    if (!userId) {
+    const session = await getSession();
+    if (!session) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
-    const rateLimited = await enforceRateLimit(req, 'checkin-get', { requests: 60, window: '1 m' }, userId);
+    const rateLimited = await enforceRateLimit(req, 'checkin-get', { requests: 60, window: '1 m' }, session.user.id);
     if (rateLimited) return rateLimited;
 
-    const role = await getUserRole(userId);
-    if (!ALLOWED_ROLES.includes(role)) {
+    if (!ALLOWED_ROLES.includes(session.user.role)) {
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
     }
 
     const url = new URL(req.url);
     const eventId = url.searchParams.get('eventId');
     const type = url.searchParams.get('type') || 'history';
-    const session = await getSession();
-    if (!session) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
-    }
 
     if (eventId && !hasEventAccess(session, eventId)) {
       return NextResponse.json({ error: 'You do not have access to this event' }, { status: 403 });

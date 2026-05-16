@@ -1,30 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { auth, clerkClient } from '@clerk/nextjs/server';
 import { sendEmail, isEmailConfigured } from '@/lib/email';
 import { fireWebhook } from '@/lib/webhooks';
-
-const REFUND_ALLOWED_ROLES = ['ADMIN', 'ORGANIZER', 'ORGANISER'];
-
-async function getUserRole(userId: string): Promise<string> {
-  try {
-    const client = await clerkClient();
-    const user = await client.users.getUser(userId);
-    return (user.publicMetadata?.role as string) || 'UNAUTHORIZED';
-  } catch { return 'UNAUTHORIZED'; }
-}
+import { getSession, hasEventAccess, hasRole, ORGANIZER_ROLES } from '@/lib/auth';
+import { enforceRateLimit } from '@/lib/rate-limit';
 
 export async function POST(request: NextRequest) {
   try {
-    // Auth check
-    const { userId } = await auth();
-    if (!userId) {
+    const session = await getSession();
+    if (!session) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
-    const role = await getUserRole(userId);
-    if (!REFUND_ALLOWED_ROLES.includes(role)) {
+    if (!hasRole(session.user.role, ORGANIZER_ROLES)) {
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
     }
+
+    const rateLimited = await enforceRateLimit(request, 'ticket-refund', { requests: 10, window: '1 m' }, session.user.id);
+    if (rateLimited) return rateLimited;
 
     const body = await request.json();
     const { ticketId, reason, refundAmount, refundType = 'full' } = body;
@@ -42,6 +34,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Ticket not found' }, { status: 404 });
     }
 
+    if (!hasEventAccess(session, ticket.eventId)) {
+      return NextResponse.json({ error: 'You do not have access to this event' }, { status: 403 });
+    }
+
     if (ticket.status === 'refunded') {
       return NextResponse.json({ error: 'Ticket already refunded' }, { status: 400 });
     }
@@ -51,7 +47,11 @@ export async function POST(request: NextRequest) {
     }
 
     const paidAmount = ticket.amountPaid || ticket.Event.price || 0;
-    const actualRefund = refundType === 'partial' && refundAmount ? Math.min(refundAmount, paidAmount) : paidAmount;
+    const requestedRefund = refundType === 'partial' && refundAmount ? Number(refundAmount) : paidAmount;
+    const actualRefund = Math.min(Math.max(0, requestedRefund), paidAmount);
+    if (actualRefund <= 0) {
+      return NextResponse.json({ error: 'Refund amount must be greater than zero' }, { status: 400 });
+    }
 
     // Try Razorpay refund if payment ID exists
     let razorpayRefund = null;
@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
             },
             body: JSON.stringify({
               amount: actualRefund, // amount in paise
-              notes: { reason: reason || 'Refund requested', ticketId, refundedBy: userId },
+              notes: { reason: reason || 'Refund requested', ticketId, refundedBy: session.user.id },
             }),
           }
         );
@@ -83,19 +83,26 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Update ticket and event in a transaction
-    const [updatedTicket] = await prisma.$transaction([
+    const fullRefund = actualRefund >= paidAmount;
+    const transactionOps: any[] = [
       prisma.ticket.update({
         where: { id: ticketId },
-        data: { status: 'refunded' },
+        data: {
+          status: fullRefund ? 'refunded' : 'paid',
+          amountPaid: fullRefund ? paidAmount : paidAmount - actualRefund,
+        },
         include: { Event: true },
       }),
-      prisma.event.update({
-        where: { id: ticket.eventId },
+    ];
+
+    if (fullRefund) {
+      transactionOps.push(prisma.event.updateMany({
+        where: { id: ticket.eventId, soldCount: { gt: 0 } },
         data: { soldCount: { decrement: 1 } },
-      }),
-      // Audit log
-      prisma.auditLog.create({
+      }));
+    }
+
+    transactionOps.push(prisma.auditLog.create({
         data: {
           id: `refund-${ticketId}-${Date.now()}`,
           action: 'REFUND',
@@ -110,14 +117,15 @@ export async function POST(request: NextRequest) {
             attendeeName: ticket.name,
             attendeeEmail: ticket.email,
           },
-          userId,
-          userName: userId,
-          userRole: role,
+          userId: session.user.id,
+          userName: session.user.name || session.user.email,
+          userRole: session.user.role,
           ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
           userAgent: request.headers.get('user-agent') || 'unknown',
         },
-      }),
-    ]);
+      }));
+
+    const [updatedTicket] = await prisma.$transaction(transactionOps);
 
     // Send refund confirmation email
     if (ticket.email && isEmailConfigured()) {
@@ -156,7 +164,7 @@ ${razorpayRefund ? `<p style="margin:8px 0 0;color:#888;">Refund ID: ${razorpayR
       ticketId, attendeeName: ticket.name, attendeeEmail: ticket.email,
       eventId: ticket.eventId, eventName: ticket.Event.name,
       refundAmount: actualRefund, refundType, razorpayRefundId: razorpayRefund?.id,
-      refundedBy: userId,
+      refundedBy: session.user.id,
     }).catch(() => {});
 
     return NextResponse.json({

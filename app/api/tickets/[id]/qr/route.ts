@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { generateTimedQRToken } from '@/lib/qr-security';
 import { generateQRCodeBase64 } from '@/lib/qr-generator';
+import { authorizeTicketAccess } from '@/lib/ticket-access';
+import { generateTicketToken } from '@/lib/ticket-security';
 
 /**
  * GET /api/tickets/[id]/qr
@@ -16,14 +18,29 @@ export async function GET(
 ) {
   try {
     const { id: ticketId } = await params;
+    const url = new URL(req.url);
+    const providedToken = url.searchParams.get('token');
 
-    const ticket = await prisma.ticket.findUnique({
+    let ticket = await prisma.ticket.findUnique({
       where: { id: ticketId },
-      select: { id: true, token: true, status: true, checkedIn: true },
+      select: { id: true, token: true, status: true, checkedIn: true, eventId: true, userId: true },
     });
 
     if (!ticket) {
       return NextResponse.json({ error: 'Ticket not found' }, { status: 404 });
+    }
+
+    const access = await authorizeTicketAccess(ticket, providedToken);
+    if (!access.allowed) {
+      return NextResponse.json({ error: 'Ticket token or authorized session required' }, { status: 401 });
+    }
+
+    if (ticket.status === 'paid' && !ticket.token && (access.canManage || access.isOwner || access.hasValidToken)) {
+      ticket = await prisma.ticket.update({
+        where: { id: ticketId },
+        data: { token: generateTicketToken(ticketId) },
+        select: { id: true, token: true, status: true, checkedIn: true, eventId: true, userId: true },
+      });
     }
 
     if (ticket.status !== 'paid') {

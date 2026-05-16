@@ -1,35 +1,59 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyChecksum, checkPaymentStatus } from '@/lib/phonepe';
-import { generateTicketToken } from '@/lib/utils';
+import { generateTicketToken } from '@/lib/ticket-security';
+
+async function markPhonePeTicketPaid(transactionId: string, amountPaid?: number | null) {
+  const ticket = await prisma.ticket.findUnique({
+    where: { id: transactionId },
+    include: { Event: true },
+  });
+
+  if (!ticket) {
+    throw new Error('Ticket not found');
+  }
+  if (!['pending', 'paid'].includes(ticket.status)) {
+    throw new Error('Ticket cannot be marked as paid');
+  }
+
+  const token = ticket.token || generateTicketToken(transactionId);
+  const finalAmountPaid = amountPaid || ticket.amountPaid || ticket.Event.price || 0;
+  const operations = [
+    prisma.ticket.update({
+      where: { id: transactionId },
+      data: {
+        status: 'paid',
+        token,
+        amountPaid: finalAmountPaid,
+      },
+    }),
+  ];
+
+  if (ticket.status !== 'paid') {
+    operations.push(prisma.event.update({
+      where: { id: ticket.eventId },
+      data: { soldCount: { increment: 1 } },
+    }) as any);
+  }
+
+  await prisma.$transaction(operations as any);
+  return { ticket, token };
+}
 
 export async function POST(req: NextRequest) {
   try {
     // Get the callback data
     const body = await req.json();
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
     
-    // Check if this is a mock payment (for testing)
-    if (body.transactionId && body.status) {
+    // Mock callbacks are only allowed during explicit local testing.
+    if (body.transactionId && body.status && process.env.NODE_ENV !== 'production' && process.env.ALLOW_MOCK_PAYMENTS === 'true') {
       const transactionId = body.transactionId;
       const paymentStatus = body.status;
 
-      console.log('Mock payment callback:', { transactionId, paymentStatus });
-
       if (paymentStatus === 'SUCCESS') {
         try {
-          // Generate secure token
-          const token = generateTicketToken(transactionId);
-
-          // Update ticket to paid status with token
-          await prisma.ticket.update({
-            where: { id: transactionId },
-            data: {
-              status: 'paid',
-              token: token,
-            },
-          });
-
-          console.log(`Ticket ${transactionId} marked as paid with token`);
+          await markPhonePeTicketPaid(transactionId, Number(body.amount || 0) || null);
 
           return NextResponse.json({
             success: true,
@@ -43,7 +67,6 @@ export async function POST(req: NextRequest) {
           );
         }
       } else {
-        console.log(`Payment failed for ticket ${transactionId}`);
         return NextResponse.json(
           { success: false, message: 'Payment failed' },
           { status: 400 }
@@ -69,8 +92,6 @@ export async function POST(req: NextRequest) {
       Buffer.from(base64Response, 'base64').toString('utf-8')
     );
 
-    console.log('PhonePe callback received:', decodedResponse);
-
     const transactionId = decodedResponse.data?.merchantTransactionId;
     const paymentStatus = decodedResponse.code;
 
@@ -85,23 +106,12 @@ export async function POST(req: NextRequest) {
     // Check if payment was successful
     if (paymentStatus === 'PAYMENT_SUCCESS') {
       try {
-        // Generate secure token
-        const token = generateTicketToken(transactionId);
-
-        // Update ticket to paid status with token
-        await prisma.ticket.update({
-          where: { id: transactionId },
-          data: {
-            status: 'paid',
-            token: token,
-          },
-        });
-
-        console.log(`Ticket ${transactionId} marked as paid with token`);
+        const amountPaid = Number(decodedResponse.data?.amount || 0) || null;
+        const { token } = await markPhonePeTicketPaid(transactionId, amountPaid);
 
         // Redirect user to ticket page
         return NextResponse.redirect(
-          `${process.env.NEXT_PUBLIC_APP_URL}/ticket/${transactionId}?success=true`
+          `${baseUrl}/ticket/${transactionId}?success=true&token=${encodeURIComponent(token)}`
         );
       } catch (error) {
         console.error('Error updating ticket:', error);
@@ -113,13 +123,12 @@ export async function POST(req: NextRequest) {
     } else if (paymentStatus === 'PAYMENT_PENDING') {
       // Payment is still processing
       return NextResponse.redirect(
-        `${process.env.NEXT_PUBLIC_APP_URL}/ticket/${transactionId}?pending=true`
+        `${baseUrl}/ticket/${transactionId}?pending=true`
       );
     } else {
       // Payment failed
-      console.log(`Payment failed for ticket ${transactionId}`);
       return NextResponse.redirect(
-        `${process.env.NEXT_PUBLIC_APP_URL}/?payment_failed=true`
+        `${baseUrl}/?payment_failed=true`
       );
     }
   } catch (error: any) {

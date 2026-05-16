@@ -1,18 +1,18 @@
 import { prisma } from '@/lib/prisma';
 import HomeClient from '@/components/HomeClient';
 import { DEFAULT_SITE_SETTINGS, SiteSettings } from '@/lib/store';
-import { unstable_cache } from 'next/cache';
 
 export const revalidate = 60;
 
-const getCachedSiteConfig = unstable_cache(
-  async () => prisma.siteConfig.findUnique({ where: { id: 'default' } }),
-  ['site-config'],
-  { revalidate: 60 }
-);
+async function getSiteConfig() {
+  return prisma.siteConfig.findUnique({
+    where: { id: 'default' },
+    select: { settings: true },
+  });
+}
 
-const getCachedHomeEvents = unstable_cache(
-  async () => prisma.event.findMany({
+async function getHomeEvents() {
+  return prisma.event.findMany({
     where: { isActive: true },
     orderBy: [{ isFeatured: 'desc' }, { date: 'asc' }],
     take: 6,
@@ -27,10 +27,8 @@ const getCachedHomeEvents = unstable_cache(
       soldCount: true,
       capacity: true,
     },
-  }),
-  ['home-events'],
-  { revalidate: 60 }
-);
+  });
+}
 
 export default async function Home() {
   let siteConfig: any = null;
@@ -50,8 +48,8 @@ export default async function Home() {
 
   if (hasDatabaseUrl) {
     try {
-      siteConfig = await getCachedSiteConfig();
-      initialEvents = await getCachedHomeEvents();
+      siteConfig = await getSiteConfig();
+      initialEvents = await getHomeEvents();
     } catch (error) {
       console.error("Database connection failed:", error);
       siteConfig = null;

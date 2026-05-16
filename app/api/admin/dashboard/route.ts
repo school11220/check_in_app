@@ -1,14 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { auth, clerkClient } from '@clerk/nextjs/server';
-
-async function getUserRole(userId: string): Promise<string> {
-  try {
-    const client = await clerkClient();
-    const user = await client.users.getUser(userId);
-    return (user.publicMetadata?.role as string) || 'UNAUTHORIZED';
-  } catch { return 'UNAUTHORIZED'; }
-}
+import { getSession, hasEventAccess, hasRole, ORGANIZER_ROLES } from '@/lib/auth';
 
 /**
  * GET /api/admin/dashboard
@@ -23,23 +15,36 @@ async function getUserRole(userId: string): Promise<string> {
  */
 export async function GET(req: NextRequest) {
   try {
-    const { userId } = await auth();
-    if (!userId) return NextResponse.json({ error: 'Auth required' }, { status: 401 });
-    const role = await getUserRole(userId);
-    if (!['ADMIN', 'ORGANIZER', 'ORGANISER'].includes(role)) {
+    const session = await getSession();
+    if (!session) return NextResponse.json({ error: 'Auth required' }, { status: 401 });
+    if (!hasRole(session.user.role, ORGANIZER_ROLES)) {
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
     }
 
     const url = new URL(req.url);
     const eventId = url.searchParams.get('eventId');
+    if (eventId && !hasEventAccess(session, eventId)) {
+      return NextResponse.json({ error: 'You do not have access to this event' }, { status: 403 });
+    }
+
+    const scopedEventIds = session.user.role === 'ADMIN' ? null : session.user.assignedEventIds || [];
+    const eventScope = eventId
+      ? { id: eventId }
+      : scopedEventIds
+        ? { id: { in: scopedEventIds } }
+        : {};
+    const ticketScope = eventId
+      ? { eventId }
+      : scopedEventIds
+        ? { eventId: { in: scopedEventIds } }
+        : {};
 
     const now = new Date();
     const todayStart = new Date(now); todayStart.setHours(0, 0, 0, 0);
     const weekStart = new Date(now); weekStart.setDate(now.getDate() - 7);
     const monthStart = new Date(now); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
 
-    const ticketWhere: any = { status: 'paid' };
-    if (eventId) ticketWhere.eventId = eventId;
+    const ticketWhere: any = { status: 'paid', ...ticketScope };
 
     // Parallel queries for performance
     const [
@@ -59,7 +64,7 @@ export async function GET(req: NextRequest) {
       // Ticket counts
       prisma.ticket.count({ where: ticketWhere }),
       prisma.ticket.count({ where: { ...ticketWhere, checkedIn: true } }),
-      prisma.ticket.count({ where: { ...(eventId ? { eventId } : {}), status: 'refunded' } }),
+      prisma.ticket.count({ where: { ...ticketScope, status: 'refunded' } }),
 
       // Time-based ticket counts
       prisma.ticket.count({ where: { ...ticketWhere, createdAt: { gte: todayStart } } }),
@@ -67,12 +72,13 @@ export async function GET(req: NextRequest) {
       prisma.ticket.count({ where: { ...ticketWhere, createdAt: { gte: monthStart } } }),
 
       // Event counts
-      prisma.event.count(),
-      prisma.event.count({ where: { isActive: true } }),
-      prisma.event.count({ where: { date: { gte: now } } }),
+      prisma.event.count({ where: eventScope }),
+      prisma.event.count({ where: { ...eventScope, isActive: true } }),
+      prisma.event.count({ where: { ...eventScope, date: { gte: now } } }),
 
       // Recent audit logs (last 20)
       prisma.auditLog.findMany({
+        where: session.user.role === 'ADMIN' ? {} : { id: { in: [] } },
         orderBy: { createdAt: 'desc' },
         take: 20,
         select: { id: true, action: true, resource: true, details: true, userName: true, userRole: true, createdAt: true },
@@ -80,7 +86,7 @@ export async function GET(req: NextRequest) {
 
       // Recent check-ins (last 10)
       prisma.ticket.findMany({
-        where: { checkedIn: true, ...(eventId ? { eventId } : {}) },
+        where: { checkedIn: true, ...ticketScope },
         orderBy: { checkedInAt: 'desc' },
         take: 10,
         select: { id: true, name: true, email: true, checkedInAt: true, Event: { select: { name: true } } },
@@ -88,6 +94,7 @@ export async function GET(req: NextRequest) {
 
       // Top 5 events by ticket count
       prisma.event.findMany({
+        where: eventScope,
         orderBy: { soldCount: 'desc' },
         take: 5,
         select: { id: true, name: true, soldCount: true, capacity: true, price: true, date: true },
@@ -102,7 +109,7 @@ export async function GET(req: NextRequest) {
 
     try {
       const revenueData = await prisma.ticket.findMany({
-        where: { status: 'paid', ...(eventId ? { eventId } : {}) },
+        where: { status: 'paid', ...ticketScope },
         select: { createdAt: true, amountPaid: true, Event: { select: { price: true } } },
       });
 
@@ -122,13 +129,27 @@ export async function GET(req: NextRequest) {
         where: {
           createdAt: { gte: todayStart },
           action: { in: ['checkin', 'offline_checkin', 'manual_checkin'] },
-          ...(eventId ? { eventId } : {}),
+          ...ticketScope,
         },
       });
       todayCheckinLogs.forEach((log: any) => {
         hourlyCheckins[new Date(log.createdAt).getHours()]++;
       });
     } catch { /* CheckInLog table may not exist */ }
+
+    const topEventRevenue = new Map<string, number>();
+    if (topEvents.length > 0) {
+      const topEventTickets = await prisma.ticket.findMany({
+        where: { status: 'paid', eventId: { in: topEvents.map((event) => event.id) } },
+        select: { eventId: true, amountPaid: true, Event: { select: { price: true } } },
+      });
+      for (const ticket of topEventTickets) {
+        topEventRevenue.set(
+          ticket.eventId,
+          (topEventRevenue.get(ticket.eventId) || 0) + (ticket.amountPaid || ticket.Event.price || 0)
+        );
+      }
+    }
 
     return NextResponse.json({
       revenue: {
@@ -172,7 +193,7 @@ export async function GET(req: NextRequest) {
         name: e.name,
         soldCount: e.soldCount,
         capacity: e.capacity,
-        revenue: e.soldCount * (e.price || 0),
+        revenue: topEventRevenue.get(e.id) || 0,
         occupancy: e.capacity > 0 ? ((e.soldCount / e.capacity) * 100).toFixed(1) : '0',
         date: e.date,
       })),

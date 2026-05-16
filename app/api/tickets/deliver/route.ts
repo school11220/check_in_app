@@ -6,6 +6,7 @@ import { generateQRCodeBase64 } from '@/lib/qr-generator';
 import { sendTicketConfirmationSMS } from '@/lib/sms';
 import { getSession, hasEventAccess, hasRole, ORGANIZER_ROLES } from '@/lib/auth';
 import { enforceRateLimit } from '@/lib/rate-limit';
+import { ticketTokenMatches } from '@/lib/ticket-security';
 
 // POST: Send ticket via email and/or SMS
 export async function POST(req: NextRequest) {
@@ -36,13 +37,19 @@ export async function POST(req: NextRequest) {
     }
 
     const canManageTicket = session && hasRole(session.user.role, ORGANIZER_ROLES) && hasEventAccess(session, ticket.eventId);
-    const hasValidToken = typeof token === 'string' && !!ticket.token && token === ticket.token;
+    const hasValidToken = typeof token === 'string' && ticketTokenMatches(ticket.token, token);
     if (!canManageTicket && !hasValidToken) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    if (ticket.status !== 'paid') {
+      return NextResponse.json({ error: 'Only paid tickets can be delivered' }, { status: 400 });
     }
 
     const results: { email?: any; sms?: any } = {};
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+    if (!ticket.token) {
+      return NextResponse.json({ error: 'Ticket is missing its secure token. Re-open the ticket as an organizer to regenerate it before delivery.' }, { status: 409 });
+    }
 
     // Load site settings for email styling
     let siteSettings: any = {};
@@ -61,7 +68,7 @@ export async function POST(req: NextRequest) {
         results.email = { success: false, error: 'Email service not configured' };
       } else {
         try {
-          const ticketUrl = `${baseUrl}/ticket/${ticket.id}?success=true`;
+          const ticketUrl = `${baseUrl}/ticket/${ticket.id}?success=true&token=${encodeURIComponent(ticket.token)}`;
           const qrPayload = JSON.stringify({ ticketId: ticket.id, token: ticket.token });
           const qrCodeBase64 = await generateQRCodeBase64(qrPayload, { width: 180 });
 

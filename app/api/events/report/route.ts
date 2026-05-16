@@ -1,14 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { ticketStorage } from '@/lib/ticket-storage';
-
-// Fallback events
-const FALLBACK_EVENTS = [
-    { id: 'event-1', name: 'Tech Conference 2025', price: 50000, capacity: 500 },
-    { id: 'event-2', name: 'Music Festival Night', price: 200000, capacity: 1000 },
-    { id: 'event-3', name: 'Startup Meetup', price: 20000, capacity: 200 },
-    { id: 'event-4', name: 'Art Exhibition Opening', price: 30000, capacity: 150 },
-];
+import { getSession, hasEventAccess, hasRole, ORGANIZER_ROLES } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
     try {
@@ -20,17 +12,15 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'Event ID is required' }, { status: 400 });
         }
 
-        // Get event data
-        let event = null;
-        let tickets: any[] = [];
-
-        try {
-            event = await prisma.event.findUnique({ where: { id: eventId } });
-            tickets = await prisma.ticket.findMany({ where: { eventId } });
-        } catch (e) {
-            event = FALLBACK_EVENTS.find(e => e.id === eventId) || null;
-            tickets = ticketStorage.getAll().filter(t => t.eventId === eventId);
+        const session = await getSession();
+        if (!session || !hasRole(session.user.role, ORGANIZER_ROLES) || !hasEventAccess(session, eventId)) {
+            return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
         }
+
+        const [event, tickets] = await Promise.all([
+            prisma.event.findUnique({ where: { id: eventId } }),
+            prisma.ticket.findMany({ where: { eventId } }),
+        ]);
 
         if (!event) {
             return NextResponse.json({ error: 'Event not found' }, { status: 404 });
@@ -41,6 +31,8 @@ export async function GET(request: NextRequest) {
         const checkedIn = tickets.filter(t => t.checkedIn);
         const refunded = tickets.filter(t => t.status === 'refunded');
         const pending = tickets.filter(t => t.status === 'pending');
+        const paidRevenue = paidTickets.reduce((sum, ticket) => sum + (ticket.amountPaid || event.price || 0), 0);
+        const refundedAmount = refunded.reduce((sum, ticket) => sum + (ticket.amountPaid || event.price || 0), 0);
 
         const report = {
             event: {
@@ -58,9 +50,9 @@ export async function GET(request: NextRequest) {
                     : '0%',
                 refunded: refunded.length,
                 pending: pending.length,
-                revenue: (paidTickets.length * event.price) / 100,
-                refundedAmount: (refunded.length * event.price) / 100,
-                netRevenue: ((paidTickets.length - refunded.length) * event.price) / 100,
+                revenue: (paidRevenue + refundedAmount) / 100,
+                refundedAmount: refundedAmount / 100,
+                netRevenue: paidRevenue / 100,
             },
             attendees: paidTickets.map(t => ({
                 name: t.name,
@@ -92,7 +84,9 @@ export async function GET(request: NextRequest) {
                 `Total Tickets: ${report.summary.totalTickets}`,
                 `Paid: ${report.summary.paidTickets}`,
                 `Checked In: ${report.summary.checkedIn} (${report.summary.checkInRate})`,
-                `Revenue: ₹${report.summary.revenue.toLocaleString()}`,
+                `Gross Revenue: ₹${report.summary.revenue.toLocaleString()}`,
+                `Refunded Amount: ₹${report.summary.refundedAmount.toLocaleString()}`,
+                `Net Revenue: ₹${report.summary.netRevenue.toLocaleString()}`,
                 '',
                 headers.join(','),
                 ...rows.map(r => r.map(c => `"${c}"`).join(',')),

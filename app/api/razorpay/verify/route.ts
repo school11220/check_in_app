@@ -4,14 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import Razorpay from 'razorpay';
 import { allocatePaidAmount, calculateTicketUnitPrice } from '@/lib/pricing';
-
-function generateToken(ticketId: string): string {
-    const secret = process.env.TICKET_SECRET_KEY || 'default-secret-key-for-demo';
-    return crypto
-        .createHmac('sha256', secret)
-        .update(ticketId)
-        .digest('hex');
-}
+import { generateTicketToken, timingSafeStringEqual } from '@/lib/ticket-security';
 
 // Verify Razorpay payment
 export async function POST(request: NextRequest) {
@@ -21,8 +14,6 @@ export async function POST(request: NextRequest) {
 
         const body = await request.json();
         const { razorpay_order_id, razorpay_payment_id, razorpay_signature, ticketId, emailStyles } = body;
-
-        console.log('Verifying payment for ticket:', ticketId);
 
         // Verify signature
         const secret = process.env.RAZORPAY_KEY_SECRET;
@@ -36,7 +27,7 @@ export async function POST(request: NextRequest) {
             .update(text)
             .digest('hex');
 
-        if (expectedSignature !== razorpay_signature) {
+        if (!timingSafeStringEqual(expectedSignature, razorpay_signature)) {
             console.error('Invalid payment signature');
             return NextResponse.json({ error: 'Invalid payment signature' }, { status: 400 });
         }
@@ -86,7 +77,6 @@ export async function POST(request: NextRequest) {
         }
 
         const newlyPaidTickets = orderTickets.filter((ticket) => ticket.status !== 'paid');
-        const primaryToken = generateToken(ticketId);
 
         const updatedTickets = await prisma.$transaction(async (tx) => {
             const updated = [];
@@ -104,7 +94,7 @@ export async function POST(request: NextRequest) {
                         razorpayPaymentId: razorpay_payment_id,
                         razorpayOrderId: razorpay_order_id,
                         amountPaid: allocatePaidAmount(paidTotal, orderTickets.length, index),
-                        token: generateToken(ticket.id),
+                        token: ticket.token || generateTicketToken(ticket.id),
                     },
                     include: { Event: true },
                 }));
@@ -145,13 +135,15 @@ export async function POST(request: NextRequest) {
 
         const ticketData = updatedTickets.find((ticket) => ticket.id === ticketId) || updatedTickets[0];
         const amountPaid = ticketData.amountPaid || allocatePaidAmount(paidTotal, orderTickets.length, 0);
+        const primaryToken = ticketData.token || generateTicketToken(ticketId);
+        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+        const ticketUrl = `${baseUrl}/ticket/${ticketId}?success=true&token=${encodeURIComponent(primaryToken)}`;
 
         const recipientEmail = ticketData?.email;
-        if (recipientEmail && ticketData?.Event) {
+        if (newlyPaidTickets.length > 0 && recipientEmail && ticketData?.Event) {
             try {
                 const { sendTicketEmail } = await import('@/lib/ticket-email');
 
-                console.log('Sending confirmation email to:', recipientEmail);
                 const emailResult = await sendTicketEmail({
                     to: recipientEmail,
                     ticketId,
@@ -168,17 +160,23 @@ export async function POST(request: NextRequest) {
                     emailStyles,
                 });
 
-                console.log('Email send result:', emailResult);
+                if (!emailResult.success) {
+                    const emailError = 'error' in emailResult ? emailResult.error : 'message' in emailResult ? emailResult.message : 'Unknown email error';
+                    console.warn('Ticket email was not sent:', emailError);
+                }
             } catch (emailError) {
                 console.warn('Email sending failed:', emailError);
             }
         } else {
-            console.log('No email available, skipping confirmation email');
+            console.warn('Skipping confirmation email because no new paid ticket or recipient email was available');
         }
 
         return NextResponse.json({
             success: true,
             ticketId: ticketId,
+            token: primaryToken,
+            ticketUrl,
+            alreadyVerified: newlyPaidTickets.length === 0,
             message: 'Payment verified successfully',
         });
     } catch (error) {

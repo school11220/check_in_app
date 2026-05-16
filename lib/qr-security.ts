@@ -1,7 +1,11 @@
 import crypto from 'crypto';
+import { getTicketSecret } from './ticket-security';
 
-const SECRET = process.env.TICKET_SECRET_KEY || 'default-secret-key';
 const QR_TOKEN_TTL_MS = 5 * 60 * 1000; // 5 minute validity window for time-based tokens
+
+function sign(payload: string) {
+  return crypto.createHmac('sha256', getTicketSecret()).update(payload).digest('hex');
+}
 
 /**
  * Generate a time-based rotating QR token for enhanced security.
@@ -11,7 +15,7 @@ export function generateTimedQRToken(ticketId: string, token: string): string {
   const timestamp = Date.now().toString(36);
   const nonce = crypto.randomBytes(4).toString('hex');
   const payload = `${ticketId}:${token}:${timestamp}:${nonce}`;
-  const hmac = crypto.createHmac('sha256', SECRET).update(payload).digest('hex').slice(0, 16);
+  const hmac = sign(payload).slice(0, 16);
   return `${payload}:${hmac}`;
 }
 
@@ -31,7 +35,7 @@ export function verifyTimedQRToken(
     
     // Verify HMAC
     const payload = `${ticketId}:${token}:${timestamp}:${nonce}`;
-    const expectedHmac = crypto.createHmac('sha256', SECRET).update(payload).digest('hex').slice(0, 16);
+    const expectedHmac = sign(payload).slice(0, 16);
     
     if (!crypto.timingSafeEqual(Buffer.from(hmac, 'hex'), Buffer.from(expectedHmac, 'hex'))) {
       return { valid: false, ticketId, reason: 'Tampered QR code' };
@@ -64,7 +68,7 @@ export function generateAuditChecksum(
   performedBy: string
 ): string {
   const data = `${ticketId}|${action}|${timestamp}|${performedBy}`;
-  return crypto.createHmac('sha256', SECRET).update(data).digest('hex');
+  return sign(data);
 }
 
 /**
