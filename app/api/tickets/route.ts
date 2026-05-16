@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { ticketStorage } from '@/lib/ticket-storage';
 import { auth } from '@clerk/nextjs/server';
+import { getSession, hasEventAccess } from '@/lib/auth';
 
 // Fallback events data (same as events/route.ts)
 const FALLBACK_EVENTS: Record<string, { name: string; price: number }> = {
@@ -159,6 +160,19 @@ export async function GET(req: NextRequest) {
   try {
     const url = new URL(req.url);
     const eventId = url.searchParams.get('eventId');
+    const session = await getSession();
+
+    if (!session) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+
+    if (eventId) {
+      if (!hasEventAccess(session, eventId)) {
+        return NextResponse.json({ error: 'You do not have access to this event' }, { status: 403 });
+      }
+    } else if (session.user.role !== 'ADMIN') {
+      return NextResponse.json({ error: 'Event ID is required' }, { status: 400 });
+    }
 
     let tickets: any[] = [];
 

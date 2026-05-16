@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { auth, clerkClient } from '@clerk/nextjs/server';
 import { verifyAuditChecksum } from '@/lib/qr-security';
 import { enforceRateLimit } from '@/lib/rate-limit';
+import { getSession, hasEventAccess } from '@/lib/auth';
 
 const ALLOWED_ROLES = ['ADMIN', 'ORGANIZER', 'ORGANISER'];
 
@@ -34,6 +35,11 @@ export async function GET(req: NextRequest) {
 
     if (!eventId) {
       return NextResponse.json({ error: 'Event ID is required' }, { status: 400 });
+    }
+
+    const session = await getSession();
+    if (!session || !hasEventAccess(session, eventId)) {
+      return NextResponse.json({ error: 'You do not have access to this event' }, { status: 403 });
     }
 
     let logs: any[] = [];

@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { verifyTicketToken } from '@/lib/utils';
 import { generateAuditChecksum, verifyTimedQRToken } from '@/lib/qr-security';
 import { CheckInResponse } from '@/types';
 import { auth, clerkClient } from '@clerk/nextjs/server';
 import { fireWebhook } from '@/lib/webhooks';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { getSession, hasEventAccess } from '@/lib/auth';
+import crypto from 'crypto';
 
 const ALLOWED_ROLES = ['ADMIN', 'ORGANIZER', 'ORGANISER', 'SCANNER'];
 
@@ -15,6 +15,13 @@ const ALLOWED_ROLES = ['ADMIN', 'ORGANIZER', 'ORGANISER', 'SCANNER'];
 const usedNonces = new Set<string>();
 const NONCE_CLEANUP_INTERVAL = 10 * 60 * 1000; // cleanup every 10 min
 setInterval(() => usedNonces.clear(), NONCE_CLEANUP_INTERVAL);
+
+function tokenMatches(storedToken: string | null, providedToken: string | undefined): boolean {
+  if (!storedToken || !providedToken) return false;
+  const stored = Buffer.from(storedToken);
+  const provided = Buffer.from(providedToken);
+  return stored.length === provided.length && crypto.timingSafeEqual(stored, provided);
+}
 
 async function getUserRole(userId: string): Promise<string> {
   try {
@@ -36,7 +43,7 @@ async function logDuplicateAttempt(params: {
 }) {
   const { ticketId, eventId, action, userId, role, req } = params;
   try {
-    const timestamp = new Date().toISOString();
+    const timestamp = new Date();
     await prisma.checkInLog.create({
       data: {
         ticketId,
@@ -46,7 +53,8 @@ async function logDuplicateAttempt(params: {
         performedRole: role,
         ipAddress: req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown',
         userAgent: req.headers.get('user-agent') || 'unknown',
-        checksum: generateAuditChecksum(ticketId, action, timestamp, userId),
+        checksum: generateAuditChecksum(ticketId, action, timestamp.toISOString(), userId),
+        createdAt: timestamp,
       },
     });
   } catch {
@@ -78,6 +86,7 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
     const { ticketId, token, timedToken, deviceId, offlineTimestamp } = body;
+    const action = body.action || 'checkin';
 
     if (!ticketId) {
       return NextResponse.json<CheckInResponse>(
@@ -116,7 +125,9 @@ export async function POST(req: NextRequest) {
     // --- Token verification: support timed QR tokens OR plain HMAC tokens ---
     let tokenValid = false;
 
-    if (timedToken && ticket.token) {
+    if (action === 'manual_checkin') {
+      tokenValid = true;
+    } else if (timedToken && ticket.token) {
       // Timed QR token (enhanced security with expiry + replay protection)
       const qrResult = verifyTimedQRToken(timedToken, ticket.token);
       if (!qrResult.valid) {
@@ -138,8 +149,8 @@ export async function POST(req: NextRequest) {
       if (nonce) usedNonces.add(nonce);
       tokenValid = true;
     } else if (token) {
-      // Plain HMAC token (backwards compatible)
-      if (!ticket.token || !verifyTicketToken(ticketId, token)) {
+      // Plain token stored on the ticket (backwards compatible with generated HMAC tokens).
+      if (!tokenMatches(ticket.token, token)) {
         return NextResponse.json<CheckInResponse>(
           { success: false, message: 'Invalid ticket token' },
           { status: 403 }
@@ -156,8 +167,6 @@ export async function POST(req: NextRequest) {
     }
 
     // --- Check-in vs Undo ---
-    const action = body.action || 'checkin';
-
     if (action === 'undo_checkin') {
       if (!ticket.checkedIn) {
         return NextResponse.json<CheckInResponse>(
@@ -173,8 +182,8 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      const undoTimestamp = new Date().toISOString();
-      const undoChecksum = generateAuditChecksum(ticketId, 'undo_checkin', undoTimestamp, userId);
+      const undoAt = new Date();
+      const undoChecksum = generateAuditChecksum(ticketId, 'undo_checkin', undoAt.toISOString(), userId);
 
       const [updatedTicket] = await prisma.$transaction([
         prisma.ticket.update({
@@ -192,6 +201,7 @@ export async function POST(req: NextRequest) {
             ipAddress: req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown',
             userAgent: req.headers.get('user-agent') || 'unknown',
             checksum: undoChecksum,
+            createdAt: undoAt,
           },
         }),
       ]);
@@ -231,8 +241,16 @@ export async function POST(req: NextRequest) {
     }
 
     const now = new Date();
-    const actionTimestamp = offlineTimestamp || now.toISOString();
-    const checksum = generateAuditChecksum(ticketId, deviceId ? 'offline_checkin' : 'checkin', actionTimestamp, userId);
+    const actionAt = offlineTimestamp ? new Date(offlineTimestamp) : now;
+    if (Number.isNaN(actionAt.getTime())) {
+      return NextResponse.json<CheckInResponse>(
+        { success: false, message: 'Invalid offline timestamp' },
+        { status: 400 }
+      );
+    }
+    const actionTimestamp = actionAt.toISOString();
+    const checkinAction = action === 'manual_checkin' ? 'manual_checkin' : deviceId ? 'offline_checkin' : 'checkin';
+    const checksum = generateAuditChecksum(ticketId, checkinAction, actionTimestamp, userId);
 
     // Use transaction for atomicity
     const [updatedTicket] = await prisma.$transaction([
@@ -240,7 +258,7 @@ export async function POST(req: NextRequest) {
         where: { id: ticketId },
         data: {
           checkedIn: true,
-          checkedInAt: now,
+          checkedInAt: actionAt,
           checkedInBy: userId,
         },
         include: { Event: true },
@@ -249,7 +267,7 @@ export async function POST(req: NextRequest) {
         data: {
           ticketId,
           eventId: ticket.eventId,
-          action: deviceId ? 'offline_checkin' : 'checkin',
+          action: checkinAction,
           performedBy: userId,
           performedRole: role,
           ipAddress: req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown',
@@ -257,6 +275,7 @@ export async function POST(req: NextRequest) {
           deviceId: deviceId || null,
           checksum,
           syncedAt: deviceId ? now : null,
+          createdAt: actionAt,
         },
       }),
     ]);
@@ -305,13 +324,25 @@ export async function GET(req: NextRequest) {
     const url = new URL(req.url);
     const eventId = url.searchParams.get('eventId');
     const type = url.searchParams.get('type') || 'history';
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+
+    if (eventId && !hasEventAccess(session, eventId)) {
+      return NextResponse.json({ error: 'You do not have access to this event' }, { status: 403 });
+    }
+
+    if (!eventId && session.user.role !== 'ADMIN') {
+      return NextResponse.json({ error: 'Event ID is required' }, { status: 400 });
+    }
 
     if (type === 'stats' && eventId) {
       const [total, checkedIn, recentCheckins] = await Promise.all([
         prisma.ticket.count({ where: { eventId, status: 'paid' } }),
         prisma.ticket.count({ where: { eventId, status: 'paid', checkedIn: true } }),
         prisma.ticket.findMany({
-          where: { eventId, checkedIn: true },
+          where: { eventId, status: 'paid', checkedIn: true },
           orderBy: { checkedInAt: 'desc' },
           take: 20,
           include: { Event: { select: { name: true } } },

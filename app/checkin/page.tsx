@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, Suspense, useCallback } from 'react';
+import { useState, useEffect, useRef, Suspense, useCallback, useMemo } from 'react';
 import { useApp } from '@/lib/store';
 import { useToast } from '@/components/Toaster';
 import QRScanner from '@/components/QRScanner';
@@ -14,21 +14,33 @@ import {
 } from 'lucide-react';
 import SessionScheduler from '@/components/admin/SessionScheduler';
 import { useClerk, useUser } from '@clerk/nextjs';
+import { parseScanPayload } from '@/lib/scan-payload';
 
 function CheckinPageContent() {
-  const { events } = useApp();
+  const { events, isLoading: eventsLoading } = useApp();
   const router = useRouter();
   const { showToast } = useToast();
   const searchParams = useSearchParams();
   const eventId = searchParams.get('event');
   const { signOut } = useClerk();
-  const { user } = useUser();
+  const { user, isLoaded: userLoaded, isSignedIn } = useUser();
 
   // Role verification on client side
   const userRole = (user?.publicMetadata?.role as string) || '';
   const allowedRoles = ['ADMIN', 'ORGANIZER', 'ORGANISER', 'SCANNER'];
   const isAllowed = allowedRoles.includes(userRole);
   const canExport = ['ADMIN', 'ORGANIZER', 'ORGANISER'].includes(userRole);
+  const assignedEventIds = useMemo(() => {
+    const ids = user?.publicMetadata?.assignedEventIds;
+    return Array.isArray(ids) ? ids as string[] : [];
+  }, [user]);
+  const accessibleEvents = useMemo(() => {
+    if (userRole === 'ADMIN') return events;
+    if (!isAllowed) return [];
+    return events.filter(event => assignedEventIds.includes(event.id));
+  }, [assignedEventIds, events, isAllowed, userRole]);
+  const selectedEvent = accessibleEvents.find(event => event.id === eventId);
+  const hasInvalidEventSelection = Boolean(eventId && userLoaded && isAllowed && !eventsLoading && !selectedEvent);
 
   const [showSchedule, setShowSchedule] = useState(false);
   const [activeTab, setActiveTab] = useState<'scanner' | 'history' | 'guestlist' | 'stats'>('scanner');
@@ -84,30 +96,37 @@ function CheckinPageContent() {
     }
   }, [continuousMode, scanResult]);
 
-  // Fetch data when tab changes
   useEffect(() => {
-    if (eventId) {
-      if (activeTab === 'guestlist') fetchTickets();
-      if (activeTab === 'stats') fetchStats();
-      if (activeTab === 'history') fetchHistory();
+    if (!eventId && accessibleEvents.length === 1) {
+      router.replace(`/checkin?event=${encodeURIComponent(accessibleEvents[0].id)}`);
     }
-  }, [activeTab, eventId]);
+  }, [accessibleEvents, eventId, router]);
 
-  // Auto-refresh stats every 10s when on stats tab
-  useEffect(() => {
-    if (activeTab === 'stats' && eventId && autoRefresh) {
-      const interval = setInterval(fetchStats, 10000);
-      return () => clearInterval(interval);
+  const handleEventChange = (nextEventId: string) => {
+    setSearchQuery('');
+    setScanResult(null);
+    if (!nextEventId) {
+      router.replace('/checkin');
+      return;
     }
-  }, [activeTab, eventId, autoRefresh]);
+    router.replace(`/checkin?event=${encodeURIComponent(nextEventId)}`);
+  };
 
-  const fetchTickets = async () => {
+  const fetchTickets = useCallback(async () => {
+    if (!eventId) {
+      setTickets([]);
+      return;
+    }
     setGuestListLoading(true);
     try {
       const res = await fetch(`/api/tickets?eventId=${eventId}`);
       if (res.ok) {
         const data = await res.json();
         setTickets(data.filter((t: any) => t.status === 'paid'));
+      } else {
+        const data = await res.json().catch(() => null);
+        setTickets([]);
+        showToast(data?.error || 'Failed to load guest list', 'error');
       }
     } catch (e) {
       console.error('Failed to fetch tickets:', e);
@@ -115,9 +134,9 @@ function CheckinPageContent() {
     } finally {
       setGuestListLoading(false);
     }
-  };
+  }, [eventId, showToast]);
 
-  const fetchStats = async () => {
+  const fetchStats = useCallback(async () => {
     if (!eventId) return;
     setStatsLoading(true);
     try {
@@ -131,9 +150,9 @@ function CheckinPageContent() {
     } finally {
       setStatsLoading(false);
     }
-  };
+  }, [eventId]);
 
-  const fetchHistory = async () => {
+  const fetchHistory = useCallback(async () => {
     if (!eventId) return;
     setHistoryLoading(true);
     try {
@@ -147,43 +166,49 @@ function CheckinPageContent() {
     } finally {
       setHistoryLoading(false);
     }
-  };
+  }, [eventId]);
+
+  // Fetch data when tab changes
+  useEffect(() => {
+    if (eventId) {
+      if (activeTab === 'guestlist') fetchTickets();
+      if (activeTab === 'stats') fetchStats();
+      if (activeTab === 'history') fetchHistory();
+    } else {
+      setTickets([]);
+      setCheckinHistory([]);
+      setStats({
+        total: 0, checkedIn: 0, pending: 0, checkInRate: '0',
+        hourlyBreakdown: [], recentCheckins: [],
+      });
+    }
+  }, [activeTab, eventId, fetchHistory, fetchStats, fetchTickets]);
+
+  // Auto-refresh stats every 10s when on stats tab
+  useEffect(() => {
+    if (activeTab === 'stats' && eventId && autoRefresh) {
+      const interval = setInterval(fetchStats, 10000);
+      return () => clearInterval(interval);
+    }
+  }, [activeTab, eventId, autoRefresh, fetchStats]);
 
   const manualCheckIn = async (ticketId: string) => {
-    const ticket = tickets.find(t => t.id === ticketId);
-    if (ticket && ticket.token) {
-      handleScan(`${ticket.id}:${ticket.token}`);
-    } else {
-      handleScan(`${ticketId}:`);
-    }
+    handleScan(ticketId, { manual: true });
   };
 
   const handleLogout = async () => {
     await signOut({ redirectUrl: '/login' });
   };
 
-  const handleScan = async (code: string) => {
+  const handleScan = async (code: string, options?: { manual?: boolean }) => {
     if (isProcessing) return;
     setIsProcessing(true);
 
     try {
-      let ticketId: string | undefined, token: string | undefined, timedToken: string | undefined;
-
-      try {
-        if (code.startsWith('http')) {
-          const url = new URL(code);
-          const pathParts = url.pathname.split('/');
-          ticketId = pathParts[pathParts.length - 1];
-          token = url.searchParams.get('token') || '';
-        } else {
-          const data = JSON.parse(code);
-          ticketId = data.ticketId;
-          token = data.token;
-          timedToken = data.timedToken; // Enhanced timed QR support
-        }
-      } catch {
-        [ticketId, token] = code.split(':');
-      }
+      const parsed = parseScanPayload(code);
+      const ticketId = parsed?.ticketId;
+      const token = parsed?.token;
+      const timedToken = parsed?.timedToken;
 
       if (!ticketId) {
         setScanResult({ success: false, message: 'Invalid QR code format' });
@@ -194,7 +219,10 @@ function CheckinPageContent() {
       // Offline mode: queue locally
       if (!isOnline) {
         try {
-          addOfflineCheckin(ticketId, token || '');
+          if (!token) {
+            throw new Error(options?.manual ? 'Manual check-in requires an internet connection' : 'This QR code cannot be queued offline');
+          }
+          addOfflineCheckin(ticketId, token);
           setScanResult({
             success: true,
             message: 'Checked in offline - will sync when online',
@@ -218,7 +246,12 @@ function CheckinPageContent() {
       const response = await fetch('/api/checkin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ticketId, token, timedToken }),
+        body: JSON.stringify({
+          ticketId,
+          token,
+          timedToken,
+          action: options?.manual ? 'manual_checkin' : undefined,
+        }),
       });
 
       const result = await response.json();
@@ -271,7 +304,7 @@ function CheckinPageContent() {
   const handleManualSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (manualCode.trim()) {
-      handleScan(manualCode.trim());
+      handleScan(manualCode.trim(), { manual: true });
       setManualCode('');
     }
   };
@@ -315,6 +348,29 @@ function CheckinPageContent() {
       showToast('Export failed', 'error');
     }
   };
+
+  if (!userLoaded) {
+    return (
+      <main className="min-h-screen bg-[#0B0B0B] flex items-center justify-center px-4">
+        <div className="w-10 h-10 border-2 border-[#E11D2E] border-t-transparent rounded-full animate-spin" />
+      </main>
+    );
+  }
+
+  if (!isSignedIn) {
+    return (
+      <main className="min-h-screen bg-[#0B0B0B] flex items-center justify-center px-4">
+        <div className="max-w-md w-full bg-[#141414] border border-[#1F1F1F] rounded-2xl p-8 text-center">
+          <Lock className="w-10 h-10 text-[#E11D2E] mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-white mb-2">Sign In Required</h2>
+          <p className="text-[#737373] mb-6">Sign in with an admin, organizer, or scanner account to access check-in.</p>
+          <Link href="/login" className="inline-flex justify-center w-full py-3 bg-[#E11D2E] text-white rounded-xl hover:bg-[#B91C1C] text-sm font-medium">
+            Go to Login
+          </Link>
+        </div>
+      </main>
+    );
+  }
 
   // Access denied screen
   if (!isAllowed && user) {
@@ -393,6 +449,42 @@ function CheckinPageContent() {
             </button>
           </div>
         </div>
+
+        {/* Event Selector */}
+        <section className="mb-6 glass rounded-2xl border border-[#1F1F1F] p-4 md:p-5">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <div>
+              <p className="text-xs uppercase tracking-wider text-[#737373] mb-1">Active Event</p>
+              <h2 className="text-white font-semibold text-lg">
+                {selectedEvent ? selectedEvent.name : 'Select an event to load guests and stats'}
+              </h2>
+              <p className="text-sm text-[#737373] mt-1">
+                {selectedEvent
+                  ? `${new Date(selectedEvent.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}${selectedEvent.venue ? ` • ${selectedEvent.venue}` : ''}`
+                  : 'Guest list, history, exports, schedule, and live stats are scoped to the selected event.'}
+              </p>
+            </div>
+            <div className="w-full lg:w-96">
+              <select
+                value={eventId || ''}
+                onChange={(e) => handleEventChange(e.target.value)}
+                disabled={eventsLoading || accessibleEvents.length === 0}
+                className="w-full px-4 py-3 bg-[#0D0D0D] border border-[#2A2A2A] rounded-xl text-white focus:outline-none focus:border-[#E11D2E] disabled:opacity-50"
+              >
+                <option value="">{eventsLoading ? 'Loading events...' : 'Choose event...'}</option>
+                {accessibleEvents.map(event => (
+                  <option key={event.id} value={event.id}>{event.name}</option>
+                ))}
+              </select>
+              {!eventsLoading && accessibleEvents.length === 0 && (
+                <p className="text-xs text-yellow-400 mt-2">No events are assigned to this account.</p>
+              )}
+              {hasInvalidEventSelection && (
+                <p className="text-xs text-red-400 mt-2">This account does not have access to the selected event.</p>
+              )}
+            </div>
+          </div>
+        </section>
 
         {/* Tabs */}
         <div className="sticky top-24 z-30 mb-6 md:mb-8 bg-[#0B0B0B]/95 backdrop-blur-sm pt-2 -mt-2 pb-2">
@@ -606,7 +698,8 @@ function CheckinPageContent() {
                     placeholder="Search guests..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="px-4 py-2 bg-[#1A1A1A] border border-[#1F1F1F] rounded-xl text-white focus:border-[#E11D2E] outline-none w-full md:w-64"
+                    disabled={!eventId}
+                    className="px-4 py-2 bg-[#1A1A1A] border border-[#1F1F1F] rounded-xl text-white focus:border-[#E11D2E] outline-none w-full md:w-64 disabled:opacity-50"
                   />
                   {canExport && eventId && (
                     <div className="relative group">
@@ -623,7 +716,7 @@ function CheckinPageContent() {
                       </div>
                     </div>
                   )}
-                  <button onClick={fetchTickets} className="px-3 py-2 bg-[#1A1A1A] border border-[#1F1F1F] rounded-xl text-[#737373] hover:text-white transition-colors">
+                  <button disabled={!eventId} onClick={fetchTickets} className="px-3 py-2 bg-[#1A1A1A] border border-[#1F1F1F] rounded-xl text-[#737373] hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                     <RefreshCw className={`w-4 h-4 ${guestListLoading ? 'animate-spin' : ''}`} />
                   </button>
                 </div>
@@ -670,7 +763,7 @@ function CheckinPageContent() {
                     ))}
                   {tickets.length === 0 && !guestListLoading && (
                     <div className="text-center py-10 text-[#737373]">
-                      {eventId ? 'No attendees found for this event.' : 'Select an event to see the guest list.'}
+                      {eventId ? 'No paid attendees found for this event yet.' : 'Select an event above to see the guest list.'}
                     </div>
                   )}
                 </div>

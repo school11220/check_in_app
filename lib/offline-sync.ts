@@ -15,6 +15,7 @@ interface OfflineTicket {
 interface PendingCheckIn {
     ticketId: string;
     eventId: string;
+    token?: string;
     timestamp: number;
     action: 'checkin' | 'undo';
 }
@@ -53,7 +54,7 @@ function getDB() {
 
 export async function syncTicketsForEvent(eventId: string) {
     try {
-        const response = await fetch(`/api/events/${eventId}/tickets?all=true`); // backend needs to support this
+        const response = await fetch(`/api/tickets?eventId=${encodeURIComponent(eventId)}`);
         if (!response.ok) throw new Error('Failed to fetch tickets');
 
         const tickets = await response.json();
@@ -110,6 +111,7 @@ export async function offlineCheckIn(ticketId: string, eventId: string) {
     await tx.objectStore('pending_logs').put({
         ticketId,
         eventId,
+        token: ticket.token,
         timestamp: Date.now(),
         action: 'checkin'
     });
@@ -134,7 +136,10 @@ export async function processBackgroundSync() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     ticketId: log.ticketId,
-                    eventId: log.eventId, // api might infer from ticket, but safer to send
+                    token: log.token,
+                    eventId: log.eventId,
+                    deviceId: 'offline-scanner',
+                    offlineTimestamp: new Date(log.timestamp).toISOString(),
                     source: 'offline-sync'
                 })
             });

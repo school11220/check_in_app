@@ -5,40 +5,9 @@ import Link from "next/link";
 import QRScanner from "@/components/QRScanner";
 import { useOfflineCheckin } from "@/hooks/useOfflineCheckin";
 import { CheckCircle2, CloudOff, RefreshCw, Smartphone, ShoppingBag, Scan, WifiOff, Wifi } from "lucide-react";
+import { ParsedScanPayload, parseScanPayload } from "@/lib/scan-payload";
 
-interface ParsedScan {
-  ticketId: string;
-  token?: string;
-  timedToken?: string;
-}
-
-function parseScanPayload(raw: string): ParsedScan | null {
-  try {
-    // URL form: /ticket/{id}?token=abc
-    const url = new URL(raw);
-    const pathParts = url.pathname.split("/").filter(Boolean);
-    const maybeTicketId = pathParts[pathParts.length - 1];
-    const token = url.searchParams.get("token") || undefined;
-    if (maybeTicketId && token) {
-      return { ticketId: maybeTicketId, token };
-    }
-  } catch {
-    // Not a URL, try other formats
-  }
-
-  // Timed token format ticketId:token:ts:nonce:hmac
-  if (raw.includes(":")) {
-    const parts = raw.split(":");
-    if (parts.length >= 5) {
-      return { ticketId: parts[0], timedToken: raw };
-    }
-  }
-
-  // Fallback: raw might be token only; cannot derive ticket id
-  return null;
-}
-
-async function performCheckIn(payload: ParsedScan) {
+async function performCheckIn(payload: ParsedScanPayload) {
   const res = await fetch("/api/checkin", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -75,17 +44,7 @@ export default function KioskPage() {
     return { label: "Online", icon: <Wifi className="w-4 h-4" />, color: "bg-green-500/15 text-green-200" };
   }, [isOnline, isSyncing]);
 
-  const handleScan = useCallback(async (raw: string) => {
-    setLastError("");
-    const parsed = parseScanPayload(raw);
-    if (!parsed) {
-      setLastError("Unsupported QR format. Use event ticket QR.");
-      return;
-    }
-    await handleCheckIn(parsed);
-  }, []);
-
-  const handleCheckIn = useCallback(async (parsed: ParsedScan) => {
+  const handleCheckIn = useCallback(async (parsed: ParsedScanPayload) => {
     setChecking(true);
     setLastError("");
     try {
@@ -108,6 +67,16 @@ export default function KioskPage() {
       setChecking(false);
     }
   }, [addOfflineCheckin]);
+
+  const handleScan = useCallback(async (raw: string) => {
+    setLastError("");
+    const parsed = parseScanPayload(raw);
+    if (!parsed) {
+      setLastError("Unsupported QR format. Use event ticket QR.");
+      return;
+    }
+    await handleCheckIn(parsed);
+  }, [handleCheckIn]);
 
   const handleManualSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

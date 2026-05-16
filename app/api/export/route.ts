@@ -1,23 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { auth, clerkClient } from '@clerk/nextjs/server';
+import { getSession, hasEventAccess } from '@/lib/auth';
 
 const ALLOWED_ROLES = ['ADMIN', 'ORGANIZER', 'ORGANISER'];
 
-async function getUserRole(userId: string): Promise<string> {
-  try {
-    const client = await clerkClient();
-    const user = await client.users.getUser(userId);
-    return (user.publicMetadata?.role as string) || 'UNAUTHORIZED';
-  } catch { return 'UNAUTHORIZED'; }
-}
-
 export async function GET(req: NextRequest) {
   try {
-    const { userId } = await auth();
-    if (!userId) return NextResponse.json({ error: 'Auth required' }, { status: 401 });
-    const role = await getUserRole(userId);
-    if (!ALLOWED_ROLES.includes(role)) {
+    const session = await getSession();
+    if (!session) return NextResponse.json({ error: 'Auth required' }, { status: 401 });
+    if (!ALLOWED_ROLES.includes(session.user.role)) {
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
     }
 
@@ -28,6 +19,10 @@ export async function GET(req: NextRequest) {
 
     if (!eventId) {
       return NextResponse.json({ error: 'Event ID is required' }, { status: 400 });
+    }
+
+    if (!hasEventAccess(session, eventId)) {
+      return NextResponse.json({ error: 'You do not have access to this event' }, { status: 403 });
     }
 
     const event = await prisma.event.findUnique({ where: { id: eventId } });

@@ -5,6 +5,7 @@ import QRScanner from '@/components/QRScanner';
 import OfflineBanner from '@/components/OfflineBanner';
 import { syncTicketsForEvent, offlineCheckIn, processBackgroundSync, getOfflineTicket } from '@/lib/offline-sync'; // Ensure getOfflineTicket is exported
 import { Wifi, WifiOff, RefreshCw, CheckCircle, XCircle, Loader2, User, Ticket as TicketIcon } from 'lucide-react';
+import { ParsedScanPayload, parseScanPayload } from '@/lib/scan-payload';
 
 interface Event {
     id: string;
@@ -46,7 +47,10 @@ export default function ScannerPage() {
         if (!selectedEventId || !isOnline) return;
         setIsSyncing(true);
         try {
-            await syncTicketsForEvent(selectedEventId);
+            const result = await syncTicketsForEvent(selectedEventId);
+            if (!result.success) {
+                throw new Error(result.error instanceof Error ? result.error.message : 'Failed to fetch tickets');
+            }
             await processBackgroundSync();
             setLastSyncTime(new Date());
             // Show toast or temporary success message?
@@ -64,28 +68,26 @@ export default function ScannerPage() {
         // Debounce handled by QRScanner component
         setScanResult(null);
 
-        // Parse data if it's JSON or just use raw string? Tickets usually have tokens.
-        // Assume raw token for now.
-        const token = data;
+        const parsed = parseScanPayload(data);
+        if (!parsed) {
+            setScanResult({ success: false, message: 'Invalid QR code format.' });
+            return;
+        }
 
         try {
             if (isOnline) {
-                // Try online check-in first
-                // Use existing API /api/checkin or similar?
-                // Or maybe existing API endpoint is not optimized for single scan response structure.
-                // Let's optimize: try offline logic first if we have data?
-                // Strategy: "Smart Sync" -> if online, do API call. If fail/offline, do Local DB.
-
-                // For "Offline First", local DB is faster. But we want real-time.
-                // Let's try Online API.
+                if (mode === 'verify') {
+                    await verifyTicket(parsed);
+                    return;
+                }
 
                 const res = await fetch('/api/checkin', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        token, // or ticketId if we can parse it
-                        eventId: selectedEventId,
-                        source: 'scanner-app'
+                        ticketId: parsed.ticketId,
+                        token: parsed.token,
+                        timedToken: parsed.timedToken,
                     })
                 });
 
@@ -101,16 +103,28 @@ export default function ScannerPage() {
                     } else {
                         setScanResult({
                             success: false,
-                            message: result.error || 'Check-in failed'
+                            message: result.message || result.error || 'Check-in failed'
                         });
                         return;
                     }
+                } else {
+                    const result = await res.json().catch(() => ({}));
+                    setScanResult({
+                        success: false,
+                        message: result.message || result.error || 'Check-in failed'
+                    });
+                    return;
                 }
             }
 
             // Fallback to offline logic
             // First find the ticket locally
-            const localTicket = await getOfflineTicket(token);
+            if (!parsed.token) {
+                setScanResult({ success: false, message: 'Ticket token missing. Sync or use a static ticket QR.' });
+                return;
+            }
+
+            const localTicket = await getOfflineTicket(parsed.token);
             if (!localTicket) {
                 setScanResult({ success: false, message: 'Ticket not found locally. Please Sync.' });
                 return;
@@ -142,6 +156,38 @@ export default function ScannerPage() {
             console.error('Scan error:', error);
             setScanResult({ success: false, message: error.message || 'Scan error' });
         }
+    };
+
+    const verifyTicket = async (parsed: ParsedScanPayload) => {
+        const res = await fetch(`/api/tickets/${encodeURIComponent(parsed.ticketId)}`);
+        const result = await res.json().catch(() => ({}));
+        const ticket = result.ticket;
+
+        if (!res.ok || !ticket) {
+            setScanResult({ success: false, message: result.error || 'Ticket not found' });
+            return;
+        }
+
+        if (ticket.eventId !== selectedEventId) {
+            setScanResult({ success: false, message: 'Ticket belongs to different event.' });
+            return;
+        }
+
+        if (parsed.token && ticket.token && parsed.token !== ticket.token) {
+            setScanResult({ success: false, message: 'Invalid ticket token.' });
+            return;
+        }
+
+        if (ticket.status !== 'paid') {
+            setScanResult({ success: false, message: `Ticket payment is ${ticket.status}` });
+            return;
+        }
+
+        setScanResult({
+            success: true,
+            message: ticket.checkedIn ? 'Valid Ticket - Already Checked In' : 'Valid Ticket',
+            data: ticket
+        });
     };
 
     if (!selectedEventId) {
