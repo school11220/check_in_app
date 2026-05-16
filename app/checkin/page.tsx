@@ -10,7 +10,8 @@ import { useOfflineCheckin } from '@/hooks/useOfflineCheckin';
 import {
   ScanLine, LogOut, Ticket, Lock, CheckCircle, XCircle, Radio, Calendar, X,
   History, Users, BarChart3, Home, Download, WifiOff, Wifi, RefreshCw,
-  FileSpreadsheet, Shield, Clock, TrendingUp, AlertTriangle, ToggleLeft, ToggleRight
+  FileSpreadsheet, Shield, Clock, TrendingUp, AlertTriangle, ToggleLeft, ToggleRight,
+  Search, Undo2
 } from 'lucide-react';
 import SessionScheduler from '@/components/admin/SessionScheduler';
 import { useClerk, useUser } from '@clerk/nextjs';
@@ -41,14 +42,19 @@ function CheckinPageContent() {
   }, [assignedEventIds, events, isAllowed, userRole]);
   const selectedEvent = accessibleEvents.find(event => event.id === eventId);
   const hasInvalidEventSelection = Boolean(eventId && userLoaded && isAllowed && !eventsLoading && !selectedEvent);
+  const scannerStorageKey = user?.id ? `eventhub:last-checkin-event:${user.id}` : 'eventhub:last-checkin-event';
 
   const [showSchedule, setShowSchedule] = useState(false);
   const [activeTab, setActiveTab] = useState<'scanner' | 'history' | 'guestlist' | 'stats'>('scanner');
+  const [eventSearch, setEventSearch] = useState('');
+  const [todayOnly, setTodayOnly] = useState(false);
 
   // Guest list state
   const [tickets, setTickets] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'checked_in'>('all');
   const [guestListLoading, setGuestListLoading] = useState(false);
+  const [manualMatches, setManualMatches] = useState<any[]>([]);
 
   // Stats state
   const [stats, setStats] = useState<any>({
@@ -71,7 +77,8 @@ function CheckinPageContent() {
   const [continuousMode, setContinuousMode] = useState(true);
 
   // Offline support
-  const { isOnline, pendingSync, isSyncing, addOfflineCheckin, syncPending } = useOfflineCheckin();
+  const { isOnline, pendingSync, isSyncing, addOfflineCheckin, syncPending, deviceId } = useOfflineCheckin();
+  const [deviceName, setDeviceName] = useState('');
 
   // Auto-refresh interval for stats
   const [autoRefresh, setAutoRefresh] = useState(true);
@@ -83,6 +90,7 @@ function CheckinPageContent() {
       const audio = new Audio('/sounds/error.mp3');
       audio.preload = 'auto';
       errorAudioRef.current = audio;
+      setDeviceName(localStorage.getItem('eventhub:scanner-device-name') || '');
     }
   }, []);
 
@@ -97,18 +105,60 @@ function CheckinPageContent() {
   }, [continuousMode, scanResult]);
 
   useEffect(() => {
-    if (!eventId && accessibleEvents.length === 1) {
+    if (eventId || eventsLoading || !userLoaded || accessibleEvents.length === 0) return;
+    const storedEventId = typeof window !== 'undefined' ? localStorage.getItem(scannerStorageKey) : null;
+    if (storedEventId && accessibleEvents.some(event => event.id === storedEventId)) {
+      router.replace(`/checkin?event=${encodeURIComponent(storedEventId)}`);
+      return;
+    }
+    if (accessibleEvents.length === 1) {
       router.replace(`/checkin?event=${encodeURIComponent(accessibleEvents[0].id)}`);
     }
-  }, [accessibleEvents, eventId, router]);
+  }, [accessibleEvents, eventId, eventsLoading, router, scannerStorageKey, userLoaded]);
+
+  const todayEvents = useMemo(() => {
+    const now = new Date();
+    const todayKey = now.toDateString();
+    return accessibleEvents.filter(event => new Date(event.date).toDateString() === todayKey);
+  }, [accessibleEvents]);
+
+  const visibleEvents = useMemo(() => {
+    const query = eventSearch.trim().toLowerCase();
+    return accessibleEvents.filter(event => {
+      const matchesToday = !todayOnly || todayEvents.some(todayEvent => todayEvent.id === event.id);
+      const matchesQuery = !query ||
+        event.name.toLowerCase().includes(query) ||
+        (event.venue || '').toLowerCase().includes(query);
+      return matchesToday && matchesQuery;
+    });
+  }, [accessibleEvents, eventSearch, todayEvents, todayOnly]);
+
+  const filteredTickets = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    return tickets.filter(ticket => {
+      const matchesQuery = !query ||
+        ticket.name?.toLowerCase().includes(query) ||
+        ticket.email?.toLowerCase().includes(query) ||
+        ticket.phone?.toLowerCase().includes(query) ||
+        ticket.id?.toLowerCase().includes(query);
+      const matchesStatus =
+        statusFilter === 'all' ||
+        (statusFilter === 'checked_in' && ticket.checkedIn) ||
+        (statusFilter === 'pending' && !ticket.checkedIn);
+      return matchesQuery && matchesStatus;
+    });
+  }, [searchQuery, statusFilter, tickets]);
 
   const handleEventChange = (nextEventId: string) => {
     setSearchQuery('');
     setScanResult(null);
+    setManualMatches([]);
     if (!nextEventId) {
+      if (typeof window !== 'undefined') localStorage.removeItem(scannerStorageKey);
       router.replace('/checkin');
       return;
     }
+    if (typeof window !== 'undefined') localStorage.setItem(scannerStorageKey, nextEventId);
     router.replace(`/checkin?event=${encodeURIComponent(nextEventId)}`);
   };
 
@@ -122,7 +172,7 @@ function CheckinPageContent() {
       const res = await fetch(`/api/tickets?eventId=${eventId}`);
       if (res.ok) {
         const data = await res.json();
-        setTickets(data.filter((t: any) => t.status === 'paid'));
+        setTickets(data.filter((t: any) => ['paid', 'partially_refunded'].includes(t.status)));
       } else {
         const data = await res.json().catch(() => null);
         setTickets([]);
@@ -196,6 +246,55 @@ function CheckinPageContent() {
     handleScan(ticketId, { manual: true });
   };
 
+  const undoCheckIn = async (ticketId: string) => {
+    const reason = window.prompt('Reason for undoing this check-in?')?.trim();
+    if (!reason) {
+      showToast('Undo reason is required', 'error');
+      return;
+    }
+    setIsProcessing(true);
+    try {
+      const response = await fetch('/api/checkin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ticketId, action: 'undo_checkin', reason, deviceId, deviceName }),
+      });
+      const result = await response.json();
+      if (response.ok && result.success) {
+        showToast('Check-in undone', 'success');
+        await Promise.all([fetchTickets(), fetchStats(), fetchHistory()]);
+      } else {
+        showToast(result.message || 'Failed to undo check-in', 'error');
+      }
+    } catch {
+      showToast('Failed to undo check-in', 'error');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const resolveManualTicket = async (value: string) => {
+    const code = value.trim();
+    if (!eventId || code.includes(':') || code.startsWith('{') || code.startsWith('http')) return null;
+    const sourceTickets = tickets.length > 0
+      ? tickets
+      : await fetch(`/api/tickets?eventId=${encodeURIComponent(eventId)}`).then(res => res.ok ? res.json() : []);
+    const query = code.toLowerCase();
+    const matches = sourceTickets.filter((ticket: any) =>
+      ticket.id?.toLowerCase() === query ||
+      ticket.email?.toLowerCase() === query ||
+      ticket.phone?.toLowerCase() === query ||
+      ticket.name?.toLowerCase().includes(query)
+    );
+    setManualMatches(matches.slice(0, 5));
+    if (matches.length === 1) return matches[0].id;
+    if (matches.length > 1) {
+      showToast('Multiple attendees matched. Select one from the results.', 'error');
+      return 'multiple';
+    }
+    return null;
+  };
+
   const handleLogout = async () => {
     await signOut({ redirectUrl: '/login' });
   };
@@ -251,6 +350,8 @@ function CheckinPageContent() {
           token,
           timedToken,
           action: options?.manual ? 'manual_checkin' : undefined,
+          deviceId,
+          deviceName,
         }),
       });
 
@@ -278,7 +379,18 @@ function CheckinPageContent() {
 
         showToast(`Welcome, ${result.ticket?.name}!`, 'success');
       } else {
-        setScanResult({ success: false, message: result.message || 'Check-in failed' });
+        setScanResult({
+          success: false,
+          message: result.message || 'Check-in failed',
+          details: result.ticket ? {
+            name: result.ticket.name,
+            email: result.ticket.email,
+            event: result.ticket.event?.name,
+            checkedInAt: result.ticket.checkedInAt,
+            checkedInBy: result.ticket.checkedInBy,
+            lastCheckIn: result.ticket.lastCheckIn,
+          } : undefined,
+        });
         showToast(result.message || 'Check-in failed', 'error');
         // Error audio & haptic feedback
         try {
@@ -301,11 +413,13 @@ function CheckinPageContent() {
     }
   };
 
-  const handleManualSubmit = (e: React.FormEvent) => {
+  const handleManualSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (manualCode.trim()) {
-      handleScan(manualCode.trim(), { manual: true });
-      setManualCode('');
+      const resolvedTicketId = await resolveManualTicket(manualCode);
+      if (resolvedTicketId === 'multiple') return;
+      handleScan(resolvedTicketId || manualCode.trim(), { manual: true });
+      if (resolvedTicketId !== 'multiple') setManualCode('');
     }
   };
 
@@ -452,7 +566,7 @@ function CheckinPageContent() {
 
         {/* Event Selector */}
         <section className="mb-6 glass rounded-2xl border border-[#1F1F1F] p-4 md:p-5">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
             <div>
               <p className="text-xs uppercase tracking-wider text-[#737373] mb-1">Active Event</p>
               <h2 className="text-white font-semibold text-lg">
@@ -464,7 +578,27 @@ function CheckinPageContent() {
                   : 'Guest list, history, exports, schedule, and live stats are scoped to the selected event.'}
               </p>
             </div>
-            <div className="w-full lg:w-96">
+            <div className="w-full lg:w-[32rem] space-y-3">
+              <div className="grid sm:grid-cols-[1fr_auto] gap-2">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#737373]" />
+                  <input
+                    value={eventSearch}
+                    onChange={(event) => setEventSearch(event.target.value)}
+                    placeholder="Search assigned events..."
+                    disabled={eventsLoading || accessibleEvents.length === 0}
+                    className="w-full pl-10 pr-3 py-3 bg-[#0D0D0D] border border-[#2A2A2A] rounded-xl text-white focus:outline-none focus:border-[#E11D2E] disabled:opacity-50"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setTodayOnly(value => !value)}
+                  disabled={eventsLoading || accessibleEvents.length === 0}
+                  className={`px-4 py-3 rounded-xl border text-sm font-medium transition-colors disabled:opacity-50 ${todayOnly ? 'bg-[#E11D2E] text-white border-[#E11D2E]' : 'bg-[#141414] text-[#B3B3B3] border-[#2A2A2A] hover:text-white'}`}
+                >
+                  Today ({todayEvents.length})
+                </button>
+              </div>
               <select
                 value={eventId || ''}
                 onChange={(e) => handleEventChange(e.target.value)}
@@ -472,15 +606,32 @@ function CheckinPageContent() {
                 className="w-full px-4 py-3 bg-[#0D0D0D] border border-[#2A2A2A] rounded-xl text-white focus:outline-none focus:border-[#E11D2E] disabled:opacity-50"
               >
                 <option value="">{eventsLoading ? 'Loading events...' : 'Choose event...'}</option>
-                {accessibleEvents.map(event => (
+                {visibleEvents.map(event => (
                   <option key={event.id} value={event.id}>{event.name}</option>
                 ))}
               </select>
+              {visibleEvents.length > 0 && (
+                <div className="flex gap-2 overflow-x-auto pb-1">
+                  {visibleEvents.slice(0, 5).map(event => (
+                    <button
+                      key={event.id}
+                      type="button"
+                      onClick={() => handleEventChange(event.id)}
+                      className={`px-3 py-2 rounded-lg border text-xs whitespace-nowrap transition-colors ${event.id === eventId ? 'bg-[#E11D2E]/20 text-[#FF6B7A] border-[#E11D2E]/40' : 'bg-[#141414] text-[#B3B3B3] border-[#1F1F1F] hover:text-white'}`}
+                    >
+                      {event.name}
+                    </button>
+                  ))}
+                </div>
+              )}
               {!eventsLoading && accessibleEvents.length === 0 && (
-                <p className="text-xs text-yellow-400 mt-2">No events are assigned to this account.</p>
+                <p className="text-xs text-yellow-400">No assigned events: ask an admin to assign this scanner to at least one event.</p>
+              )}
+              {!eventsLoading && accessibleEvents.length > 0 && visibleEvents.length === 0 && (
+                <p className="text-xs text-yellow-400">No assigned events match the current search/filter.</p>
               )}
               {hasInvalidEventSelection && (
-                <p className="text-xs text-red-400 mt-2">This account does not have access to the selected event.</p>
+                <p className="text-xs text-red-400">This account does not have access to the selected event.</p>
               )}
             </div>
           </div>
@@ -580,7 +731,7 @@ function CheckinPageContent() {
                       type="text"
                       value={manualCode}
                       onChange={(e) => setManualCode(e.target.value)}
-                      placeholder="Enter ticket code manually"
+                      placeholder="Enter ticket ID, name, email, or phone"
                       className="w-full pl-5 pr-28 py-4 bg-[#141414] border border-[#1F1F1F] rounded-xl text-white text-sm focus:outline-none focus:border-[#E11D2E]/50 focus:ring-2 focus:ring-[#E11D2E]/20 transition-all placeholder:text-[#737373]"
                     />
                     <button
@@ -591,6 +742,25 @@ function CheckinPageContent() {
                       {isProcessing ? '...' : 'Verify'}
                     </button>
                   </form>
+                  {manualMatches.length > 1 && (
+                    <div className="rounded-xl border border-[#2A2A2A] bg-[#141414] overflow-hidden">
+                      {manualMatches.map(match => (
+                        <button
+                          key={match.id}
+                          type="button"
+                          onClick={() => {
+                            setManualMatches([]);
+                            setManualCode('');
+                            manualCheckIn(match.id);
+                          }}
+                          className="w-full px-4 py-3 text-left hover:bg-[#1A1A1A] border-b border-[#1F1F1F] last:border-b-0"
+                        >
+                          <div className="text-white text-sm font-medium">{match.name}</div>
+                          <div className="text-[#737373] text-xs">{match.email || match.phone || match.id}</div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {scanResult && !scanResult.success && (
@@ -639,6 +809,15 @@ function CheckinPageContent() {
                           <span className="text-[#737373] text-sm">Event</span>
                           <span className="text-[#FF6B7A] font-medium text-sm max-w-[150px] truncate">{scanResult.details.event}</span>
                         </div>
+                        {scanResult.details.checkedInAt && (
+                          <div className="flex justify-between items-center border-t border-white/5 pt-3">
+                            <span className="text-[#737373] text-sm">Previous Check-in</span>
+                            <span className="text-yellow-400 text-xs text-right">
+                              {new Date(scanResult.details.checkedInAt).toLocaleString()}
+                              {scanResult.details.lastCheckIn?.performedBy ? ` by ${scanResult.details.lastCheckIn.performedBy}` : ''}
+                            </span>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -679,6 +858,33 @@ function CheckinPageContent() {
                     </div>
                   )}
                 </div>
+                <div className="glass rounded-2xl p-5 border border-[#1F1F1F]">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-heading text-base font-semibold text-white">Offline Queue</h3>
+                    <span className={`text-xs px-2 py-1 rounded-full border ${pendingSync.length > 0 ? 'text-yellow-400 border-yellow-500/30 bg-yellow-500/10' : 'text-green-400 border-green-500/30 bg-green-500/10'}`}>
+                      {pendingSync.length} pending
+                    </span>
+                  </div>
+                  <p className="text-xs text-[#737373] mb-3">
+                    Device: <span className="font-mono text-[#B3B3B3]">{deviceId}</span>
+                  </p>
+                  <input
+                    value={deviceName}
+                    onChange={(event) => {
+                      setDeviceName(event.target.value);
+                      localStorage.setItem('eventhub:scanner-device-name', event.target.value);
+                    }}
+                    placeholder="Scanner device/session name"
+                    className="w-full mb-3 px-3 py-2 rounded-lg bg-[#0D0D0D] border border-[#2A2A2A] text-sm text-white placeholder:text-[#737373] focus:outline-none focus:border-[#E11D2E]"
+                  />
+                  <button
+                    onClick={() => syncPending()}
+                    disabled={!isOnline || isSyncing || pendingSync.length === 0}
+                    className="w-full px-3 py-2 rounded-lg bg-[#1A1A1A] border border-[#2A2A2A] text-sm text-[#B3B3B3] hover:text-white disabled:opacity-50"
+                  >
+                    {isSyncing ? 'Syncing...' : 'Sync pending check-ins'}
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -695,12 +901,22 @@ function CheckinPageContent() {
                 <div className="flex items-center gap-2">
                   <input
                     type="text"
-                    placeholder="Search guests..."
+                    placeholder="Search guests, email, phone, ID..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     disabled={!eventId}
                     className="px-4 py-2 bg-[#1A1A1A] border border-[#1F1F1F] rounded-xl text-white focus:border-[#E11D2E] outline-none w-full md:w-64 disabled:opacity-50"
                   />
+                  <select
+                    value={statusFilter}
+                    onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)}
+                    disabled={!eventId}
+                    className="px-3 py-2 bg-[#1A1A1A] border border-[#1F1F1F] rounded-xl text-white focus:border-[#E11D2E] outline-none disabled:opacity-50 text-sm"
+                  >
+                    <option value="all">All</option>
+                    <option value="pending">Pending</option>
+                    <option value="checked_in">Checked in</option>
+                  </select>
                   {canExport && eventId && (
                     <div className="relative group">
                       <button className="px-3 py-2 bg-[#1A1A1A] border border-[#1F1F1F] rounded-xl text-[#737373] hover:text-white hover:border-[#2A2A2A] transition-colors">
@@ -728,11 +944,7 @@ function CheckinPageContent() {
                 </div>
               ) : (
                 <div className="grid gap-3">
-                  {tickets
-                    .filter(t =>
-                    (t.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                      t.email?.toLowerCase().includes(searchQuery.toLowerCase()))
-                    )
+                  {filteredTickets
                     .map(ticket => (
                       <div key={ticket.id} className="flex items-center justify-between p-4 bg-[#141414] border border-[#1F1F1F] rounded-xl">
                         <div className="flex items-center gap-4">
@@ -746,10 +958,22 @@ function CheckinPageContent() {
                         </div>
                         <div className="flex items-center gap-2">
                           {ticket.checkedIn ? (
-                            <span className="text-green-500 text-sm font-medium flex items-center gap-1.5">
-                              <CheckCircle className="w-4 h-4" />
-                              Checked In
-                            </span>
+                            <>
+                              <span className="text-green-500 text-sm font-medium flex items-center gap-1.5">
+                                <CheckCircle className="w-4 h-4" />
+                                Checked In
+                              </span>
+                              {canExport && (
+                                <button
+                                  onClick={() => undoCheckIn(ticket.id)}
+                                  disabled={isProcessing}
+                                  className="px-3 py-1.5 bg-yellow-500/10 text-yellow-400 hover:bg-yellow-500/20 border border-yellow-500/30 rounded-lg text-sm font-medium transition-all flex items-center gap-1"
+                                >
+                                  <Undo2 className="w-3.5 h-3.5" />
+                                  Undo
+                                </button>
+                              )}
+                            </>
                           ) : (
                             <button
                               onClick={() => manualCheckIn(ticket.id)}
@@ -761,9 +985,15 @@ function CheckinPageContent() {
                         </div>
                       </div>
                     ))}
-                  {tickets.length === 0 && !guestListLoading && (
+                  {filteredTickets.length === 0 && !guestListLoading && (
                     <div className="text-center py-10 text-[#737373]">
-                      {eventId ? 'No paid attendees found for this event yet.' : 'Select an event above to see the guest list.'}
+                      {!eventId
+                        ? 'No event selected: choose an assigned event above to load the guest list.'
+                        : accessibleEvents.length === 0
+                          ? 'No assigned events: ask an admin to assign this account to an event.'
+                          : tickets.length === 0
+                            ? 'No paid attendees found for this selected event yet.'
+                            : 'No attendees match the current search or status filter.'}
                     </div>
                   )}
                 </div>

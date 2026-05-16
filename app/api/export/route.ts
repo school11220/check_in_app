@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession, hasEventAccess } from '@/lib/auth';
+import { PAID_LIKE_STATUSES } from '@/lib/ticket-lifecycle';
 
 const ALLOWED_ROLES = ['ADMIN', 'ORGANIZER', 'ORGANISER'];
 
@@ -115,16 +116,16 @@ async function exportCheckins(eventId: string, event: any, format: string) {
 async function exportAnalytics(eventId: string, event: any, format: string) {
   const [totalTickets, paidTickets, checkedIn, ticketsForRevenue] = await Promise.all([
     prisma.ticket.count({ where: { eventId } }),
-    prisma.ticket.count({ where: { eventId, status: 'paid' } }),
+    prisma.ticket.count({ where: { eventId, status: { in: [...PAID_LIKE_STATUSES] } } }),
     prisma.ticket.count({ where: { eventId, checkedIn: true } }),
     prisma.ticket.findMany({
-      where: { eventId, status: { in: ['paid', 'refunded'] } },
+      where: { eventId, status: { in: [...PAID_LIKE_STATUSES, 'refunded'] } },
       select: { createdAt: true, status: true, amountPaid: true, Event: { select: { price: true } } },
     }),
   ]);
 
   const netRevenue = ticketsForRevenue
-    .filter((ticket: any) => ticket.status === 'paid')
+    .filter((ticket: any) => PAID_LIKE_STATUSES.includes(ticket.status))
     .reduce((sum: number, ticket: any) => sum + (ticket.amountPaid || ticket.Event.price || 0), 0);
   const refundedAmount = ticketsForRevenue
     .filter((ticket: any) => ticket.status === 'refunded')
@@ -132,7 +133,7 @@ async function exportAnalytics(eventId: string, event: any, format: string) {
 
   // Daily breakdown
   const dailyMap: Record<string, number> = {};
-  ticketsForRevenue.filter((ticket: any) => ticket.status === 'paid').forEach((t: any) => {
+  ticketsForRevenue.filter((ticket: any) => PAID_LIKE_STATUSES.includes(ticket.status)).forEach((t: any) => {
     const day = new Date(t.createdAt).toISOString().split('T')[0];
     dailyMap[day] = (dailyMap[day] || 0) + 1;
   });

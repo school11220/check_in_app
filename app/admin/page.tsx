@@ -28,7 +28,10 @@ import EventModal from '@/components/EventModal';
 import { useClerk, useUser } from '@clerk/nextjs';
 import { useDraggable } from '@/hooks/useDraggable';
 import MultiEventAnalytics from '@/components/admin/MultiEventAnalytics';
+import DashboardInsights from '@/components/DashboardInsights';
 
+const PAID_LIKE_STATUSES = new Set(['paid', 'partially_refunded']);
+const isPaidLikeTicket = (ticket: { status?: string }) => PAID_LIKE_STATUSES.has(ticket.status || '');
 
 export default function AdminPage() {
     const router = useRouter();
@@ -200,21 +203,21 @@ export default function AdminPage() {
         return matchesEvent && matchesSearch && matchesCheckIn;
     });
     const totalTickets = filteredTickets.length;
-    const paidTickets = filteredTickets.filter(t => t.status === 'paid').length;
+    const paidTickets = filteredTickets.filter(isPaidLikeTicket).length;
     const checkedIn = filteredTickets.filter(t => t.checkedIn).length;
 
     // Calculate revenue from PAID tickets only
     const totalRevenue = filteredTickets
-        .filter(t => t.status === 'paid')
+        .filter(isPaidLikeTicket)
         .reduce((sum, t) => {
             const event = events.find(e => e.id === t.eventId);
-            return sum + (event?.price || 0);
+            return sum + (t.amountPaid ?? event?.price ?? 0);
         }, 0);
 
     const salesByEvent = events.map(event => ({
         name: (event?.name || 'Unknown').split(' ')[0],
-        tickets: tickets.filter(t => t.eventId === event?.id && t.status === 'paid').length,
-        revenue: (tickets.filter(t => t.eventId === event?.id && t.status === 'paid').length * (event?.price || 0)) / 100,
+        tickets: tickets.filter(t => t.eventId === event?.id && isPaidLikeTicket(t)).length,
+        revenue: tickets.filter(t => t.eventId === event?.id && isPaidLikeTicket(t)).reduce((sum, ticket) => sum + (ticket.amountPaid ?? event?.price ?? 0), 0) / 100,
     }));
 
     const checkInData = [{ name: 'Checked In', value: checkedIn }, { name: 'Pending', value: paidTickets - checkedIn }];
@@ -1532,7 +1535,7 @@ export default function AdminPage() {
                                             'Venue': event.venue || '',
                                             'Price (₹)': ((event.price || 0) / 100).toFixed(2),
                                             'Capacity': event.capacity || 'Unlimited',
-                                            'Sold': tickets.filter(t => t.eventId === event.id && t.status === 'paid').length,
+                                            'Sold': tickets.filter(t => t.eventId === event.id && isPaidLikeTicket(t)).length,
                                             'Featured': event.isFeatured ? 'Yes' : 'No',
                                         }))}
                                         filename={`events-${new Date().toISOString().split('T')[0]}`}
@@ -1554,7 +1557,7 @@ export default function AdminPage() {
                                     const categoryStyle = CATEGORY_COLORS[event.category] || CATEGORY_COLORS.other;
                                     const capacity = event.capacity || 1; // Prevent division by zero
                                     // Calculate sold count from verified paid tickets only
-                                    const soldCount = tickets.filter(t => t.eventId === event.id && t.status === 'paid').length;
+                                    const soldCount = tickets.filter(t => t.eventId === event.id && isPaidLikeTicket(t)).length;
                                     const capacityPercent = Math.min(Math.round((soldCount / capacity) * 100), 100);
                                     const eventDate = event.date ? new Date(event.date) : null;
                                     const dateStr = eventDate && !isNaN(eventDate.getTime())
@@ -1767,8 +1770,8 @@ export default function AdminPage() {
                                                                         )}
                                                                     </td>
                                                                     <td className="px-6 py-4">
-                                                                        <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${ticket.status === 'paid' ? 'bg-green-900/50 text-green-400' : 'bg-yellow-900/50 text-yellow-400'}`}>
-                                                                            {ticket.status.toUpperCase()}
+                                                                        <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${ticket.checkedIn ? 'bg-blue-900/50 text-blue-300' : isPaidLikeTicket(ticket) ? 'bg-green-900/50 text-green-400' : ticket.status === 'refunded' || ticket.status === 'partially_refunded' ? 'bg-red-900/50 text-red-300' : 'bg-yellow-900/50 text-yellow-400'}`}>
+                                                                            {(ticket.checkedIn ? 'checked_in' : ticket.status).replace(/_/g, ' ').toUpperCase()}
                                                                         </span>
                                                                     </td>
                                                                     <td className="px-6 py-4">
@@ -2611,7 +2614,7 @@ export default function AdminPage() {
                                                 <div>
                                                     <p className="font-medium text-white">{event.name}</p>
                                                     <p className="text-xs text-zinc-500">
-                                                        {new Date(event.date).toLocaleDateString()} • {tickets.filter(t => t.eventId === event.id && t.status === 'paid').length}/{event.capacity} sold
+                                                        {new Date(event.date).toLocaleDateString()} • {tickets.filter(t => t.eventId === event.id && isPaidLikeTicket(t)).length}/{event.capacity} sold
                                                     </p>
                                                 </div>
                                             </div>
@@ -3160,6 +3163,8 @@ export default function AdminPage() {
                                 Sales Dashboard
                             </h2>
 
+                            <DashboardInsights />
+
                             {/* Revenue Stats */}
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                                 <div className="bg-gradient-to-br from-green-900/50 to-green-900/20 border border-green-800/50 rounded-2xl p-5">
@@ -3184,7 +3189,7 @@ export default function AdminPage() {
                                         </div>
                                         <span className="text-blue-300 text-sm">Tickets Sold</span>
                                     </div>
-                                    <p className="text-3xl font-bold text-white">{tickets.filter(t => t.status === 'paid').length}</p>
+                                    <p className="text-3xl font-bold text-white">{tickets.filter(isPaidLikeTicket).length}</p>
                                     <p className="text-blue-400 text-sm mt-1">Across {events.length} events</p>
                                 </div>
 
@@ -3211,7 +3216,7 @@ export default function AdminPage() {
                                         <span className="text-orange-300 text-sm">Sell-Through Rate</span>
                                     </div>
                                     <p className="text-3xl font-bold text-white">
-                                        {Math.round((tickets.filter(t => t.status === 'paid').length / events.reduce((acc, e) => acc + (e.capacity || 0), 0)) * 100) || 0}%
+                                        {Math.round((tickets.filter(isPaidLikeTicket).length / events.reduce((acc, e) => acc + (e.capacity || 0), 0)) * 100) || 0}%
                                     </p>
                                     <p className="text-orange-400 text-sm mt-1">Capacity utilization</p>
                                 </div>
@@ -3223,7 +3228,7 @@ export default function AdminPage() {
                                 <ChartCard title="Revenue by Event">
                                     <BarChart data={events.filter(e => e).slice(0, 5).map(e => ({
                                         name: e.name.slice(0, 15) + '...',
-                                        revenue: Math.round((tickets.filter(t => t.eventId === e.id && t.status === 'paid').length * e.price) / 100)
+                                        revenue: Math.round(tickets.filter(t => t.eventId === e.id && isPaidLikeTicket(t)).reduce((sum, ticket) => sum + (ticket.amountPaid ?? e.price ?? 0), 0) / 100)
                                     }))}>
                                         <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                                         <XAxis dataKey="name" tick={{ fill: '#9ca3af', fontSize: 12 }} />
@@ -3239,7 +3244,7 @@ export default function AdminPage() {
                                         <Pie
                                             data={Object.keys(CATEGORY_COLORS).filter(c => c !== 'other').map(cat => ({
                                                 name: cat.charAt(0).toUpperCase() + cat.slice(1),
-                                                value: events.filter(e => e && e.category === cat).reduce((s, e) => s + tickets.filter(t => t.eventId === e.id && t.status === 'paid').length, 0)
+                                                value: events.filter(e => e && e.category === cat).reduce((s, e) => s + tickets.filter(t => t.eventId === e.id && isPaidLikeTicket(t)).length, 0)
                                             })).filter(c => c.value > 0)}
                                             cx="50%" cy="50%" outerRadius={80} dataKey="value" label
                                         >
@@ -3273,21 +3278,21 @@ export default function AdminPage() {
                                                     <td className="px-4 py-3 text-sm text-white">{event.name}</td>
                                                     <td className="px-4 py-3 text-sm text-zinc-300">₹{(event.price / 100).toLocaleString()}</td>
                                                     <td className="px-4 py-3 text-sm text-zinc-300">
-                                                        {tickets.filter(t => t.eventId === event.id && t.status === 'paid').length}
+                                                        {tickets.filter(t => t.eventId === event.id && isPaidLikeTicket(t)).length}
                                                     </td>
                                                     <td className="px-4 py-3 text-sm text-zinc-300">{event.capacity}</td>
                                                     <td className="px-4 py-3 text-sm text-green-400 font-medium">
-                                                        ₹{((tickets.filter(t => t.eventId === event.id && t.status === 'paid').length * event.price) / 100).toLocaleString()}
+                                                        ₹{(tickets.filter(t => t.eventId === event.id && isPaidLikeTicket(t)).reduce((sum, ticket) => sum + (ticket.amountPaid ?? event.price ?? 0), 0) / 100).toLocaleString()}
                                                     </td>
                                                     <td className="px-4 py-3">
                                                         <div className="flex items-center gap-2">
                                                             <div className="w-20 h-2 bg-zinc-700 rounded-full overflow-hidden">
                                                                 <div
-                                                                    className={`h-full rounded-full ${(tickets.filter(t => t.eventId === event.id && t.status === 'paid').length / event.capacity) >= 0.9 ? 'bg-red-500' : (tickets.filter(t => t.eventId === event.id && t.status === 'paid').length / event.capacity) >= 0.7 ? 'bg-yellow-500' : 'bg-green-500'}`}
-                                                                    style={{ width: `${Math.min((tickets.filter(t => t.eventId === event.id && t.status === 'paid').length / event.capacity) * 100, 100)}%` }}
+                                                                    className={`h-full rounded-full ${(tickets.filter(t => t.eventId === event.id && isPaidLikeTicket(t)).length / event.capacity) >= 0.9 ? 'bg-red-500' : (tickets.filter(t => t.eventId === event.id && isPaidLikeTicket(t)).length / event.capacity) >= 0.7 ? 'bg-yellow-500' : 'bg-green-500'}`}
+                                                                    style={{ width: `${Math.min((tickets.filter(t => t.eventId === event.id && isPaidLikeTicket(t)).length / event.capacity) * 100, 100)}%` }}
                                                                 />
                                                             </div>
-                                                            <span className="text-xs text-zinc-400">{Math.round((tickets.filter(t => t.eventId === event.id && t.status === 'paid').length / event.capacity) * 100)}%</span>
+                                                            <span className="text-xs text-zinc-400">{Math.round((tickets.filter(t => t.eventId === event.id && isPaidLikeTicket(t)).length / event.capacity) * 100)}%</span>
                                                         </div>
                                                     </td>
                                                 </tr>
@@ -3457,4 +3462,3 @@ function ChartCard({ title, children }: { title: string; children: React.ReactNo
         </div>
     );
 }
-

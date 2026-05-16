@@ -81,8 +81,16 @@ export interface Ticket {
     email: string;
     phone: string;
     eventId: string;
-    status: 'pending' | 'paid' | 'cancelled' | 'refunded';
+    status: 'pending' | 'paid' | 'cancelled' | 'refunded' | 'partially_refunded' | 'checked_in';
+    lifecycleStatus?: string;
     amountPaid?: number;
+    grossAmount?: number;
+    discountAmount?: number;
+    refundedAmount?: number;
+    netAmount?: number;
+    paymentMethod?: string;
+    lastDeliveredAt?: string;
+    deliveryCount?: number;
     checkedIn: boolean;
     checkedInAt?: string;
     updatedAt?: string;

@@ -4,6 +4,7 @@ import { generateTimedQRToken } from '@/lib/qr-security';
 import { generateQRCodeBase64 } from '@/lib/qr-generator';
 import { authorizeTicketAccess } from '@/lib/ticket-access';
 import { generateTicketToken } from '@/lib/ticket-security';
+import { isPaidLikeStatus } from '@/lib/ticket-lifecycle';
 
 /**
  * GET /api/tickets/[id]/qr
@@ -35,7 +36,7 @@ export async function GET(
       return NextResponse.json({ error: 'Ticket token or authorized session required' }, { status: 401 });
     }
 
-    if (ticket.status === 'paid' && !ticket.token && (access.canManage || access.isOwner || access.hasValidToken)) {
+    if (isPaidLikeStatus(ticket.status) && !ticket.token && (access.canManage || access.isOwner || access.hasValidToken)) {
       ticket = await prisma.ticket.update({
         where: { id: ticketId },
         data: { token: generateTicketToken(ticketId) },
@@ -43,7 +44,7 @@ export async function GET(
       });
     }
 
-    if (ticket.status !== 'paid') {
+    if (!isPaidLikeStatus(ticket.status)) {
       return NextResponse.json({ error: 'Ticket is not valid' }, { status: 400 });
     }
 

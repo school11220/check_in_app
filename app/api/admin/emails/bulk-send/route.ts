@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { sendTransactionalEmail, isEmailConfigured } from '@/lib/email';
 import { auth, clerkClient } from '@clerk/nextjs/server';
+import { PAID_LIKE_STATUSES } from '@/lib/ticket-lifecycle';
 
 // NOTE: Emails are only sent when GMAIL_USER + GMAIL_APP_PASSWORD (or SMTP_*) env vars are set.
 
@@ -77,7 +78,7 @@ export async function POST(request: NextRequest) {
         const tickets = await prisma.ticket.findMany({
             where: {
                 eventId: eventId,
-                status: 'paid', // Only send to confirmed attendees
+                status: { in: [...PAID_LIKE_STATUSES] }, // Only send to confirmed attendees
                 email: { not: '' }
             }
         });

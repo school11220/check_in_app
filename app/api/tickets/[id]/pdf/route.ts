@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { generateTicketPDF } from '@/lib/pdf-generator';
 import { authorizeTicketAccess } from '@/lib/ticket-access';
 import { generateTicketToken } from '@/lib/ticket-security';
+import { isPaidLikeStatus } from '@/lib/ticket-lifecycle';
 
 export async function GET(
   req: NextRequest,
@@ -26,11 +27,11 @@ export async function GET(
     if (!access.allowed) {
       return NextResponse.json({ error: 'Ticket token or authorized session required' }, { status: 401 });
     }
-    if (ticket.status !== 'paid') {
+    if (!isPaidLikeStatus(ticket.status)) {
       return NextResponse.json({ error: 'Only paid tickets can be downloaded' }, { status: 400 });
     }
 
-    if (ticket.status === 'paid' && !ticket.token && (access.canManage || access.isOwner || access.hasValidToken)) {
+    if (isPaidLikeStatus(ticket.status) && !ticket.token && (access.canManage || access.isOwner || access.hasValidToken)) {
       ticket = await prisma.ticket.update({
         where: { id: ticketId },
         data: { token: generateTicketToken(ticketId) },

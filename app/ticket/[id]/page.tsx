@@ -15,7 +15,12 @@ interface TicketData {
   phone: string | null;
   eventId: string;
   status: string;
+  lifecycleStatus?: string;
   amountPaid?: number | null;
+  grossAmount?: number | null;
+  discountAmount?: number | null;
+  refundedAmount?: number | null;
+  netAmount?: number | null;
   token: string | null;
   checkedIn: boolean;
   createdAt: string;
@@ -60,9 +65,13 @@ export default function TicketPage() {
 
   const getDisplayAmount = () => {
     if (!ticket) return 0;
-    return ticket.amountPaid && ticket.amountPaid > 0
-      ? ticket.amountPaid
-      : ticket.event?.price || 0;
+    return ticket.netAmount ?? ticket.amountPaid ?? ticket.event?.price ?? 0;
+  };
+
+  const getDisplayStatus = () => {
+    if (!ticket) return '';
+    const status = ticket.lifecycleStatus || (ticket.checkedIn ? 'checked_in' : ticket.status);
+    return status.replace(/_/g, ' ').replace(/\b\w/g, char => char.toUpperCase());
   };
 
   // Handle Add to Calendar (.ics download)
@@ -471,6 +480,34 @@ export default function TicketPage() {
               <p className="text-sm opacity-70" style={{ color: siteSettings.ticketTextColor || '#ffffff' }}>{ticket.email}</p>
             </div>
 
+            {siteSettings.ticketShowPrice !== false && (
+              <div className="rounded-xl p-4 mb-6" style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}>
+                <div className="text-xs mb-3 opacity-70" style={{ color: siteSettings.ticketTextColor || '#ffffff' }}>PAYMENT SUMMARY</div>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <p className="text-xs opacity-60" style={{ color: siteSettings.ticketTextColor || '#ffffff' }}>Gross</p>
+                    <p className="font-semibold" style={{ color: siteSettings.ticketTextColor || '#ffffff' }}>{formatINR(ticket.grossAmount ?? ticket.event?.price ?? 0)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs opacity-60" style={{ color: siteSettings.ticketTextColor || '#ffffff' }}>Net Paid</p>
+                    <p className="font-semibold" style={{ color: siteSettings.ticketTextColor || '#ffffff' }}>{formatINR(getDisplayAmount())}</p>
+                  </div>
+                  {(ticket.discountAmount || 0) > 0 && (
+                    <div>
+                      <p className="text-xs opacity-60" style={{ color: siteSettings.ticketTextColor || '#ffffff' }}>Discount</p>
+                      <p className="font-semibold" style={{ color: siteSettings.ticketTextColor || '#ffffff' }}>{formatINR(ticket.discountAmount || 0)}</p>
+                    </div>
+                  )}
+                  {(ticket.refundedAmount || 0) > 0 && (
+                    <div>
+                      <p className="text-xs opacity-60" style={{ color: siteSettings.ticketTextColor || '#ffffff' }}>Refunded</p>
+                      <p className="font-semibold" style={{ color: siteSettings.ticketTextColor || '#ffffff' }}>{formatINR(ticket.refundedAmount || 0)}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* QR Code */}
             {qrCode && (siteSettings.ticketShowQrCode !== false) && (
               <div className={`flex flex-col ${siteSettings.ticketQrPosition === 'right' ? 'items-end' : siteSettings.ticketQrPosition === 'bottom' ? 'items-center' : 'items-center'}`}>
@@ -496,7 +533,7 @@ export default function TicketPage() {
                 {siteSettings.ticketShowPrice !== false && (
                   <>
                     <p className="text-xl font-bold font-mono" style={{ color: siteSettings.ticketTextColor || '#ffffff' }}>{formatINR(getDisplayAmount())}</p>
-                    <p className="text-xs opacity-70" style={{ color: siteSettings.ticketTextColor || '#ffffff' }}>{ticket.status === 'paid' ? 'Paid' : ticket.status}</p>
+                    <p className="text-xs opacity-70" style={{ color: siteSettings.ticketTextColor || '#ffffff' }}>{getDisplayStatus()}</p>
                   </>
                 )}
                 {siteSettings.ticketFooterText && (

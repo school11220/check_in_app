@@ -33,6 +33,14 @@ export interface CheckInResponse {
     email: string | null;
     eventId: string;
     checkedIn: boolean;
+    checkedInAt?: Date | string | null;
+    checkedInBy?: string | null;
+    lastCheckIn?: {
+      createdAt: Date | string;
+      performedBy: string;
+      performedRole: string;
+      deviceId?: string | null;
+    } | null;
     event?: {
       name: string;
     };

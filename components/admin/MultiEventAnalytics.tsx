@@ -6,6 +6,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, Line
 import { Users, CheckSquare, DollarSign, Star, TrendingUp, ChevronDown } from 'lucide-react';
 
 const PALETTE = ['#e11d2e', '#3b82f6', '#a855f7', '#f59e0b', '#22c55e', '#ec4899', '#0ea5e9', '#f97316'];
+const PAID_LIKE_STATUSES = new Set(['paid', 'partially_refunded']);
 
 type Metric = 'tickets' | 'checkins' | 'revenue' | 'checkinRate' | 'avgRating';
 
@@ -40,9 +41,9 @@ export default function MultiEventAnalytics() {
     // Derived per-event stats
     const eventStats = useMemo(() => {
         return events.map(event => {
-            const eventTickets = tickets.filter(t => t.eventId === event.id && t.status === 'paid');
+            const eventTickets = tickets.filter(t => t.eventId === event.id && PAID_LIKE_STATUSES.has(t.status));
             const checkedIn = eventTickets.filter(t => t.checkedIn).length;
-            const revenue = eventTickets.reduce((sum, t) => sum + (event.price || 0), 0);
+            const revenue = eventTickets.reduce((sum, t) => sum + (t.amountPaid ?? event.price ?? 0), 0);
             const checkinRate = eventTickets.length ? Math.round((checkedIn / eventTickets.length) * 100) : 0;
             const eventReviews = reviews.filter((r: any) => r.eventId === event.id && r.rating);
             const avgRating = eventReviews.length

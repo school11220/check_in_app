@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import QRScanner from '@/components/QRScanner';
 import OfflineBanner from '@/components/OfflineBanner';
 import { syncTicketsForEvent, offlineCheckIn, processBackgroundSync, getOfflineTicket } from '@/lib/offline-sync'; // Ensure getOfflineTicket is exported
-import { Wifi, WifiOff, RefreshCw, CheckCircle, XCircle, Loader2, User, Ticket as TicketIcon } from 'lucide-react';
+import { Wifi, WifiOff, RefreshCw, CheckCircle, XCircle, Loader2, User, Ticket as TicketIcon, Search, CalendarDays } from 'lucide-react';
 import { ParsedScanPayload, parseScanPayload } from '@/lib/scan-payload';
 
 interface Event {
@@ -16,11 +16,36 @@ interface Event {
 export default function ScannerPage() {
     const [events, setEvents] = useState<Event[]>([]);
     const [selectedEventId, setSelectedEventId] = useState<string>('');
+    const [eventSearch, setEventSearch] = useState('');
+    const [todayOnly, setTodayOnly] = useState(false);
     const [isOnline, setIsOnline] = useState(true);
     const [scanResult, setScanResult] = useState<{ success: boolean; message: string; data?: any } | null>(null);
     const [isSyncing, setIsSyncing] = useState(false);
     const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
     const [mode, setMode] = useState<'scan' | 'verify'>('scan');
+    const [deviceName, setDeviceName] = useState('');
+
+    const todayEvents = useMemo(() => {
+        const todayKey = new Date().toDateString();
+        return events.filter(event => new Date(event.date).toDateString() === todayKey);
+    }, [events]);
+
+    const visibleEvents = useMemo(() => {
+        const query = eventSearch.trim().toLowerCase();
+        return events.filter(event => {
+            const matchesToday = !todayOnly || todayEvents.some(todayEvent => todayEvent.id === event.id);
+            const matchesSearch = !query || event.name.toLowerCase().includes(query);
+            return matchesToday && matchesSearch;
+        });
+    }, [eventSearch, events, todayEvents, todayOnly]);
+
+    const chooseEvent = (eventId: string) => {
+        setSelectedEventId(eventId);
+        if (typeof window !== 'undefined') {
+            if (eventId) localStorage.setItem('eventhub:last-pwa-scanner-event', eventId);
+            else localStorage.removeItem('eventhub:last-pwa-scanner-event');
+        }
+    };
 
     // Load events on mount
     useEffect(() => {
@@ -28,9 +53,17 @@ export default function ScannerPage() {
         window.addEventListener('online', () => setIsOnline(true));
         window.addEventListener('offline', () => setIsOnline(false));
 
+        setDeviceName(localStorage.getItem('eventhub:scanner-device-name') || '');
+
         fetch('/api/events')
             .then(res => res.json())
-            .then(data => setEvents(data))
+            .then(data => {
+                setEvents(data);
+                const savedEventId = localStorage.getItem('eventhub:last-pwa-scanner-event');
+                if (savedEventId && Array.isArray(data) && data.some((event: Event) => event.id === savedEventId)) {
+                    setSelectedEventId(savedEventId);
+                }
+            })
             .catch(console.error);
 
         // Setup background sync interval
@@ -88,6 +121,7 @@ export default function ScannerPage() {
                         ticketId: parsed.ticketId,
                         token: parsed.token,
                         timedToken: parsed.timedToken,
+                        deviceName: deviceName || undefined,
                     })
                 });
 
@@ -179,7 +213,7 @@ export default function ScannerPage() {
             return;
         }
 
-        if (ticket.status !== 'paid') {
+        if (!['paid', 'partially_refunded'].includes(ticket.status)) {
             setScanResult({ success: false, message: `Ticket payment is ${ticket.status}` });
             return;
         }
@@ -196,10 +230,38 @@ export default function ScannerPage() {
             <div className="min-h-screen bg-black text-white p-6 flex flex-col items-center justify-center">
                 <h1 className="text-2xl font-bold mb-8">Select Event</h1>
                 <div className="w-full max-w-md space-y-4">
-                    {events.map(event => (
+                    <div className="grid grid-cols-[1fr_auto] gap-2">
+                        <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+                            <input
+                                value={eventSearch}
+                                onChange={(event) => setEventSearch(event.target.value)}
+                                placeholder="Search assigned events..."
+                                className="w-full pl-10 pr-3 py-3 bg-zinc-900 border border-zinc-800 rounded-lg text-white outline-none focus:border-red-500"
+                            />
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setTodayOnly(value => !value)}
+                            className={`px-3 py-3 rounded-lg border text-sm flex items-center gap-1 ${todayOnly ? 'bg-red-600 border-red-600 text-white' : 'bg-zinc-900 border-zinc-800 text-zinc-300'}`}
+                        >
+                            <CalendarDays className="w-4 h-4" />
+                            Today
+                        </button>
+                    </div>
+                    <input
+                        value={deviceName}
+                        onChange={(event) => {
+                            setDeviceName(event.target.value);
+                            localStorage.setItem('eventhub:scanner-device-name', event.target.value);
+                        }}
+                        placeholder="Scanner device/session name"
+                        className="w-full px-4 py-3 bg-zinc-900 border border-zinc-800 rounded-lg text-white outline-none focus:border-red-500"
+                    />
+                    {visibleEvents.map(event => (
                         <button
                             key={event.id}
-                            onClick={() => setSelectedEventId(event.id)}
+                            onClick={() => chooseEvent(event.id)}
                             className="w-full p-4 bg-zinc-900 rounded-lg text-left hover:bg-zinc-800 transition border border-zinc-800"
                         >
                             <div className="font-medium text-lg text-white">{event.name}</div>
@@ -207,7 +269,10 @@ export default function ScannerPage() {
                         </button>
                     ))}
                     {events.length === 0 && (
-                        <div className="text-zinc-500 text-center">Loading events...</div>
+                        <div className="text-zinc-500 text-center">No assigned events are available for scanning.</div>
+                    )}
+                    {events.length > 0 && visibleEvents.length === 0 && (
+                        <div className="text-zinc-500 text-center">No assigned events match the current search/filter.</div>
                     )}
                 </div>
             </div>
@@ -219,7 +284,7 @@ export default function ScannerPage() {
             {/* Header */}
             <div className="p-4 bg-zinc-900 border-b border-zinc-800 flex justify-between items-center z-10">
                 <button
-                    onClick={() => setSelectedEventId('')}
+                    onClick={() => chooseEvent('')}
                     className="text-zinc-400 text-sm hover:text-white"
                 >
                     change event

@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { getSession, hasEventAccess, hasRole, CHECKIN_ROLES } from '@/lib/auth';
 import { generateAuditChecksum } from '@/lib/qr-security';
+import { isPaidLikeStatus } from '@/lib/ticket-lifecycle';
 
 export async function POST(request: NextRequest) {
     try {
@@ -38,7 +39,7 @@ export async function POST(request: NextRequest) {
                     continue;
                 }
 
-                if (ticket.status !== 'paid') {
+                if (!isPaidLikeStatus(ticket.status)) {
                     results.push({ ticketId, success: false, error: 'Ticket not paid' });
                     continue;
                 }

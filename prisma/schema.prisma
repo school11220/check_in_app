@@ -173,11 +173,18 @@ model Ticket {
   razorpayOrderId   String?
   razorpayPaymentId String?
   amountPaid        Int          @default(0)
+  grossAmount       Int          @default(0)
+  discountAmount    Int          @default(0)
+  refundedAmount    Int          @default(0)
+  paymentMethod     String?
   checkedIn         Boolean      @default(false)
   checkedInAt       DateTime?
   checkedInBy       String?
   certificateSent   Boolean      @default(false)
   purchaseGroupId   String?
+  cancelledAt       DateTime?
+  lastDeliveredAt   DateTime?
+  deliveryCount     Int          @default(0)
   createdAt         DateTime     @default(now())
   updatedAt         DateTime
   customAnswers     Json         @default("{}")
@@ -186,6 +193,7 @@ model Ticket {
   Event             Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
   User              User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
   CheckInLogs       CheckInLog[]
+  DeliveryLogs      TicketDeliveryLog[]
 
   @@index([email])
   @@index([eventId])
@@ -194,6 +202,7 @@ model Ticket {
   @@index([token])
   @@index([eventId, status])
   @@index([userId])
+  @@index([paymentMethod])
 }
 
 model CheckInLog {
@@ -206,6 +215,7 @@ model CheckInLog {
   ipAddress     String?
   userAgent     String?
   deviceId      String?  // for offline sync identification
+  reason        String?
   checksum      String   // HMAC of ticketId+action+timestamp for tamper evidence
   syncedAt      DateTime? // null if created online, set when offline record syncs
   createdAt     DateTime @default(now())
@@ -215,6 +225,40 @@ model CheckInLog {
   @@index([eventId])
   @@index([createdAt])
   @@index([performedBy])
+}
+
+model TicketDeliveryLog {
+  id          String   @id @default(uuid())
+  ticketId    String
+  channel     String
+  recipient   String?
+  success     Boolean
+  error       String?
+  requestedBy String?
+  createdAt   DateTime @default(now())
+  ticket      Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+  @@index([channel])
+  @@index([createdAt])
+}
+
+model SecurityEvent {
+  id        String   @id @default(uuid())
+  type      String
+  key       String
+  ticketId  String?
+  eventId   String?
+  ipAddress String?
+  userAgent String?
+  details   Json?
+  createdAt DateTime @default(now())
+
+  @@index([type])
+  @@index([key])
+  @@index([ticketId])
+  @@index([eventId])
+  @@index([createdAt])
 }
 
 model PromoCodeRecord {

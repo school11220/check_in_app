@@ -16,7 +16,12 @@ export async function GET(req: NextRequest) {
   try {
     const { userId } = await auth();
     if (!userId) return NextResponse.json({ error: 'Auth required' }, { status: 401 });
-    const role = await getUserRole(userId);
+    const client = await clerkClient();
+    const user = await client.users.getUser(userId);
+    const role = (user.publicMetadata?.role as string) || 'UNAUTHORIZED';
+    const assignedEventIds = Array.isArray(user.publicMetadata?.assignedEventIds)
+      ? user.publicMetadata.assignedEventIds as string[]
+      : [];
     if (!['ADMIN', 'ORGANIZER', 'ORGANISER'].includes(role)) {
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
     }
@@ -39,6 +44,10 @@ export async function GET(req: NextRequest) {
         isEnabled: s.isEnabled,
         createdAt: s.createdAt,
       };
+    }).filter((device) => {
+      if (role === 'ADMIN') return true;
+      const eventIds = Array.isArray(device.eventIds) ? device.eventIds : [];
+      return eventIds.length === 0 || assignedEventIds.some((eventId: string) => eventIds.includes(eventId));
     });
 
     return NextResponse.json(devices);
@@ -104,8 +113,15 @@ export async function PATCH(req: NextRequest) {
   try {
     const { userId } = await auth();
     if (!userId) return NextResponse.json({ error: 'Auth required' }, { status: 401 });
-    const role = await getUserRole(userId);
-    if (role !== 'ADMIN') return NextResponse.json({ error: 'Admin only' }, { status: 403 });
+    const client = await clerkClient();
+    const user = await client.users.getUser(userId);
+    const role = (user.publicMetadata?.role as string) || 'UNAUTHORIZED';
+    const assignedEventIds = Array.isArray(user.publicMetadata?.assignedEventIds)
+      ? user.publicMetadata.assignedEventIds as string[]
+      : [];
+    if (!['ADMIN', 'ORGANIZER', 'ORGANISER'].includes(role)) {
+      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
+    }
 
     const body = await req.json();
     const { id, name, assignedUserId, assignedUserName, eventIds, isEnabled } = body;
@@ -118,15 +134,22 @@ export async function PATCH(req: NextRequest) {
     }
 
     const config = { ...(existing.config as any) };
-    if (assignedUserId !== undefined) config.assignedUserId = assignedUserId;
-    if (assignedUserName !== undefined) config.assignedUserName = assignedUserName;
-    if (eventIds !== undefined) config.eventIds = eventIds;
+    if (role === 'ADMIN') {
+      if (assignedUserId !== undefined) config.assignedUserId = assignedUserId;
+      if (assignedUserName !== undefined) config.assignedUserName = assignedUserName;
+      if (eventIds !== undefined) config.eventIds = eventIds;
+    } else if (eventIds !== undefined) {
+      if (!Array.isArray(eventIds) || eventIds.some((eventId: string) => !assignedEventIds.includes(eventId))) {
+        return NextResponse.json({ error: 'Organizers can only assign scanners to their own events' }, { status: 403 });
+      }
+      config.eventIds = eventIds;
+    }
 
     const updated = await prisma.integration.update({
       where: { id },
       data: {
-        name: name || existing.name,
-        isEnabled: isEnabled !== undefined ? isEnabled : existing.isEnabled,
+        name: role === 'ADMIN' ? (name || existing.name) : existing.name,
+        isEnabled: role === 'ADMIN' && isEnabled !== undefined ? isEnabled : existing.isEnabled,
         config,
         updatedAt: new Date(),
       },

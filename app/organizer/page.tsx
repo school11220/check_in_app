@@ -9,6 +9,8 @@ import SessionScheduler from '@/components/admin/SessionScheduler';
 import EventAttendees from '@/components/organizer/EventAttendees';
 import EventReviews from '@/components/organizer/EventReviews';
 import EventModal from '@/components/EventModal';
+import DashboardInsights from '@/components/DashboardInsights';
+import ScannerAssignmentManager from '@/components/ScannerAssignmentManager';
 import { useClerk } from '@clerk/nextjs';
 import { Event } from '@/lib/store';
 
@@ -229,8 +231,17 @@ export default function OrganizerDashboard() {
                         {/* Quick Actions */}
                         {selectedEvent && (
                             <div className="bg-[#141414] border border-[#1F1F1F] p-5 rounded-2xl">
-                                <h3 className="text-lg font-semibold text-white mb-4">Quick Actions</h3>
-                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                                    <h3 className="text-lg font-semibold text-white">Quick Actions</h3>
+                                    <select
+                                        value={selectedEvent.id}
+                                        onChange={(event) => setSelectedEventId(event.target.value)}
+                                        className="px-3 py-2 bg-[#0D0D0D] border border-[#1F1F1F] text-white rounded-xl text-sm"
+                                    >
+                                        {events.map(event => <option key={event.id} value={event.id}>{event.name}</option>)}
+                                    </select>
+                                </div>
+                                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
                                     <button
                                         onClick={() => window.open(`/checkin?event=${selectedEvent.id}`, '_blank')}
                                         className="p-4 bg-[#1A1A1A] border border-[#1F1F1F] rounded-xl hover:bg-[#222] transition-colors text-center"
@@ -262,9 +273,18 @@ export default function OrganizerDashboard() {
                                         <Globe className="w-6 h-6 mx-auto mb-2 text-[#E11D2E]" />
                                         <span className="text-sm text-white">Public Page</span>
                                     </button>
+                                    <button
+                                        onClick={() => setActiveTab('sales')}
+                                        className="p-4 bg-[#1A1A1A] border border-[#1F1F1F] rounded-xl hover:bg-[#222] transition-colors text-center"
+                                    >
+                                        <BarChart3 className="w-6 h-6 mx-auto mb-2 text-[#E11D2E]" />
+                                        <span className="text-sm text-white">Reports</span>
+                                    </button>
                                 </div>
                             </div>
                         )}
+                        {selectedEvent && <DashboardInsights eventId={selectedEvent.id} compact />}
+                        <ScannerAssignmentManager events={events} />
                     </div>
                 )}
 
@@ -343,6 +363,7 @@ export default function OrganizerDashboard() {
 
                 {/* Sales Control Tab */}
                 {activeTab === 'sales' && selectedEvent && (
+                    <div className="space-y-6">
                     <div className="bg-[#141414] border border-[#1F1F1F] rounded-2xl p-6 md:p-8 max-w-2xl mx-auto">
                         <div className="text-center mb-8">
                             <h2 className="text-2xl font-bold text-white mb-2">Sales Control</h2>
@@ -405,6 +426,8 @@ export default function OrganizerDashboard() {
                                 </div>
                             </div>
                         </div>
+                    </div>
+                    <DashboardInsights eventId={selectedEvent.id} compact />
                     </div>
                 )}
 

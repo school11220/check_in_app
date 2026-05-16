@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { auth, clerkClient } from '@clerk/nextjs/server';
 import { sendCertificateEmail } from '@/lib/ticket-email';
+import { PAID_LIKE_STATUSES } from '@/lib/ticket-lifecycle';
 
 export async function POST(req: NextRequest) {
     try {
@@ -32,7 +33,7 @@ export async function POST(req: NextRequest) {
         // Find target tickets
         const where: any = {
             eventId,
-            status: { in: ['paid', 'confirmed', 'checked-in'] },
+            status: { in: [...PAID_LIKE_STATUSES, 'checked_in'] },
             certificateSent: false, // Don't resend
         };
 

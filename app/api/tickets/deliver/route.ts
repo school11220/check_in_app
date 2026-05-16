@@ -7,6 +7,7 @@ import { sendTicketConfirmationSMS } from '@/lib/sms';
 import { getSession, hasEventAccess, hasRole, ORGANIZER_ROLES } from '@/lib/auth';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { ticketTokenMatches } from '@/lib/ticket-security';
+import { isPaidLikeStatus } from '@/lib/ticket-lifecycle';
 
 // POST: Send ticket via email and/or SMS
 export async function POST(req: NextRequest) {
@@ -41,7 +42,7 @@ export async function POST(req: NextRequest) {
     if (!canManageTicket && !hasValidToken) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    if (ticket.status !== 'paid') {
+    if (!isPaidLikeStatus(ticket.status)) {
       return NextResponse.json({ error: 'Only paid tickets can be delivered' }, { status: 400 });
     }
 
@@ -188,6 +189,41 @@ export async function POST(req: NextRequest) {
       } catch (smsErr: any) {
         results.sms = { success: false, error: smsErr.message };
       }
+    }
+
+    const deliveryLogs = [];
+    if (shouldSendEmail && ticket.email && results.email) {
+      deliveryLogs.push({
+        ticketId: ticket.id,
+        channel: 'email',
+        recipient: ticket.email,
+        success: Boolean(results.email.success),
+        error: results.email.error || results.email.message || null,
+        requestedBy: session?.user.id || null,
+      });
+    }
+    if (shouldSendSMS && ticket.phone && results.sms) {
+      deliveryLogs.push({
+        ticketId: ticket.id,
+        channel: 'sms',
+        recipient: ticket.phone,
+        success: Boolean(results.sms.success),
+        error: results.sms.error || results.sms.message || null,
+        requestedBy: session?.user.id || null,
+      });
+    }
+
+    if (deliveryLogs.length > 0) {
+      await prisma.$transaction([
+        prisma.ticketDeliveryLog.createMany({ data: deliveryLogs }),
+        prisma.ticket.update({
+          where: { id: ticket.id },
+          data: {
+            lastDeliveredAt: new Date(),
+            deliveryCount: { increment: 1 },
+          },
+        }),
+      ]);
     }
 
     return NextResponse.json({

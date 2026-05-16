@@ -4,6 +4,7 @@ import { sendEmail, isEmailConfigured } from '@/lib/email';
 import { fireWebhook } from '@/lib/webhooks';
 import { getSession, hasEventAccess, hasRole, ORGANIZER_ROLES } from '@/lib/auth';
 import { enforceRateLimit } from '@/lib/rate-limit';
+import { isPaidLikeStatus } from '@/lib/ticket-lifecycle';
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,7 +16,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
     }
 
-    const rateLimited = await enforceRateLimit(request, 'ticket-refund', { requests: 10, window: '1 m' }, session.user.id);
+    const rateLimited = await enforceRateLimit(request, 'ticket-refund', { requests: 5, window: '1 m' }, session.user.id);
     if (rateLimited) return rateLimited;
 
     const body = await request.json();
@@ -42,11 +43,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Ticket already refunded' }, { status: 400 });
     }
 
-    if (ticket.status !== 'paid') {
+    if (!isPaidLikeStatus(ticket.status)) {
       return NextResponse.json({ error: 'Only paid tickets can be refunded' }, { status: 400 });
     }
 
     const paidAmount = ticket.amountPaid || ticket.Event.price || 0;
+    const refundedToDate = ticket.refundedAmount || 0;
     const requestedRefund = refundType === 'partial' && refundAmount ? Number(refundAmount) : paidAmount;
     const actualRefund = Math.min(Math.max(0, requestedRefund), paidAmount);
     if (actualRefund <= 0) {
@@ -88,8 +90,9 @@ export async function POST(request: NextRequest) {
       prisma.ticket.update({
         where: { id: ticketId },
         data: {
-          status: fullRefund ? 'refunded' : 'paid',
-          amountPaid: fullRefund ? paidAmount : paidAmount - actualRefund,
+          status: fullRefund ? 'refunded' : 'partially_refunded',
+          amountPaid: fullRefund ? 0 : paidAmount - actualRefund,
+          refundedAmount: refundedToDate + actualRefund,
         },
         include: { Event: true },
       }),
@@ -112,6 +115,8 @@ export async function POST(request: NextRequest) {
             reason,
             refundType,
             amount: actualRefund,
+            refundedToDate: refundedToDate + actualRefund,
+            netAmountAfterRefund: fullRefund ? 0 : paidAmount - actualRefund,
             razorpayRefundId: razorpayRefund?.id || null,
             originalPaymentId: ticket.razorpayPaymentId,
             attendeeName: ticket.name,
@@ -172,6 +177,8 @@ ${razorpayRefund ? `<p style="margin:8px 0 0;color:#888;">Refund ID: ${razorpayR
       ticketId,
       refundAmount: actualRefund,
       refundType,
+      refundedToDate: refundedToDate + actualRefund,
+      netAmount: fullRefund ? 0 : paidAmount - actualRefund,
       razorpayRefund,
       message: 'Ticket refunded successfully',
     });

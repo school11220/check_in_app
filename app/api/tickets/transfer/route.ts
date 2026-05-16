@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { authorizeTicketAccess } from '@/lib/ticket-access';
 import { generateTransferToken } from '@/lib/ticket-security';
 import { enforceRateLimit } from '@/lib/rate-limit';
+import { isPaidLikeStatus } from '@/lib/ticket-lifecycle';
 
 export async function POST(request: NextRequest) {
     try {
@@ -16,7 +17,7 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        const rateLimited = await enforceRateLimit(request, 'ticket-transfer', { requests: 5, window: '1 m' }, ticketId);
+        const rateLimited = await enforceRateLimit(request, 'ticket-transfer', { requests: 3, window: '1 m' }, ticketId);
         if (rateLimited) return rateLimited;
 
         const ticket = await prisma.ticket.findUnique({
@@ -28,7 +29,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Ticket not found' }, { status: 404 });
         }
 
-        if (ticket.status !== 'paid') {
+        if (!isPaidLikeStatus(ticket.status)) {
             return NextResponse.json({ error: 'Only paid tickets can be transferred' }, { status: 400 });
         }
 

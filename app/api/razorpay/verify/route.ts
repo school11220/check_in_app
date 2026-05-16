@@ -5,11 +5,13 @@ import { enforceRateLimit } from '@/lib/rate-limit';
 import Razorpay from 'razorpay';
 import { allocatePaidAmount, calculateTicketUnitPrice } from '@/lib/pricing';
 import { generateTicketToken, timingSafeStringEqual } from '@/lib/ticket-security';
+import { isPaidLikeStatus } from '@/lib/ticket-lifecycle';
+import { logSecurityEvent } from '@/lib/security-events';
 
 // Verify Razorpay payment
 export async function POST(request: NextRequest) {
     try {
-        const rateLimited = await enforceRateLimit(request, 'razorpay-verify', { requests: 20, window: '1 m' });
+        const rateLimited = await enforceRateLimit(request, 'razorpay-verify', { requests: 10, window: '1 m' });
         if (rateLimited) return rateLimited;
 
         const body = await request.json();
@@ -29,6 +31,12 @@ export async function POST(request: NextRequest) {
 
         if (!timingSafeStringEqual(expectedSignature, razorpay_signature)) {
             console.error('Invalid payment signature');
+            await logSecurityEvent(request, {
+                type: 'payment_failed',
+                key: `razorpay:${razorpay_order_id || 'missing-order'}`,
+                ticketId: ticketId || null,
+                details: { reason: 'invalid_signature', razorpay_order_id, razorpay_payment_id },
+            });
             return NextResponse.json({ error: 'Invalid payment signature' }, { status: 400 });
         }
 
@@ -44,6 +52,12 @@ export async function POST(request: NextRequest) {
 
         const payment = await razorpay.payments.fetch(razorpay_payment_id);
         if (!payment || payment.order_id !== razorpay_order_id || !['authorized', 'captured'].includes(payment.status || '')) {
+            await logSecurityEvent(request, {
+                type: 'payment_failed',
+                key: `razorpay:${razorpay_order_id || 'missing-order'}`,
+                ticketId: ticketId || null,
+                details: { reason: 'gateway_status_mismatch', status: payment?.status, payment_order_id: payment?.order_id },
+            });
             return NextResponse.json({ error: 'Payment could not be verified with Razorpay' }, { status: 400 });
         }
 
@@ -71,12 +85,12 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Order contains tickets from multiple events' }, { status: 400 });
         }
 
-        const invalidTicket = orderTickets.find((ticket) => !['pending', 'paid'].includes(ticket.status));
+        const invalidTicket = orderTickets.find((ticket) => !['pending', 'paid', 'partially_refunded'].includes(ticket.status));
         if (invalidTicket) {
             return NextResponse.json({ error: 'Order contains a ticket that cannot be marked as paid' }, { status: 400 });
         }
 
-        const newlyPaidTickets = orderTickets.filter((ticket) => ticket.status !== 'paid');
+        const newlyPaidTickets = orderTickets.filter((ticket) => !['paid', 'partially_refunded'].includes(ticket.status));
 
         const updatedTickets = await prisma.$transaction(async (tx) => {
             const updated = [];
@@ -87,6 +101,22 @@ export async function POST(request: NextRequest) {
 
             for (let index = 0; index < orderTickets.length; index++) {
                 const ticket = orderTickets[index];
+                if (isPaidLikeStatus(ticket.status)) {
+                    updated.push(await tx.ticket.update({
+                        where: { id: ticket.id },
+                        data: {
+                            razorpayPaymentId: ticket.razorpayPaymentId || razorpay_payment_id,
+                            razorpayOrderId: ticket.razorpayOrderId || razorpay_order_id,
+                            paymentMethod: ticket.paymentMethod || 'razorpay',
+                            token: ticket.token || generateTicketToken(ticket.id),
+                        },
+                        include: { Event: true },
+                    }));
+                    continue;
+                }
+
+                const grossAmount = calculateTicketUnitPrice(ticket.Event as any, ticket.createdAt);
+                const discountAmount = allocatePaidAmount(totalDiscount, orderTickets.length, index);
                 updated.push(await tx.ticket.update({
                     where: { id: ticket.id },
                     data: {
@@ -94,6 +124,10 @@ export async function POST(request: NextRequest) {
                         razorpayPaymentId: razorpay_payment_id,
                         razorpayOrderId: razorpay_order_id,
                         amountPaid: allocatePaidAmount(paidTotal, orderTickets.length, index),
+                        grossAmount,
+                        discountAmount,
+                        refundedAmount: 0,
+                        paymentMethod: 'razorpay',
                         token: ticket.token || generateTicketToken(ticket.id),
                     },
                     include: { Event: true },

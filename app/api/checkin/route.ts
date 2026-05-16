@@ -6,6 +6,8 @@ import { fireWebhook } from '@/lib/webhooks';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { getSession, hasEventAccess } from '@/lib/auth';
 import { ticketTokenMatches } from '@/lib/ticket-security';
+import { isPaidLikeStatus, PAID_LIKE_STATUSES } from '@/lib/ticket-lifecycle';
+import { isSecurityKeyBlocked, logSecurityEvent } from '@/lib/security-events';
 
 const ALLOWED_ROLES = ['ADMIN', 'ORGANIZER', 'ORGANISER', 'SCANNER'];
 
@@ -68,7 +70,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { ticketId, token, timedToken, deviceId, offlineTimestamp } = body;
+    const { ticketId, token, timedToken, deviceId, deviceName, offlineTimestamp, reason } = body;
     const action = body.action || 'checkin';
 
     if (!ticketId) {
@@ -78,19 +80,32 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const invalidTicketKey = `ticket:${ticketId}`;
+    if (await isSecurityKeyBlocked('invalid_checkin_token', invalidTicketKey, 10, 10 * 60 * 1000)) {
+      return NextResponse.json<CheckInResponse>(
+        { success: false, message: 'Too many invalid scan attempts for this ticket. Try again later.' },
+        { status: 429 }
+      );
+    }
+
     const ticket = await prisma.ticket.findUnique({
       where: { id: ticketId },
       include: { Event: true },
     });
 
     if (!ticket) {
+      await logSecurityEvent(req, {
+        type: 'invalid_ticket_id',
+        key: `user:${userId}`,
+        ticketId,
+      });
       return NextResponse.json<CheckInResponse>(
         { success: false, message: 'Ticket not found' },
         { status: 404 }
       );
     }
 
-    if (ticket.status !== 'paid') {
+    if (!isPaidLikeStatus(ticket.status)) {
       return NextResponse.json<CheckInResponse>(
         { success: false, message: `Ticket payment is ${ticket.status}` },
         { status: 400 }
@@ -107,12 +122,19 @@ export async function POST(req: NextRequest) {
     // --- Token verification: support timed QR tokens OR plain HMAC tokens ---
     let tokenValid = false;
 
-    if (action === 'manual_checkin') {
+    if (action === 'manual_checkin' || action === 'undo_checkin') {
       tokenValid = true;
     } else if (timedToken && ticket.token) {
       // Timed QR token (enhanced security with expiry + replay protection)
       const qrResult = verifyTimedQRToken(timedToken, ticket.token);
       if (!qrResult.valid) {
+        await logSecurityEvent(req, {
+          type: 'invalid_checkin_token',
+          key: invalidTicketKey,
+          ticketId,
+          eventId: ticket.eventId,
+          details: { reason: qrResult.reason || 'invalid_timed_qr' },
+        });
         return NextResponse.json<CheckInResponse>(
           { success: false, message: qrResult.reason || 'Invalid timed QR token' },
           { status: 403 }
@@ -133,6 +155,12 @@ export async function POST(req: NextRequest) {
     } else if (token) {
       // Plain token stored on the ticket (backwards compatible with generated HMAC tokens).
       if (!ticketTokenMatches(ticket.token, token)) {
+        await logSecurityEvent(req, {
+          type: 'invalid_checkin_token',
+          key: invalidTicketKey,
+          ticketId,
+          eventId: ticket.eventId,
+        });
         return NextResponse.json<CheckInResponse>(
           { success: false, message: 'Invalid ticket token' },
           { status: 403 }
@@ -142,6 +170,13 @@ export async function POST(req: NextRequest) {
     }
 
     if (!tokenValid) {
+      await logSecurityEvent(req, {
+        type: 'invalid_checkin_token',
+        key: invalidTicketKey,
+        ticketId,
+        eventId: ticket.eventId,
+        details: { reason: 'missing_token' },
+      });
       return NextResponse.json<CheckInResponse>(
         { success: false, message: 'Token is required for check-in' },
         { status: 400 }
@@ -182,6 +217,8 @@ export async function POST(req: NextRequest) {
             performedRole: role,
             ipAddress: req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown',
             userAgent: req.headers.get('user-agent') || 'unknown',
+            deviceId: deviceId || deviceName || null,
+            reason: reason || null,
             checksum: undoChecksum,
             createdAt: undoAt,
           },
@@ -207,6 +244,11 @@ export async function POST(req: NextRequest) {
 
     // --- Standard check-in ---
     if (ticket.checkedIn) {
+      const latestCheckIn = await prisma.checkInLog.findFirst({
+        where: { ticketId, action: { in: ['checkin', 'offline_checkin', 'manual_checkin'] } },
+        orderBy: { createdAt: 'desc' },
+        select: { createdAt: true, performedBy: true, performedRole: true, deviceId: true },
+      }).catch(() => null);
       await logDuplicateAttempt({ ticketId, eventId: ticket.eventId, action: 'duplicate_attempt', userId, role, req });
       return NextResponse.json<CheckInResponse>(
         {
@@ -215,7 +257,10 @@ export async function POST(req: NextRequest) {
           ticket: {
             id: ticket.id, name: ticket.name, email: ticket.email,
             eventId: ticket.eventId, checkedIn: ticket.checkedIn,
-            event: { name: ticket.Event.name }
+            checkedInAt: ticket.checkedInAt,
+            checkedInBy: ticket.checkedInBy,
+            event: { name: ticket.Event.name },
+            lastCheckIn: latestCheckIn,
           }
         },
         { status: 400 }
@@ -254,7 +299,8 @@ export async function POST(req: NextRequest) {
           performedRole: role,
           ipAddress: req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown',
           userAgent: req.headers.get('user-agent') || 'unknown',
-          deviceId: deviceId || null,
+          deviceId: deviceId || deviceName || null,
+          reason: reason || null,
           checksum,
           syncedAt: deviceId ? now : null,
           createdAt: actionAt,
@@ -316,10 +362,10 @@ export async function GET(req: NextRequest) {
 
     if (type === 'stats' && eventId) {
       const [total, checkedIn, recentCheckins] = await Promise.all([
-        prisma.ticket.count({ where: { eventId, status: 'paid' } }),
-        prisma.ticket.count({ where: { eventId, status: 'paid', checkedIn: true } }),
+        prisma.ticket.count({ where: { eventId, status: { in: [...PAID_LIKE_STATUSES] } } }),
+        prisma.ticket.count({ where: { eventId, status: { in: [...PAID_LIKE_STATUSES] }, checkedIn: true } }),
         prisma.ticket.findMany({
-          where: { eventId, status: 'paid', checkedIn: true },
+          where: { eventId, status: { in: [...PAID_LIKE_STATUSES] }, checkedIn: true },
           orderBy: { checkedInAt: 'desc' },
           take: 20,
           include: { Event: { select: { name: true } } },
@@ -369,7 +415,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Default: history of checked-in tickets
-    const where: any = { checkedIn: true, status: 'paid' };
+    const where: any = { checkedIn: true, status: { in: [...PAID_LIKE_STATUSES] } };
     if (eventId) where.eventId = eventId;
 
     const checkedInTickets = await prisma.ticket.findMany({

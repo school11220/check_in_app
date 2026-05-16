@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { sendTransactionalEmail, isEmailConfigured } from '@/lib/email';
 import { auth, clerkClient } from '@clerk/nextjs/server';
+import { PAID_LIKE_STATUSES } from '@/lib/ticket-lifecycle';
 
 async function requireAdmin() {
     const { userId } = await auth();
@@ -54,7 +55,7 @@ export async function POST(request: NextRequest) {
 
         // Fetch all paid tickets for this event
         const tickets = await prisma.ticket.findMany({
-            where: { eventId: campaign.eventId, status: 'paid', email: { not: '' } },
+            where: { eventId: campaign.eventId, status: { in: [...PAID_LIKE_STATUSES] }, email: { not: '' } },
         });
 
         // Fetch all email templates once

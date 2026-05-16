@@ -1,11 +1,12 @@
 import { prisma } from '../lib/prisma';
+import { PAID_LIKE_STATUSES } from '../lib/ticket-lifecycle';
 
 async function main() {
   const [events, paidCounts] = await Promise.all([
     prisma.event.findMany({ select: { id: true, soldCount: true } }),
     prisma.ticket.groupBy({
       by: ['eventId'],
-      where: { status: 'paid' },
+      where: { status: { in: [...PAID_LIKE_STATUSES] } },
       _count: { id: true },
     }),
   ]);

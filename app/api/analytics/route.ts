@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { PAID_LIKE_STATUSES } from '@/lib/ticket-lifecycle';
 
 export async function GET(request: NextRequest) {
     try {
@@ -26,7 +27,7 @@ export async function GET(request: NextRequest) {
             }),
             prisma.ticket.groupBy({
                 by: ['eventId'],
-                where: { ...baseWhere, status: 'paid' },
+                where: { ...baseWhere, status: { in: [...PAID_LIKE_STATUSES] } },
                 _count: { id: true },
                 orderBy: { _count: { id: 'desc' } },
                 take: 8,
@@ -43,7 +44,7 @@ export async function GET(request: NextRequest) {
             }).catch(() => [] as any[]),
         ]);
 
-        const paidTickets = ticketsForRange.filter(t => t.status === 'paid');
+        const paidTickets = ticketsForRange.filter(t => PAID_LIKE_STATUSES.includes(t.status as any));
         const checkedInTickets = paidTickets.filter(t => t.checkedIn).length;
         const totalTickets = paidTickets.length;
 

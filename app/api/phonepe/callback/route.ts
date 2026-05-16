@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyChecksum, checkPaymentStatus } from '@/lib/phonepe';
 import { generateTicketToken } from '@/lib/ticket-security';
+import { isPaidLikeStatus } from '@/lib/ticket-lifecycle';
 
 async function markPhonePeTicketPaid(transactionId: string, amountPaid?: number | null) {
   const ticket = await prisma.ticket.findUnique({
@@ -12,24 +13,33 @@ async function markPhonePeTicketPaid(transactionId: string, amountPaid?: number 
   if (!ticket) {
     throw new Error('Ticket not found');
   }
-  if (!['pending', 'paid'].includes(ticket.status)) {
+  if (!['pending', 'paid', 'partially_refunded'].includes(ticket.status)) {
     throw new Error('Ticket cannot be marked as paid');
   }
 
   const token = ticket.token || generateTicketToken(transactionId);
   const finalAmountPaid = amountPaid || ticket.amountPaid || ticket.Event.price || 0;
+  const alreadyPaid = isPaidLikeStatus(ticket.status);
   const operations = [
     prisma.ticket.update({
       where: { id: transactionId },
-      data: {
-        status: 'paid',
-        token,
-        amountPaid: finalAmountPaid,
-      },
+      data: alreadyPaid
+        ? {
+            token,
+            paymentMethod: ticket.paymentMethod || 'phonepe',
+          }
+        : {
+            status: 'paid',
+            token,
+            amountPaid: finalAmountPaid,
+            grossAmount: finalAmountPaid,
+            refundedAmount: 0,
+            paymentMethod: 'phonepe',
+          },
     }),
   ];
 
-  if (ticket.status !== 'paid') {
+  if (!alreadyPaid) {
     operations.push(prisma.event.update({
       where: { id: ticket.eventId },
       data: { soldCount: { increment: 1 } },

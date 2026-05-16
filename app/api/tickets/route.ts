@@ -3,12 +3,16 @@ import { prisma } from '@/lib/prisma';
 import { auth } from '@clerk/nextjs/server';
 import { getSession, hasEventAccess } from '@/lib/auth';
 import { enforceRateLimit } from '@/lib/rate-limit';
+import { getTicketFinancials, getTicketLifecycleStatus } from '@/lib/ticket-lifecycle';
 
 function serializeTicket(ticket: any) {
   const { Event, ...ticketData } = ticket;
+  const financials = getTicketFinancials(ticketData, Event?.price || 0);
   return {
     ...ticketData,
-    amountPaid: ticketData.amountPaid || (ticketData.status === 'paid' ? Event?.price || 0 : 0),
+    ...financials,
+    lifecycleStatus: getTicketLifecycleStatus(ticketData),
+    deliveryHistory: ticketData.DeliveryLogs || [],
     event: Event,
   };
 }
@@ -85,7 +89,7 @@ export async function POST(req: NextRequest) {
     }
 
     const paidTicketCount = await prisma.ticket.count({
-      where: { eventId: event.id, status: 'paid' },
+      where: { eventId: event.id, status: { in: ['paid', 'partially_refunded'] } },
     });
 
     if (paidTicketCount + attendees.length > event.capacity) {
@@ -151,7 +155,13 @@ export async function GET(req: NextRequest) {
 
     const tickets = await prisma.ticket.findMany({
       where: eventId ? { eventId } : {},
-      include: { Event: true },
+      include: {
+        Event: true,
+        DeliveryLogs: {
+          orderBy: { createdAt: 'desc' },
+          take: 3,
+        },
+      },
       orderBy: { createdAt: 'desc' },
     });
 

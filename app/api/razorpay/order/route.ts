@@ -126,7 +126,7 @@ export async function POST(request: NextRequest) {
         }
 
         const paidTicketCount = await prisma.ticket.count({
-            where: { eventId, status: 'paid' },
+            where: { eventId, status: { in: ['paid', 'partially_refunded'] } },
         });
         if (paidTicketCount + requestedTicketIds.length > primaryTicket.Event.capacity) {
             return NextResponse.json({ error: 'Not enough tickets are available for this event' }, { status: 409 });

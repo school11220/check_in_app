@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession, hasEventAccess, hasRole, ORGANIZER_ROLES } from '@/lib/auth';
+import { getTicketFinancials, PAID_LIKE_STATUSES } from '@/lib/ticket-lifecycle';
 
 /**
  * GET /api/admin/dashboard
@@ -44,7 +45,7 @@ export async function GET(req: NextRequest) {
     const weekStart = new Date(now); weekStart.setDate(now.getDate() - 7);
     const monthStart = new Date(now); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
 
-    const ticketWhere: any = { status: 'paid', ...ticketScope };
+    const ticketWhere: any = { status: { in: [...PAID_LIKE_STATUSES] }, ...ticketScope };
 
     // Parallel queries for performance
     const [
@@ -64,7 +65,7 @@ export async function GET(req: NextRequest) {
       // Ticket counts
       prisma.ticket.count({ where: ticketWhere }),
       prisma.ticket.count({ where: { ...ticketWhere, checkedIn: true } }),
-      prisma.ticket.count({ where: { ...ticketScope, status: 'refunded' } }),
+      prisma.ticket.count({ where: { ...ticketScope, status: { in: ['refunded', 'partially_refunded'] } } }),
 
       // Time-based ticket counts
       prisma.ticket.count({ where: { ...ticketWhere, createdAt: { gte: todayStart } } }),
@@ -106,20 +107,67 @@ export async function GET(req: NextRequest) {
     let todayRevenue = 0;
     let weekRevenue = 0;
     let monthRevenue = 0;
+    const revenueBreakdown = {
+      revenueByEvent: [] as { eventId: string; name: string; revenue: number; tickets: number }[],
+      revenueByDay: [] as { date: string; revenue: number }[],
+      revenueByPaymentMethod: [] as { method: string; revenue: number }[],
+      revenueByPromoCode: [] as { code: string; revenue: number }[],
+      refundedAmount: 0,
+      discountedAmount: 0,
+    };
 
     try {
       const revenueData = await prisma.ticket.findMany({
-        where: { status: 'paid', ...ticketScope },
-        select: { createdAt: true, amountPaid: true, Event: { select: { price: true } } },
+        where: { status: { in: [...PAID_LIKE_STATUSES] }, ...ticketScope },
+        select: {
+          createdAt: true,
+          eventId: true,
+          status: true,
+          amountPaid: true,
+          grossAmount: true,
+          discountAmount: true,
+          refundedAmount: true,
+          paymentMethod: true,
+          razorpayPaymentId: true,
+          promoCodeId: true,
+          Event: { select: { id: true, name: true, price: true } },
+        },
       });
 
+      const revenueByEvent = new Map<string, { eventId: string; name: string; revenue: number; tickets: number }>();
+      const revenueByDay = new Map<string, number>();
+      const revenueByPaymentMethod = new Map<string, number>();
+      const revenueByPromoCode = new Map<string, number>();
+      let refundedAmount = 0;
+      let discountedAmount = 0;
+
       for (const t of revenueData) {
-        const price = t.amountPaid || t.Event.price || 0;
+        const price = getTicketFinancials(t, t.Event.price || 0).netAmount;
         totalRevenue += price;
         if (t.createdAt >= todayStart) todayRevenue += price;
         if (t.createdAt >= weekStart) weekRevenue += price;
         if (t.createdAt >= monthStart) monthRevenue += price;
+
+        const eventRevenue = revenueByEvent.get(t.eventId) || { eventId: t.eventId, name: t.Event.name, revenue: 0, tickets: 0 };
+        eventRevenue.revenue += price;
+        eventRevenue.tickets += 1;
+        revenueByEvent.set(t.eventId, eventRevenue);
+
+        const day = t.createdAt.toISOString().slice(0, 10);
+        revenueByDay.set(day, (revenueByDay.get(day) || 0) + price);
+        const method = t.paymentMethod || (t.razorpayPaymentId ? 'razorpay' : 'unknown');
+        revenueByPaymentMethod.set(method, (revenueByPaymentMethod.get(method) || 0) + price);
+        revenueByPromoCode.set(t.promoCodeId || 'none', (revenueByPromoCode.get(t.promoCodeId || 'none') || 0) + price);
+        refundedAmount += t.refundedAmount || 0;
+        discountedAmount += t.discountAmount || 0;
       }
+
+      revenueBreakdown.revenueByEvent = Array.from(revenueByEvent.values()).sort((a, b) => b.revenue - a.revenue);
+      revenueBreakdown.revenueByDay = Array.from(revenueByDay.entries()).sort(([a], [b]) => a.localeCompare(b)).map(([date, revenue]) => ({ date, revenue }));
+      revenueBreakdown.revenueByPaymentMethod = Array.from(revenueByPaymentMethod.entries()).map(([method, revenue]) => ({ method, revenue }));
+      revenueBreakdown.revenueByPromoCode = Array.from(revenueByPromoCode.entries()).map(([code, revenue]) => ({ code, revenue }));
+      revenueBreakdown.refundedAmount = refundedAmount;
+      revenueBreakdown.discountedAmount = discountedAmount;
     } catch { /* ignore revenue calc errors */ }
 
     // Check-in velocity - hourly breakdown for today
@@ -140,16 +188,42 @@ export async function GET(req: NextRequest) {
     const topEventRevenue = new Map<string, number>();
     if (topEvents.length > 0) {
       const topEventTickets = await prisma.ticket.findMany({
-        where: { status: 'paid', eventId: { in: topEvents.map((event) => event.id) } },
-        select: { eventId: true, amountPaid: true, Event: { select: { price: true } } },
+        where: { status: { in: [...PAID_LIKE_STATUSES] }, eventId: { in: topEvents.map((event) => event.id) } },
+        select: { eventId: true, status: true, amountPaid: true, grossAmount: true, discountAmount: true, refundedAmount: true, Event: { select: { price: true } } },
       });
       for (const ticket of topEventTickets) {
         topEventRevenue.set(
           ticket.eventId,
-          (topEventRevenue.get(ticket.eventId) || 0) + (ticket.amountPaid || ticket.Event.price || 0)
+          (topEventRevenue.get(ticket.eventId) || 0) + getTicketFinancials(ticket, ticket.Event.price || 0).netAmount
         );
       }
     }
+
+    const refundTickets = await prisma.ticket.findMany({
+      where: { ...ticketScope, refundedAmount: { gt: 0 } },
+      select: { createdAt: true, refundedAmount: true, status: true },
+    });
+    const refundByDay = new Map<string, number>();
+    for (const ticket of refundTickets) {
+      const day = ticket.createdAt.toISOString().slice(0, 10);
+      refundByDay.set(day, (refundByDay.get(day) || 0) + ticket.refundedAmount);
+    }
+
+    const abandonedRegistrations = await prisma.ticket.count({
+      where: {
+        ...ticketScope,
+        status: 'pending',
+        createdAt: { lt: new Date(Date.now() - 30 * 60 * 1000) },
+      },
+    });
+
+    const failedPayments = await prisma.securityEvent.count({
+      where: {
+        type: { in: ['payment_failed', 'invalid_ticket_access', 'invalid_checkin_token'] },
+        ...(eventId ? { eventId } : scopedEventIds ? { eventId: { in: scopedEventIds } } : {}),
+        createdAt: { gte: weekStart },
+      },
+    }).catch(() => 0);
 
     return NextResponse.json({
       revenue: {
@@ -157,6 +231,12 @@ export async function GET(req: NextRequest) {
         today: todayRevenue,
         thisWeek: weekRevenue,
         thisMonth: monthRevenue,
+        discounted: revenueBreakdown.discountedAmount,
+        refunded: revenueBreakdown.refundedAmount,
+        byEvent: revenueBreakdown.revenueByEvent,
+        byDay: revenueBreakdown.revenueByDay,
+        byPaymentMethod: revenueBreakdown.revenueByPaymentMethod,
+        byPromoCode: revenueBreakdown.revenueByPromoCode,
       },
       tickets: {
         total: totalTickets,
@@ -165,6 +245,8 @@ export async function GET(req: NextRequest) {
         soldToday: todayTickets,
         soldThisWeek: weekTickets,
         soldThisMonth: monthTickets,
+        abandoned: abandonedRegistrations,
+        failedPaymentSignals: failedPayments,
         checkInRate: totalTickets > 0 ? ((checkedInTickets / totalTickets) * 100).toFixed(1) : '0',
       },
       events: {
@@ -201,6 +283,12 @@ export async function GET(req: NextRequest) {
         hour: `${hour.toString().padStart(2, '0')}:00`,
         count,
       })),
+      refunds: {
+        total: refundTickets.reduce((sum, ticket) => sum + ticket.refundedAmount, 0),
+        full: refundTickets.filter((ticket) => ticket.status === 'refunded').length,
+        partial: refundTickets.filter((ticket) => ticket.status === 'partially_refunded').length,
+        byDay: Array.from(refundByDay.entries()).sort(([a], [b]) => a.localeCompare(b)).map(([date, amount]) => ({ date, amount })),
+      },
     });
   } catch (error) {
     console.error('Dashboard error:', error);

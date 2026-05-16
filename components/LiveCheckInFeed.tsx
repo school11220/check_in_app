@@ -2,6 +2,8 @@
 
 import { useApp } from '@/lib/store';
 
+const PAID_LIKE_STATUSES = new Set(['paid', 'partially_refunded']);
+
 interface CheckInActivity {
     id: string;
     ticketId: string;
@@ -19,7 +21,7 @@ interface LiveCheckInFeedProps {
 export default function LiveCheckInFeed({ eventId, maxItems = 10 }: LiveCheckInFeedProps) {
     const { tickets, events } = useApp();
     const activities: CheckInActivity[] = tickets
-        .filter(t => t.checkedIn && t.status === 'paid')
+        .filter(t => t.checkedIn && PAID_LIKE_STATUSES.has(t.status))
         .filter(t => !eventId || t.eventId === eventId)
         .map(t => {
             const event = events.find(e => e.id === t.eventId);

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession, hasEventAccess, hasRole, ORGANIZER_ROLES } from '@/lib/auth';
+import { isPaidLikeStatus } from '@/lib/ticket-lifecycle';
 
 export async function GET(request: NextRequest) {
     try {
@@ -27,12 +28,12 @@ export async function GET(request: NextRequest) {
         }
 
         // Generate report data
-        const paidTickets = tickets.filter(t => t.status === 'paid');
+        const paidTickets = tickets.filter(t => isPaidLikeStatus(t.status));
         const checkedIn = tickets.filter(t => t.checkedIn);
         const refunded = tickets.filter(t => t.status === 'refunded');
         const pending = tickets.filter(t => t.status === 'pending');
         const paidRevenue = paidTickets.reduce((sum, ticket) => sum + (ticket.amountPaid || event.price || 0), 0);
-        const refundedAmount = refunded.reduce((sum, ticket) => sum + (ticket.amountPaid || event.price || 0), 0);
+        const refundedAmount = tickets.reduce((sum, ticket) => sum + (ticket.refundedAmount || 0), 0);
 
         const report = {
             event: {
