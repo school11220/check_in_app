@@ -6,10 +6,16 @@
  * sent that step's email yet.
  */
 import { NextRequest, NextResponse } from 'next/server';
+import type { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { sendTransactionalEmail, isEmailConfigured } from '@/lib/email';
 import { auth, clerkClient } from '@clerk/nextjs/server';
 import { PAID_LIKE_STATUSES } from '@/lib/ticket-lifecycle';
+
+type SiteSettings = Record<string, unknown> & {
+    campaigns?: unknown[];
+    campaignSentLog?: Record<string, string[]>;
+};
 
 async function requireAdmin() {
     const { userId } = await auth();
@@ -20,6 +26,11 @@ async function requireAdmin() {
 }
 
 const MS_PER_DAY = 86_400_000;
+
+function asSettings(value: unknown): SiteSettings {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+    return value as SiteSettings;
+}
 
 export async function POST(request: NextRequest) {
     // Allow cron secret OR admin session
@@ -35,14 +46,16 @@ export async function POST(request: NextRequest) {
     }
 
     const config = await prisma.siteConfig.findUnique({ where: { id: 'default' } });
-    const campaigns: any[] = ((config as any)?.campaigns ?? []).filter((c: any) => c.isActive);
+    const settings = asSettings(config?.settings);
+    const campaigns: any[] = (Array.isArray(settings.campaigns) ? settings.campaigns : [])
+        .filter((campaign: any) => campaign.isActive);
 
     if (campaigns.length === 0) {
         return NextResponse.json({ success: true, processed: 0, message: 'No active campaigns' });
     }
 
     // Fetch sent log (persisted per-ticket per-step)
-    const sentLog: Record<string, string[]> = (config as any)?.campaignSentLog ?? {};
+    const sentLog: Record<string, string[]> = settings.campaignSentLog ?? {};
 
     let totalSent = 0;
     const now = Date.now();
@@ -131,9 +144,20 @@ export async function POST(request: NextRequest) {
     }
 
     // Persist updated sentLog
-    await prisma.siteConfig.update({
+    const updatedSettings = { ...settings, campaignSentLog: sentLog } as Prisma.InputJsonObject;
+    await prisma.siteConfig.upsert({
         where: { id: 'default' },
-        data: { campaignSentLog: sentLog } as any,
+        update: {
+            settings: updatedSettings,
+            updatedAt: new Date(),
+        },
+        create: {
+            id: 'default',
+            settings: updatedSettings,
+            templates: [],
+            surveys: [],
+            updatedAt: new Date(),
+        },
     });
 
     return NextResponse.json({ success: true, totalSent, message: `Processed campaigns, sent ${totalSent} emails` });

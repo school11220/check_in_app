@@ -1,26 +1,36 @@
 import { NextResponse } from 'next/server';
-import { auth, clerkClient } from '@clerk/nextjs/server';
+import { prisma } from '@/lib/prisma';
+import { getSession, hasEventAccess, hasRole, ORGANIZER_ROLES } from '@/lib/auth';
+import { DEFAULT_TIME_SLOTS, mergeTimeSlots, type TimeSlot } from '@/lib/time-slots';
 
-// This endpoint is called by SessionScheduler but slots don't exist as a model
-// Return empty array for now to prevent 404 errors
+type SiteSettings = Record<string, unknown> & {
+    sessionTimeSlotsByEvent?: Record<string, TimeSlot[]>;
+};
+
+function asSettings(value: unknown): SiteSettings {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+    return value as SiteSettings;
+}
+
 export async function GET() {
     try {
-        const { userId } = await auth();
-        if (!userId) {
+        const session = await getSession();
+        if (!session || !hasRole(session.user.role, ORGANIZER_ROLES)) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        // Verify user has a valid role
-        const client = await clerkClient();
-        const user = await client.users.getUser(userId);
-        const role = user.publicMetadata?.role as string;
+        const config = await prisma.siteConfig.findUnique({
+            where: { id: 'default' },
+            select: { settings: true },
+        });
 
-        if (!role || role === 'UNAUTHORIZED') {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
+        const settings = asSettings(config?.settings);
+        const slotMap = settings.sessionTimeSlotsByEvent || {};
+        const slotGroups = Object.entries(slotMap)
+            .filter(([eventId]) => hasEventAccess(session, eventId))
+            .map(([, slots]) => Array.isArray(slots) ? slots : []);
 
-        // Slots don't exist as a separate model, return empty array
-        return NextResponse.json([]);
+        return NextResponse.json(mergeTimeSlots([DEFAULT_TIME_SLOTS, ...slotGroups]));
     } catch (error) {
         console.error('Failed to fetch slots:', error);
         return NextResponse.json({ error: 'Failed to fetch slots' }, { status: 500 });

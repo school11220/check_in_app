@@ -356,7 +356,6 @@ export default function OrganizerDashboard() {
                             eventDate={selectedEvent.date}
                             showToast={showToast}
                             readOnly={true}
-                            globalView={true}
                         />
                     </div>
                 )}

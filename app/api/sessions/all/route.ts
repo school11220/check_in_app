@@ -1,24 +1,20 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { auth, clerkClient } from '@clerk/nextjs/server';
+import { getSession, hasRole, ORGANIZER_ROLES } from '@/lib/auth';
 
 export async function GET() {
     try {
-        const { userId } = await auth();
-        if (!userId) {
+        const session = await getSession();
+        if (!session || !hasRole(session.user.role, ORGANIZER_ROLES)) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        // Verify user has a valid role
-        const client = await clerkClient();
-        const user = await client.users.getUser(userId);
-        const role = user.publicMetadata?.role as string;
-
-        if (!role || role === 'UNAUTHORIZED') {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
+        const where = session.user.role === 'ADMIN'
+            ? {}
+            : { eventId: { in: session.user.assignedEventIds || [] } };
 
         const sessions = await prisma.session.findMany({
+            where,
             include: {
                 Event: {
                     select: {
@@ -34,7 +30,10 @@ export async function GET() {
             ]
         });
 
-        return NextResponse.json(sessions);
+        return NextResponse.json(sessions.map(({ Event, ...item }) => ({
+            ...item,
+            event: Event,
+        })));
     } catch (error) {
         console.error('Failed to fetch all sessions:', error);
         return NextResponse.json({ error: 'Failed to fetch sessions' }, { status: 500 });

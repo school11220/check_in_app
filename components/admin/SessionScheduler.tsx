@@ -1,14 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
-
-// Types
-export interface TimeSlot {
-    id: string;
-    startTime: string; // HH:MM format
-    endTime: string;
-    label?: string;
-}
+import { DEFAULT_TIME_SLOTS, type TimeSlot } from '@/lib/time-slots';
 
 export interface Session {
     id: string;
@@ -16,7 +9,6 @@ export interface Session {
     description?: string;
     speakerName?: string;
     speakerRole?: string;
-    // venueId removed as we are simplifying to just time slots
     slotId?: string; // Kept for backward compatibility
     startTime: string; // HH:MM
     endTime: string; // HH:MM
@@ -35,20 +27,16 @@ interface SessionSchedulerProps {
     globalView?: boolean;
 }
 
+function toDateInputValue(value?: string) {
+    if (!value) return new Date().toISOString().split('T')[0];
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
 
-// Default time slots
-const DEFAULT_TIME_SLOTS: TimeSlot[] = [
-    { id: 'slot-1', startTime: '09:00', endTime: '10:00', label: 'Morning 1' },
-    { id: 'slot-2', startTime: '10:00', endTime: '11:00', label: 'Morning 2' },
-    { id: 'slot-3', startTime: '11:00', endTime: '12:00', label: 'Morning 3' },
-    { id: 'slot-4', startTime: '12:00', endTime: '13:00', label: 'Lunch Break' },
-    { id: 'slot-5', startTime: '13:00', endTime: '14:00', label: 'Afternoon 1' },
-    { id: 'slot-6', startTime: '14:00', endTime: '15:00', label: 'Afternoon 2' },
-    { id: 'slot-7', startTime: '15:00', endTime: '16:00', label: 'Afternoon 3' },
-    { id: 'slot-8', startTime: '16:00', endTime: '17:00', label: 'Evening' },
-];
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return new Date().toISOString().split('T')[0];
 
-// Session type colors
+    return date.toISOString().split('T')[0];
+}
+
 // Session type colors
 const getColorForType = (type: string) => {
     const normalizedType = type.toLowerCase();
@@ -83,7 +71,7 @@ const getColorForType = (type: string) => {
 export default function SessionScheduler({ eventId, eventDate, showToast, readOnly = false, globalView = false }: SessionSchedulerProps) {
     const [timeSlots, setTimeSlots] = useState<TimeSlot[]>(DEFAULT_TIME_SLOTS);
     const [sessions, setSessions] = useState<Session[]>([]);
-    const [selectedDate, setSelectedDate] = useState(eventDate || new Date().toISOString().split('T')[0]);
+    const [selectedDate, setSelectedDate] = useState(toDateInputValue(eventDate));
     const [showAddSession, setShowAddSession] = useState(false);
     const [showAddTimeSlot, setShowAddTimeSlot] = useState(false);
     const [editingSession, setEditingSession] = useState<Session | null>(null);
@@ -106,6 +94,24 @@ export default function SessionScheduler({ eventId, eventDate, showToast, readOn
     });
 
     const [isLoading, setIsLoading] = useState(false);
+
+    useEffect(() => {
+        const normalizedDate = toDateInputValue(eventDate);
+        setSelectedDate(normalizedDate);
+        setNewSession(prev => ({ ...prev, date: normalizedDate }));
+    }, [eventDate, eventId]);
+
+    const buildSessionPayload = useCallback((session: Partial<Session>) => ({
+        title: session.title,
+        description: session.description,
+        type: session.type,
+        speakerName: session.speakerName,
+        speakerRole: session.speakerRole,
+        date: session.date || selectedDate,
+        startTime: session.startTime,
+        endTime: session.endTime,
+        capacity: session.capacity,
+    }), [selectedDate]);
 
     // Fetch data
     const fetchData = useCallback(async () => {
@@ -151,32 +157,19 @@ export default function SessionScheduler({ eventId, eventDate, showToast, readOn
         }
 
         try {
-            const url = editingSession
-                ? `/api/events/${eventId}/sessions?sessionId=${editingSession.id}` // NOTE/TODO: Use logic for PUT if separate, but here DELETE+POST or just POST with ID? 
-                // Actually my API route currently only supports GET, POST, DELETE. 
-                // Creating a new one for edit is hacky. Let's assume POST allows update or I just Create New. 
-                // Wait, the API I wrote (POST) creates new. I should probably add PUT or just Delete+Create for now to be fast.
-                : `/api/events/${eventId}/sessions`;
-
-            // For update, let's just delete old and create new to keep it simple with current API, 
-            // OR ideally I should have added PUT. 
-            // Given the complexity constraint, I will stick to CREATE for now.
-            // But wait, the user wants "Fix all errors".
-            // Let's rely on POST for create. For edit, I will delete the old one first if editing.
-
-            if (editingSession) {
-                await fetch(`/api/events/${eventId}/sessions?sessionId=${editingSession.id}`, { method: 'DELETE' });
-            }
-
-            const res = await fetch(`/api/events/${eventId}/sessions`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    date: selectedDate,
-                    ...newSession,
-                    // If editing, keep ID? No, DB generates ID.
-                })
-            });
+            const res = await fetch(
+                editingSession
+                    ? `/api/events/${eventId}/sessions?sessionId=${editingSession.id}`
+                    : `/api/events/${eventId}/sessions`,
+                {
+                    method: editingSession ? 'PUT' : 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(buildSessionPayload({
+                        date: selectedDate,
+                        ...newSession,
+                    })),
+                }
+            );
 
             if (res.ok) {
                 setShowAddSession(false);
@@ -191,12 +184,13 @@ export default function SessionScheduler({ eventId, eventDate, showToast, readOn
                 showToast?.(editingSession ? 'Session updated!' : 'Session added!', 'success');
                 fetchData();
             } else {
-                showToast?.('Failed to save session', 'error');
+                const data = await res.json().catch(() => null);
+                showToast?.(data?.error || 'Failed to save session', 'error');
             }
         } catch (error) {
             showToast?.('Error saving session', 'error');
         }
-    }, [eventId, newSession, selectedDate, editingSession, showToast, fetchData]);
+    }, [eventId, newSession, selectedDate, editingSession, showToast, fetchData, buildSessionPayload]);
 
     // Delete session
     const deleteSession = useCallback(async (id: string) => {
@@ -208,6 +202,9 @@ export default function SessionScheduler({ eventId, eventDate, showToast, readOn
             if (res.ok) {
                 showToast?.('Session deleted', 'success');
                 fetchData();
+            } else {
+                const data = await res.json().catch(() => null);
+                showToast?.(data?.error || 'Failed to delete session', 'error');
             }
         } catch (error) {
             showToast?.('Failed to delete session', 'error');
@@ -249,28 +246,28 @@ export default function SessionScheduler({ eventId, eventDate, showToast, readOn
         setSessions(updatedSessions);
         setDraggedSession(null);
 
-        // API Update (Delete + Create since we don't have PATCH)
         try {
-            await fetch(`/api/events/${eventId}/sessions?sessionId=${sessionId}`, { method: 'DELETE' });
-            await fetch(`/api/events/${eventId}/sessions`, {
-                method: 'POST',
+            const res = await fetch(`/api/events/${eventId}/sessions?sessionId=${sessionId}`, {
+                method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    title: session.title,
-                    description: session.description,
-                    type: session.type,
-                    speakerName: session.speakerName,
-                    speakerRole: session.speakerRole,
-                    date: session.date,
+                body: JSON.stringify(buildSessionPayload({
+                    ...session,
                     startTime: slotStartTime,
                     endTime: newEndTime,
-                })
+                })),
             });
-            showToast?.('Session moved!', 'success');
-            fetchData(); // Refresh to get real IDs
+
+            if (res.ok) {
+                showToast?.('Session moved!', 'success');
+                fetchData();
+            } else {
+                const data = await res.json().catch(() => null);
+                showToast?.(data?.error || 'Failed to move session', 'error');
+                fetchData();
+            }
         } catch (error) {
             showToast?.('Failed to move session', 'error');
-            fetchData(); // Revert
+            fetchData();
         }
     };
 
