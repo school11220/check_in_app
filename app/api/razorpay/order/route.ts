@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Razorpay from 'razorpay';
 import { prisma } from '@/lib/prisma';
-import { calculatePromoDiscount, calculateTicketUnitPrice } from '@/lib/pricing';
+import { allocatePaidAmount, calculatePromoDiscount, calculateTicketUnitPrice } from '@/lib/pricing';
 import { enforceRateLimit } from '@/lib/rate-limit';
+import { generateTicketToken } from '@/lib/ticket-security';
 
 // In-memory ticket storage
 const ticketOrders: Map<string, { ticketId: string; orderId: string; ticketIds?: string[] }> = new Map();
@@ -93,15 +94,17 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        const tickets = await prisma.ticket.findMany({
+        const foundTickets = await prisma.ticket.findMany({
             where: { id: { in: requestedTicketIds } },
             include: { Event: { include: { PricingRule: true } } },
         });
 
-        if (tickets.length !== requestedTicketIds.length) {
+        if (foundTickets.length !== requestedTicketIds.length) {
             return NextResponse.json({ error: 'One or more tickets were not found' }, { status: 404 });
         }
 
+        const ticketById = new Map(foundTickets.map((ticket) => [ticket.id, ticket]));
+        const tickets = requestedTicketIds.map((id) => ticketById.get(id)).filter((ticket): ticket is NonNullable<typeof ticket> => Boolean(ticket));
         const primaryTicket = tickets[0];
         if (!primaryTicket?.Event) {
             return NextResponse.json({ error: 'Event not found for ticket' }, { status: 404 });
@@ -147,8 +150,97 @@ export async function POST(request: NextRequest) {
         const promo = await validatePromoForOrder(promoCode, eventId, ticketCount, primaryTicket.email);
         const discountAmount = calculatePromoDiscount(subtotal, promo);
         const orderAmount = subtotal - discountAmount;
-        if (orderAmount <= 0) {
+        if (orderAmount < 0) {
             return NextResponse.json({ error: 'Invalid order amount' }, { status: 400 });
+        }
+
+        if (orderAmount === 0) {
+            const freeOrderId = `free_${crypto.randomUUID()}`;
+            const updatedTickets = await prisma.$transaction(async (tx) => {
+                const paidNow: typeof tickets = [];
+
+                for (let index = 0; index < tickets.length; index++) {
+                    const ticket = tickets[index];
+                    const updateResult = await tx.ticket.updateMany({
+                        where: { id: ticket.id, status: 'pending' },
+                        data: {
+                            status: 'paid',
+                            razorpayOrderId: freeOrderId,
+                            amountPaid: 0,
+                            grossAmount: unitPrice,
+                            discountAmount: allocatePaidAmount(discountAmount, ticketCount, index),
+                            refundedAmount: 0,
+                            paymentMethod: subtotal > 0 ? 'promo' : 'free',
+                            promoCodeId: promo?.code || null,
+                            token: ticket.token || generateTicketToken(ticket.id),
+                        },
+                    });
+
+                    if (updateResult.count === 1) paidNow.push(ticket);
+                }
+
+                if (paidNow.length > 0) {
+                    const currentEvent = await tx.event.findUnique({
+                        where: { id: eventId },
+                        select: { capacity: true },
+                    });
+
+                    const capacityUpdate = await tx.event.updateMany({
+                        where: {
+                            id: eventId,
+                            soldCount: { lte: (currentEvent?.capacity ?? 0) - paidNow.length },
+                        },
+                        data: { soldCount: { increment: paidNow.length } },
+                    });
+
+                    if (capacityUpdate.count !== 1) {
+                        throw createRequestError('Not enough tickets are available for this event', 409);
+                    }
+
+                    if (promo) {
+                        await tx.promoCodeRecord.updateMany({
+                            where: { code: promo.code },
+                            data: { usedCount: { increment: paidNow.length } },
+                        });
+
+                        await tx.promoUsage.createMany({
+                            data: paidNow.map((ticket, index) => ({
+                                promoCode: promo.code,
+                                ticketId: ticket.id,
+                                userId: ticket.email || ticket.userId || null,
+                                eventId: ticket.eventId,
+                                discount: allocatePaidAmount(discountAmount, paidNow.length, index),
+                            })),
+                        });
+                    }
+                }
+
+                return tx.ticket.findMany({
+                    where: { id: { in: requestedTicketIds } },
+                    include: { Event: true },
+                    orderBy: { createdAt: 'asc' },
+                });
+            });
+
+            const updatedTicketById = new Map(updatedTickets.map((ticket) => [ticket.id, ticket]));
+            const primaryUpdatedTicket = updatedTicketById.get(primaryTicket.id) || updatedTickets[0];
+            const primaryToken = primaryUpdatedTicket?.token || generateTicketToken(primaryTicket.id);
+            const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+
+            return NextResponse.json({
+                freeOrder: true,
+                orderId: freeOrderId,
+                amount: 0,
+                currency: 'INR',
+                ticketId: primaryTicket.id,
+                ticketIds: requestedTicketIds,
+                token: primaryToken,
+                ticketUrl: `${baseUrl}/ticket/${primaryTicket.id}?success=true&token=${encodeURIComponent(primaryToken)}`,
+                quantity: ticketCount,
+                unitPrice,
+                subtotal,
+                discountAmount,
+            });
         }
 
         // Fetch Dynamic Config
@@ -180,13 +272,17 @@ export async function POST(request: NextRequest) {
             ticketIds: requestedTicketIds,
         });
 
-        await prisma.ticket.updateMany({
-            where: { id: { in: requestedTicketIds } },
-            data: {
-                razorpayOrderId: order.id,
-                promoCodeId: promo?.code || null,
-            },
-        });
+        await prisma.$transaction(
+            tickets.map((ticket, index) => prisma.ticket.update({
+                where: { id: ticket.id },
+                data: {
+                    razorpayOrderId: order.id,
+                    promoCodeId: promo?.code || null,
+                    grossAmount: unitPrice,
+                    discountAmount: allocatePaidAmount(discountAmount, ticketCount, index),
+                },
+            }))
+        );
 
         return NextResponse.json({
             orderId: order.id,

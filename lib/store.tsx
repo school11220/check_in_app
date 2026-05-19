@@ -783,6 +783,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
             }
         };
         fetchReviews();
+
+        const fetchPromoCodes = async () => {
+            try {
+                const res = await fetch('/api/admin/promo-codes');
+                if (res.ok) {
+                    const data = await res.json();
+                    if (Array.isArray(data)) setPromoCodes(data);
+                }
+            } catch (error) {
+                console.error('Failed to load promo codes', error);
+            }
+        };
+        fetchPromoCodes();
     }, []);
 
     const addEvent = async (event: Event): Promise<boolean> => {
@@ -1022,35 +1035,47 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const newCodes = [code, ...promoCodes];
         setPromoCodes(newCodes);
         try {
-            await fetch('/api/admin/promo-codes', {
+            const res = await fetch('/api/admin/promo-codes', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(code)
             });
+            if (!res.ok) throw new Error('Failed to save promo code');
+            const savedCode = await res.json();
+            setPromoCodes(current => current.map(c => c.id === code.id ? savedCode : c));
         } catch (err) {
             console.error('Failed to save promo code to API:', err);
+            setPromoCodes(current => current.filter(c => c.id !== code.id));
         }
     };
     const updatePromoCode = async (id: string, data: Partial<PromoCode>) => {
+        const previousCodes = promoCodes;
         const newCodes = promoCodes.map(c => c.id === id ? { ...c, ...data } : c);
         setPromoCodes(newCodes);
         try {
-            await fetch('/api/admin/promo-codes', {
+            const res = await fetch('/api/admin/promo-codes', {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ id, ...data })
             });
+            if (!res.ok) throw new Error('Failed to update promo code');
+            const savedCode = await res.json();
+            setPromoCodes(current => current.map(c => c.id === id ? savedCode : c));
         } catch (err) {
             console.error('Failed to update promo code:', err);
+            setPromoCodes(previousCodes);
         }
     };
     const deletePromoCode = async (id: string) => {
+        const previousCodes = promoCodes;
         const newCodes = promoCodes.filter(c => c.id !== id);
         setPromoCodes(newCodes);
         try {
-            await fetch(`/api/admin/promo-codes?id=${id}`, { method: 'DELETE' });
+            const res = await fetch(`/api/admin/promo-codes?id=${id}`, { method: 'DELETE' });
+            if (!res.ok) throw new Error('Failed to delete promo code');
         } catch (err) {
             console.error('Failed to delete promo code:', err);
+            setPromoCodes(previousCodes);
         }
     };
     const validatePromoCode = (code: string, eventId: string): PromoCode | null => {

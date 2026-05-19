@@ -4,7 +4,7 @@ import { sendEmail, isEmailConfigured } from '@/lib/email';
 import { fireWebhook } from '@/lib/webhooks';
 import { getSession, hasEventAccess, hasRole, ORGANIZER_ROLES } from '@/lib/auth';
 import { enforceRateLimit } from '@/lib/rate-limit';
-import { isPaidLikeStatus } from '@/lib/ticket-lifecycle';
+import { isPaidLikeStatus, PAID_LIKE_STATUSES } from '@/lib/ticket-lifecycle';
 
 export async function POST(request: NextRequest) {
   try {
@@ -47,6 +47,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Only paid tickets can be refunded' }, { status: 400 });
     }
 
+    if (ticket.checkedIn) {
+      return NextResponse.json({ error: 'Checked-in tickets cannot be refunded. Undo check-in first.' }, { status: 400 });
+    }
+
     const paidAmount = ticket.amountPaid || ticket.Event.price || 0;
     const refundedToDate = ticket.refundedAmount || 0;
     const requestedRefund = refundType === 'partial' && refundAmount ? Number(refundAmount) : paidAmount;
@@ -55,9 +59,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Refund amount must be greater than zero' }, { status: 400 });
     }
 
-    // Try Razorpay refund if payment ID exists
+    // Process Razorpay refund before mutating local state. A gateway failure must not
+    // mark the ticket as refunded locally.
     let razorpayRefund = null;
-    if (ticket.razorpayPaymentId && process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET) {
+    if (ticket.razorpayPaymentId) {
+      if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
+        return NextResponse.json({ error: 'Razorpay refund is not configured' }, { status: 500 });
+      }
+
       try {
         const credentials = Buffer.from(`${process.env.RAZORPAY_KEY_ID}:${process.env.RAZORPAY_KEY_SECRET}`).toString('base64');
         const refundRes = await fetch(
@@ -75,37 +84,48 @@ export async function POST(request: NextRequest) {
           }
         );
         const refundData = await refundRes.json();
-        if (refundData.id) {
-          razorpayRefund = { id: refundData.id, status: refundData.status, amount: refundData.amount };
-        } else {
+        if (!refundRes.ok || !refundData.id) {
           console.error('Razorpay refund failed:', refundData);
+          return NextResponse.json(
+            { error: refundData.error?.description || refundData.message || 'Razorpay refund failed' },
+            { status: 502 }
+          );
         }
+
+        razorpayRefund = { id: refundData.id, status: refundData.status, amount: refundData.amount };
       } catch (e) {
         console.error('Razorpay refund error:', e);
+        return NextResponse.json({ error: 'Razorpay refund request failed' }, { status: 502 });
       }
     }
 
     const fullRefund = actualRefund >= paidAmount;
-    const transactionOps: any[] = [
-      prisma.ticket.update({
-        where: { id: ticketId },
+    const updatedTicket = await prisma.$transaction(async (tx) => {
+      const updateResult = await tx.ticket.updateMany({
+        where: {
+          id: ticketId,
+          status: { in: [...PAID_LIKE_STATUSES] },
+          checkedIn: false,
+        },
         data: {
           status: fullRefund ? 'refunded' : 'partially_refunded',
           amountPaid: fullRefund ? 0 : paidAmount - actualRefund,
           refundedAmount: refundedToDate + actualRefund,
         },
-        include: { Event: true },
-      }),
-    ];
+      });
 
-    if (fullRefund) {
-      transactionOps.push(prisma.event.updateMany({
-        where: { id: ticket.eventId, soldCount: { gt: 0 } },
-        data: { soldCount: { decrement: 1 } },
-      }));
-    }
+      if (updateResult.count !== 1) {
+        throw new Error('Ticket refund state changed. Please refresh and try again.');
+      }
 
-    transactionOps.push(prisma.auditLog.create({
+      if (fullRefund) {
+        await tx.event.updateMany({
+          where: { id: ticket.eventId, soldCount: { gt: 0 } },
+          data: { soldCount: { decrement: 1 } },
+        });
+      }
+
+      await tx.auditLog.create({
         data: {
           id: `refund-${ticketId}-${Date.now()}`,
           action: 'REFUND',
@@ -128,9 +148,15 @@ export async function POST(request: NextRequest) {
           ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
           userAgent: request.headers.get('user-agent') || 'unknown',
         },
-      }));
+      });
 
-    const [updatedTicket] = await prisma.$transaction(transactionOps);
+      const updated = await tx.ticket.findUnique({
+        where: { id: ticketId },
+        include: { Event: true },
+      });
+      if (!updated) throw new Error('Ticket not found after refund');
+      return updated;
+    });
 
     // Send refund confirmation email
     if (ticket.email && isEmailConfigured()) {

@@ -8,6 +8,12 @@ import { generateTicketToken, timingSafeStringEqual } from '@/lib/ticket-securit
 import { isPaidLikeStatus } from '@/lib/ticket-lifecycle';
 import { logSecurityEvent } from '@/lib/security-events';
 
+function createRequestError(message: string, status = 400) {
+    const error = new Error(message) as Error & { status?: number };
+    error.status = status;
+    return error;
+}
+
 // Verify Razorpay payment
 export async function POST(request: NextRequest) {
     try {
@@ -16,6 +22,10 @@ export async function POST(request: NextRequest) {
 
         const body = await request.json();
         const { razorpay_order_id, razorpay_payment_id, razorpay_signature, ticketId, emailStyles } = body;
+
+        if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature || !ticketId) {
+            return NextResponse.json({ error: 'Missing payment verification details' }, { status: 400 });
+        }
 
         // Verify signature
         const secret = process.env.RAZORPAY_KEY_SECRET;
@@ -90,12 +100,28 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Order contains a ticket that cannot be marked as paid' }, { status: 400 });
         }
 
-        const newlyPaidTickets = orderTickets.filter((ticket) => !['paid', 'partially_refunded'].includes(ticket.status));
+        const hasFrozenFinancials = orderTickets.every((ticket) => (ticket.grossAmount || 0) > 0);
+        if (hasFrozenFinancials) {
+            const expectedPaidTotal = orderTickets.reduce((sum, ticket) => (
+                sum + Math.max(0, (ticket.grossAmount || 0) - (ticket.discountAmount || 0))
+            ), 0);
+            if (expectedPaidTotal !== paidTotal) {
+                await logSecurityEvent(request, {
+                    type: 'payment_failed',
+                    key: `razorpay:${razorpay_order_id}`,
+                    ticketId,
+                    eventId,
+                    details: { reason: 'amount_mismatch', expectedPaidTotal, paidTotal },
+                });
+                return NextResponse.json({ error: 'Payment amount does not match this order' }, { status: 400 });
+            }
+        }
 
-        const updatedTickets = await prisma.$transaction(async (tx) => {
-            const updated = [];
+        const paymentResult = await prisma.$transaction(async (tx) => {
+            const updated: any[] = [];
+            const paidNow: typeof orderTickets = [];
             const estimatedSubtotal = orderTickets.reduce((sum, ticket) => (
-                sum + calculateTicketUnitPrice(ticket.Event as any, ticket.createdAt)
+                sum + (ticket.grossAmount || calculateTicketUnitPrice(ticket.Event as any, ticket.createdAt))
             ), 0);
             const totalDiscount = Math.max(0, estimatedSubtotal - paidTotal);
 
@@ -115,10 +141,10 @@ export async function POST(request: NextRequest) {
                     continue;
                 }
 
-                const grossAmount = calculateTicketUnitPrice(ticket.Event as any, ticket.createdAt);
-                const discountAmount = allocatePaidAmount(totalDiscount, orderTickets.length, index);
-                updated.push(await tx.ticket.update({
-                    where: { id: ticket.id },
+                const grossAmount = ticket.grossAmount || calculateTicketUnitPrice(ticket.Event as any, ticket.createdAt);
+                const discountAmount = ticket.discountAmount || allocatePaidAmount(totalDiscount, orderTickets.length, index);
+                const updateResult = await tx.ticket.updateMany({
+                    where: { id: ticket.id, status: 'pending' },
                     data: {
                         status: 'paid',
                         razorpayPaymentId: razorpay_payment_id,
@@ -130,17 +156,36 @@ export async function POST(request: NextRequest) {
                         paymentMethod: 'razorpay',
                         token: ticket.token || generateTicketToken(ticket.id),
                     },
-                    include: { Event: true },
-                }));
-            }
-
-            if (newlyPaidTickets.length > 0) {
-                await tx.event.update({
-                    where: { id: eventId },
-                    data: { soldCount: { increment: newlyPaidTickets.length } },
                 });
 
-                const promoGroups = newlyPaidTickets.reduce<Record<string, typeof newlyPaidTickets>>((groups, ticket) => {
+                const updatedTicket = await tx.ticket.findUnique({
+                    where: { id: ticket.id },
+                    include: { Event: true },
+                });
+                if (!updatedTicket) throw createRequestError('Ticket not found', 404);
+                updated.push(updatedTicket);
+                if (updateResult.count === 1) paidNow.push(ticket);
+            }
+
+            if (paidNow.length > 0) {
+                const currentEvent = await tx.event.findUnique({
+                    where: { id: eventId },
+                    select: { capacity: true },
+                });
+
+                const capacityUpdate = await tx.event.updateMany({
+                    where: {
+                        id: eventId,
+                        soldCount: { lte: (currentEvent?.capacity ?? 0) - paidNow.length },
+                    },
+                    data: { soldCount: { increment: paidNow.length } },
+                });
+
+                if (capacityUpdate.count !== 1) {
+                    throw createRequestError('Not enough tickets are available for this event', 409);
+                }
+
+                const promoGroups = paidNow.reduce<Record<string, typeof paidNow>>((groups, ticket) => {
                     if (!ticket.promoCodeId) return groups;
                     groups[ticket.promoCodeId] = [...(groups[ticket.promoCodeId] || []), ticket];
                     return groups;
@@ -158,15 +203,16 @@ export async function POST(request: NextRequest) {
                             ticketId: ticket.id,
                             userId: ticket.email || ticket.userId || null,
                             eventId: ticket.eventId,
-                            discount: allocatePaidAmount(totalDiscount, newlyPaidTickets.length, index),
+                            discount: ticket.discountAmount || allocatePaidAmount(totalDiscount, paidNow.length, index),
                         })),
                     });
                 }
             }
 
-            return updated;
+            return { updatedTickets: updated, paidNowCount: paidNow.length };
         });
 
+        const { updatedTickets, paidNowCount } = paymentResult;
         const ticketData = updatedTickets.find((ticket) => ticket.id === ticketId) || updatedTickets[0];
         const amountPaid = ticketData.amountPaid || allocatePaidAmount(paidTotal, orderTickets.length, 0);
         const primaryToken = ticketData.token || generateTicketToken(ticketId);
@@ -174,7 +220,7 @@ export async function POST(request: NextRequest) {
         const ticketUrl = `${baseUrl}/ticket/${ticketId}?success=true&token=${encodeURIComponent(primaryToken)}`;
 
         const recipientEmail = ticketData?.email;
-        if (newlyPaidTickets.length > 0 && recipientEmail && ticketData?.Event) {
+        if (paidNowCount > 0 && recipientEmail && ticketData?.Event) {
             try {
                 const { sendTicketEmail } = await import('@/lib/ticket-email');
 
@@ -210,11 +256,14 @@ export async function POST(request: NextRequest) {
             ticketId: ticketId,
             token: primaryToken,
             ticketUrl,
-            alreadyVerified: newlyPaidTickets.length === 0,
+            alreadyVerified: paidNowCount === 0,
             message: 'Payment verified successfully',
         });
-    } catch (error) {
+    } catch (error: any) {
         console.error('Payment verification failed:', error);
+        if (error?.status) {
+            return NextResponse.json({ error: error.message }, { status: error.status });
+        }
         return NextResponse.json(
             { error: 'Payment verification failed' },
             { status: 500 }

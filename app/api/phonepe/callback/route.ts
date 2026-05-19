@@ -5,49 +5,65 @@ import { generateTicketToken } from '@/lib/ticket-security';
 import { isPaidLikeStatus } from '@/lib/ticket-lifecycle';
 
 async function markPhonePeTicketPaid(transactionId: string, amountPaid?: number | null) {
-  const ticket = await prisma.ticket.findUnique({
-    where: { id: transactionId },
-    include: { Event: true },
-  });
-
-  if (!ticket) {
-    throw new Error('Ticket not found');
-  }
-  if (!['pending', 'paid', 'partially_refunded'].includes(ticket.status)) {
-    throw new Error('Ticket cannot be marked as paid');
-  }
-
-  const token = ticket.token || generateTicketToken(transactionId);
-  const finalAmountPaid = amountPaid || ticket.amountPaid || ticket.Event.price || 0;
-  const alreadyPaid = isPaidLikeStatus(ticket.status);
-  const operations = [
-    prisma.ticket.update({
+  return prisma.$transaction(async (tx) => {
+    const ticket = await tx.ticket.findUnique({
       where: { id: transactionId },
-      data: alreadyPaid
-        ? {
-            token,
-            paymentMethod: ticket.paymentMethod || 'phonepe',
-          }
-        : {
-            status: 'paid',
-            token,
-            amountPaid: finalAmountPaid,
-            grossAmount: finalAmountPaid,
-            refundedAmount: 0,
-            paymentMethod: 'phonepe',
-          },
-    }),
-  ];
+      include: { Event: true },
+    });
 
-  if (!alreadyPaid) {
-    operations.push(prisma.event.update({
-      where: { id: ticket.eventId },
+    if (!ticket) {
+      throw new Error('Ticket not found');
+    }
+    if (!['pending', 'paid', 'partially_refunded'].includes(ticket.status)) {
+      throw new Error('Ticket cannot be marked as paid');
+    }
+
+    const token = ticket.token || generateTicketToken(transactionId);
+    const finalAmountPaid = amountPaid || ticket.amountPaid || ticket.Event.price || 0;
+    const alreadyPaid = isPaidLikeStatus(ticket.status);
+
+    if (alreadyPaid) {
+      const updatedTicket = await tx.ticket.update({
+        where: { id: transactionId },
+        data: {
+          token,
+          paymentMethod: ticket.paymentMethod || 'phonepe',
+        },
+      });
+      return { ticket: updatedTicket, token };
+    }
+
+    const updateResult = await tx.ticket.updateMany({
+      where: { id: transactionId, status: 'pending' },
+      data: {
+        status: 'paid',
+        token,
+        amountPaid: finalAmountPaid,
+        grossAmount: finalAmountPaid,
+        refundedAmount: 0,
+        paymentMethod: 'phonepe',
+      },
+    });
+
+    if (updateResult.count !== 1) {
+      throw new Error('Ticket payment state changed. Please refresh and try again.');
+    }
+
+    const capacityUpdate = await tx.event.updateMany({
+      where: {
+        id: ticket.eventId,
+        soldCount: { lte: ticket.Event.capacity - 1 },
+      },
       data: { soldCount: { increment: 1 } },
-    }) as any);
-  }
+    });
 
-  await prisma.$transaction(operations as any);
-  return { ticket, token };
+    if (capacityUpdate.count !== 1) {
+      throw new Error('Not enough tickets are available for this event');
+    }
+
+    const updatedTicket = await tx.ticket.findUnique({ where: { id: transactionId } });
+    return { ticket: updatedTicket || ticket, token };
+  });
 }
 
 export async function POST(req: NextRequest) {

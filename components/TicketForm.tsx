@@ -1,7 +1,7 @@
 'use client';
 
 import { useApp, Event as StoreEvent } from '@/lib/store';
-import { useState, useEffect } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import { useToast } from './Toaster';
 
 type Event = StoreEvent & { currentPrice?: number }; // allow optional dynamic price while keeping core shape
@@ -10,6 +10,45 @@ declare global {
   interface Window {
     Razorpay: any;
   }
+}
+
+const RAZORPAY_SCRIPT_SRC = 'https://checkout.razorpay.com/v1/checkout.js';
+
+function loadRazorpayScript() {
+  if (typeof window === 'undefined') return Promise.resolve(false);
+  if (window.Razorpay) return Promise.resolve(true);
+
+  return new Promise<boolean>((resolve) => {
+    const existingScript = document.querySelector<HTMLScriptElement>(`script[src="${RAZORPAY_SCRIPT_SRC}"]`);
+    const script = existingScript || document.createElement('script');
+    const timeout = window.setTimeout(() => {
+      cleanup();
+      resolve(Boolean(window.Razorpay));
+    }, 8000);
+
+    const cleanup = () => {
+      window.clearTimeout(timeout);
+      script.removeEventListener('load', handleLoad);
+      script.removeEventListener('error', handleError);
+    };
+    const handleLoad = () => {
+      cleanup();
+      resolve(Boolean(window.Razorpay));
+    };
+    const handleError = () => {
+      cleanup();
+      resolve(false);
+    };
+
+    script.addEventListener('load', handleLoad);
+    script.addEventListener('error', handleError);
+
+    if (!existingScript) {
+      script.src = RAZORPAY_SCRIPT_SRC;
+      script.async = true;
+      document.body.appendChild(script);
+    }
+  });
 }
 
 export default function TicketForm() {
@@ -138,22 +177,7 @@ export default function TicketForm() {
     }
   };
 
-  useEffect(() => {
-    // Load Razorpay script
-    const script = document.createElement('script');
-    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-    script.async = true;
-    document.body.appendChild(script);
-
-    // Fetch events
-    fetchEvents();
-
-    return () => {
-      document.body.removeChild(script);
-    };
-  }, []);
-
-  const fetchEvents = async () => {
+  const fetchEvents = useCallback(async () => {
     try {
       const response = await fetch('/api/events');
       if (response.ok) {
@@ -195,7 +219,12 @@ export default function TicketForm() {
     } finally {
       setLoadingEvents(false);
     }
-  };
+  }, [showToast]);
+
+  useEffect(() => {
+    void loadRazorpayScript();
+    fetchEvents();
+  }, [fetchEvents]);
 
   const selectedEventData = events.find(e => e.id === selectedEvent);
 
@@ -237,6 +266,13 @@ export default function TicketForm() {
     setLoading(true);
 
     try {
+      if (calculateTotalPrice() > 0) {
+        const razorpayReady = await loadRazorpayScript();
+        if (!razorpayReady) {
+          throw new Error('Payment checkout could not be loaded. Please check your connection and try again.');
+        }
+      }
+
       // Create tickets for all attendees
       const ticketRes = await fetch('/api/tickets', {
         method: 'POST',
@@ -299,6 +335,17 @@ export default function TicketForm() {
       }
 
       const orderData = await orderRes.json();
+
+      if (orderData.freeOrder) {
+        showToast('Registration complete!', 'success');
+        window.location.href = orderData.ticketUrl || `/ticket/${ticketData.ticketId}?success=true&token=${encodeURIComponent(orderData.token)}`;
+        return;
+      }
+
+      const razorpayReady = window.Razorpay || await loadRazorpayScript();
+      if (!razorpayReady) {
+        throw new Error('Payment checkout could not be loaded. Please check your connection and try again.');
+      }
 
       // Open Razorpay checkout
       const options = {

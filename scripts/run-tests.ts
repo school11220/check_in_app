@@ -8,6 +8,12 @@ import {
 import { generateTimedQRToken, verifyTimedQRToken } from '../lib/qr-security';
 import { applyPollAction, createPollQuestion } from '../lib/polls';
 import { isValidTimeSlot, mergeTimeSlots } from '../lib/time-slots';
+import {
+  allocatePaidAmount,
+  calculateDynamicPrice,
+  calculatePromoDiscount,
+  calculateTicketUnitPrice,
+} from '../lib/pricing';
 
 process.env.TICKET_SECRET_KEY = process.env.TICKET_SECRET_KEY || 'test-ticket-secret';
 
@@ -93,8 +99,51 @@ function testTimeSlots() {
   );
 }
 
+function testPricing() {
+  const event = {
+    price: 10000,
+    soldCount: 80,
+    capacity: 100,
+    date: '2026-01-02T00:00:00.000Z',
+    startTime: '09:00',
+    PricingRule: [
+      {
+        id: 'demand',
+        triggerType: 'DEMAND_BASED',
+        triggerValue: 80,
+        adjustmentType: 'PERCENTAGE',
+        adjustmentValue: 10,
+        active: true,
+      },
+      {
+        id: 'time',
+        triggerType: 'TIME_BASED',
+        triggerValue: 48,
+        adjustmentType: 'FIXED',
+        adjustmentValue: 50,
+        active: true,
+      },
+    ],
+  };
+
+  assert.equal(calculateDynamicPrice(event, new Date('2026-01-01T00:00:00.000Z')), 16000);
+  assert.equal(calculateDynamicPrice(event, new Date('2025-12-01T00:00:00.000Z')), 11000);
+
+  assert.equal(calculateTicketUnitPrice({
+    ...event,
+    earlyBirdEnabled: true,
+    earlyBirdPrice: 7000,
+    earlyBirdDeadline: '2026-01-01T12:00:00.000Z',
+  }, new Date('2026-01-01T00:00:00.000Z')), 7000);
+
+  assert.equal(calculatePromoDiscount(10000, { discountType: 'percentage', discountValue: 150 }), 10000);
+  assert.equal(calculatePromoDiscount(10000, { discountType: 'fixed', discountValue: 25000 }), 10000);
+  assert.deepEqual([0, 1, 2].map(index => allocatePaidAmount(100, 3, index)), [34, 33, 33]);
+}
+
 testScanPayloadParser();
 testTicketSecurity();
 testPollActions();
 testTimeSlots();
+testPricing();
 console.log('All tests passed');

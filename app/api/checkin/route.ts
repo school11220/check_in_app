@@ -202,13 +202,15 @@ export async function POST(req: NextRequest) {
       const undoAt = new Date();
       const undoChecksum = generateAuditChecksum(ticketId, 'undo_checkin', undoAt.toISOString(), userId);
 
-      const [updatedTicket] = await prisma.$transaction([
-        prisma.ticket.update({
-          where: { id: ticketId },
+      const updatedTicket = await prisma.$transaction(async (tx) => {
+        const updateResult = await tx.ticket.updateMany({
+          where: { id: ticketId, checkedIn: true },
           data: { checkedIn: false, checkedInAt: null, checkedInBy: null },
-          include: { Event: true },
-        }),
-        prisma.checkInLog.create({
+        });
+
+        if (updateResult.count !== 1) return null;
+
+        await tx.checkInLog.create({
           data: {
             ticketId,
             eventId: ticket.eventId,
@@ -222,8 +224,20 @@ export async function POST(req: NextRequest) {
             checksum: undoChecksum,
             createdAt: undoAt,
           },
-        }),
-      ]);
+        });
+
+        return tx.ticket.findUnique({
+          where: { id: ticketId },
+          include: { Event: true },
+        });
+      });
+
+      if (!updatedTicket) {
+        return NextResponse.json<CheckInResponse>(
+          { success: false, message: 'Ticket is not checked in' },
+          { status: 400 }
+        );
+      }
 
       // Fire webhook
       fireWebhook('checkin.undo', {
@@ -279,18 +293,24 @@ export async function POST(req: NextRequest) {
     const checkinAction = action === 'manual_checkin' ? 'manual_checkin' : deviceId ? 'offline_checkin' : 'checkin';
     const checksum = generateAuditChecksum(ticketId, checkinAction, actionTimestamp, userId);
 
-    // Use transaction for atomicity
-    const [updatedTicket] = await prisma.$transaction([
-      prisma.ticket.update({
-        where: { id: ticketId },
+    // Use a conditional update so overlapping scans cannot both check in the same ticket.
+    const updatedTicket = await prisma.$transaction(async (tx) => {
+      const updateResult = await tx.ticket.updateMany({
+        where: {
+          id: ticketId,
+          checkedIn: false,
+          status: { in: [...PAID_LIKE_STATUSES] },
+        },
         data: {
           checkedIn: true,
           checkedInAt: actionAt,
           checkedInBy: userId,
         },
-        include: { Event: true },
-      }),
-      prisma.checkInLog.create({
+      });
+
+      if (updateResult.count !== 1) return null;
+
+      await tx.checkInLog.create({
         data: {
           ticketId,
           eventId: ticket.eventId,
@@ -305,8 +325,49 @@ export async function POST(req: NextRequest) {
           syncedAt: deviceId ? now : null,
           createdAt: actionAt,
         },
-      }),
-    ]);
+      });
+
+      return tx.ticket.findUnique({
+        where: { id: ticketId },
+        include: { Event: true },
+      });
+    });
+
+    if (!updatedTicket) {
+      const latestTicket = await prisma.ticket.findUnique({
+        where: { id: ticketId },
+        include: { Event: true },
+      });
+
+      if (latestTicket?.checkedIn) {
+        const latestCheckIn = await prisma.checkInLog.findFirst({
+          where: { ticketId, action: { in: ['checkin', 'offline_checkin', 'manual_checkin'] } },
+          orderBy: { createdAt: 'desc' },
+          select: { createdAt: true, performedBy: true, performedRole: true, deviceId: true },
+        }).catch(() => null);
+        await logDuplicateAttempt({ ticketId, eventId: ticket.eventId, action: 'duplicate_attempt', userId, role, req });
+        return NextResponse.json<CheckInResponse>(
+          {
+            success: false,
+            message: 'Ticket already checked in',
+            ticket: {
+              id: latestTicket.id, name: latestTicket.name, email: latestTicket.email,
+              eventId: latestTicket.eventId, checkedIn: latestTicket.checkedIn,
+              checkedInAt: latestTicket.checkedInAt,
+              checkedInBy: latestTicket.checkedInBy,
+              event: { name: latestTicket.Event.name },
+              lastCheckIn: latestCheckIn,
+            }
+          },
+          { status: 400 }
+        );
+      }
+
+      return NextResponse.json<CheckInResponse>(
+        { success: false, message: `Ticket payment is ${latestTicket?.status || ticket.status}` },
+        { status: 400 }
+      );
+    }
 
     // Fire webhook (non-blocking)
     fireWebhook('ticket.checked_in', {
