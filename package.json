@@ -18,12 +18,12 @@
     "predev": "npm run check:env"
   },
   "dependencies": {
-    "@upstash/ratelimit": "^2.0.6",
-    "@upstash/redis": "^1.35.6",
     "@clerk/nextjs": "^6.36.9",
     "@ducanh2912/next-pwa": "^10.2.9",
     "@pdf-lib/fontkit": "^1.1.1",
     "@prisma/client": "^6.19.1",
+    "@upstash/ratelimit": "^2.0.6",
+    "@upstash/redis": "^1.35.6",
     "@zxing/browser": "^0.1.5",
     "@zxing/library": "^0.21.3",
     "autoprefixer": "^10.4.23",
@@ -44,7 +44,9 @@
     "react-dom": "^19.2.3",
     "react-quill-new": "^3.7.0",
     "recharts": "^3.6.0",
-    "tailwindcss": "^3.4.19"
+    "tailwindcss": "^3.4.19",
+    "web-push": "^3.6.7",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/node": "^20",
@@ -53,6 +55,7 @@
     "@types/quill": "^2.0.14",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/web-push": "^3.6.4",
     "dotenv": "^16.4.7",
     "eslint": "^9.39.2",
     "eslint-config-next": "^16.1.1",

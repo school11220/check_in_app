@@ -1,41 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { respond, parseBody } from '@/lib/api-helpers';
+import { reviewBody } from '@/lib/api-helpers/schemas';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(request: NextRequest) {
-    const url = new URL(request.url);
-    const eventId = url.searchParams.get('eventId');
-
-    try {
-        const whereClause = eventId ? { eventId } : {};
+export const GET = respond(
+    async (request: NextRequest) => {
+        const url = new URL(request.url);
+        const eventId = url.searchParams.get('eventId');
         const reviews = await prisma.review.findMany({
-            where: whereClause,
+            where: eventId ? { eventId } : {},
             orderBy: { createdAt: 'desc' },
         });
         return NextResponse.json(reviews);
-    } catch (error) {
-        console.error('Failed to fetch reviews:', error);
-        return NextResponse.json([], { status: 200 }); // Return empty array instead of 500 to prevent app crash
-    }
-}
+    },
+    { public: true },
+);
 
-export async function POST(request: NextRequest) {
-    try {
-        const body = await request.json();
-        const { eventId, userName, rating, comment } = body;
-
+export const POST = respond(
+    async (request: NextRequest) => {
+        const data = await parseBody(request, reviewBody);
         const review = await prisma.review.create({
             data: {
                 id: crypto.randomUUID(),
-                Event: { connect: { id: eventId } },
-                userName,
-                rating,
-                comment,
+                Event: { connect: { id: data.eventId } },
+                userName: data.name,
+                rating: data.rating,
+                comment: data.comment,
             },
         });
         return NextResponse.json(review);
-    } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-}
+    },
+    { public: true },
+);

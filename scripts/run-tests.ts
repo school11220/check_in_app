@@ -147,3 +147,50 @@ testPollActions();
 testTimeSlots();
 testPricing();
 console.log('All tests passed');
+
+// ---------------------------------------------------------------------------
+// api-helpers + Zod validation
+// ---------------------------------------------------------------------------
+import { z } from 'zod';
+import { ApiError, badRequest, parseBody } from '../lib/api-helpers';
+
+function testApiError() {
+  const e = badRequest('missing field', { field: 'name' });
+  assert.equal(e instanceof ApiError, true);
+  assert.equal(e.status, 400);
+  assert.equal(e.message, 'missing field');
+  assert.deepEqual(e.details, { field: 'name' });
+}
+
+function testParseBodyRejectsInvalidJson() {
+  const req = new Request('http://x', { method: 'POST', body: 'not json' });
+  return parseBody(req as any, z.object({ name: z.string() })).then(
+    () => { throw new Error('should have thrown'); },
+    (err) => {
+      assert.equal(err.status, 400);
+    },
+  );
+}
+
+function testParseBodyRejectsBadShape() {
+  const req = new Request('http://x', { method: 'POST', body: JSON.stringify({ name: 123 }) });
+  return parseBody(req as any, z.object({ name: z.string() })).then(
+    () => { throw new Error('should have thrown'); },
+    (err) => {
+      assert.equal(err.status, 400);
+      assert.ok(Array.isArray(err.details));
+    },
+  );
+}
+
+function testParseBodyAcceptsValid() {
+  const req = new Request('http://x', { method: 'POST', body: JSON.stringify({ name: 'Shivam' }) });
+  return parseBody(req as any, z.object({ name: z.string() })).then((data) => {
+    assert.deepEqual(data, { name: 'Shivam' });
+  });
+}
+
+testApiError();
+testParseBodyRejectsInvalidJson();
+testParseBodyRejectsBadShape();
+testParseBodyAcceptsValid();

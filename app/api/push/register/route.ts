@@ -1,24 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { getSession } from '@/lib/auth';
+import { respond, parseBody } from '@/lib/api-helpers';
+import { pushRegisterBody } from '@/lib/api-helpers/schemas';
 
-interface PushBody {
-    endpoint: string;
-    keys: { p256dh: string; auth: string };
-    userAgent?: string;
-}
+const deleteBody = z.object({ endpoint: z.string().url().max(2000) });
 
-export async function POST(request: NextRequest) {
-    try {
-        const body = (await request.json()) as PushBody;
-        if (!body?.endpoint || !body?.keys?.p256dh || !body?.keys?.auth) {
-            return NextResponse.json({ error: 'endpoint, keys.p256dh and keys.auth are required' }, { status: 400 });
-        }
+export const POST = respond(
+    async (request: NextRequest) => {
+        const body = await parseBody(request, pushRegisterBody);
         const session = await getSession().catch(() => null);
-        const userId = session?.user?.id || null;
-        const userAgent = body.userAgent || request.headers.get('user-agent') || 'unknown';
+        const userId = session?.user?.id ?? null;
+        const userAgent = body.userAgent ?? request.headers.get('user-agent') ?? 'unknown';
 
-        // Upsert by endpoint so re-subscribes update auth keys
         const sub = await prisma.pushSubscription.upsert({
             where: { endpoint: body.endpoint },
             create: {
@@ -37,19 +32,15 @@ export async function POST(request: NextRequest) {
             },
         });
         return NextResponse.json({ ok: true, id: sub.id });
-    } catch (err) {
-        console.error('Push register error:', err);
-        return NextResponse.json({ error: 'Failed to register subscription' }, { status: 500 });
-    }
-}
+    },
+    { public: true },
+);
 
-export async function DELETE(request: NextRequest) {
-    try {
-        const { endpoint } = await request.json();
-        if (!endpoint) return NextResponse.json({ error: 'endpoint required' }, { status: 400 });
+export const DELETE = respond(
+    async (request: NextRequest) => {
+        const { endpoint } = await parseBody(request, deleteBody);
         await prisma.pushSubscription.deleteMany({ where: { endpoint } });
         return NextResponse.json({ ok: true });
-    } catch {
-        return NextResponse.json({ ok: true });
-    }
-}
+    },
+    { public: true },
+);
