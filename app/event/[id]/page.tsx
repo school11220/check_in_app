@@ -283,8 +283,54 @@ export default function EventDetailsPage() {
         other: 'from-zinc-900/80 via-zinc-900/40',
     };
 
+    // JSON-LD Event schema for search engines. Only render once the event is
+    // known so we don't ship invalid structured data.
+    const jsonLd = event
+        ? {
+              '@context': 'https://schema.org',
+              '@type': 'Event',
+              name: event.name,
+              description: event.description || undefined,
+              startDate: event.date,
+              endDate: event.endTime ? `${event.date}T${event.endTime}` : undefined,
+              eventStatus: event.isActive ? 'https://schema.org/EventScheduled' : 'https://schema.org/EventCancelled',
+              eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
+              location: event.venue
+                  ? {
+                        '@type': 'Place',
+                        name: event.venue,
+                        address: event.address || undefined,
+                    }
+                  : undefined,
+              image: event.imageUrl ? [event.imageUrl] : undefined,
+              organizer: event.organizer
+                  ? { '@type': 'Organization', name: event.organizer, email: event.contactEmail || undefined }
+                  : undefined,
+              offers: event.price
+                  ? {
+                        '@type': 'Offer',
+                        price: (event.price / 100).toFixed(2),
+                        priceCurrency: 'INR',
+                        availability: event.soldCount < event.capacity ? 'https://schema.org/InStock' : 'https://schema.org/SoldOut',
+                        url: `${typeof window !== 'undefined' ? window.location.origin : ''}/event/${event.id}`,
+                    }
+                  : {
+                        '@type': 'Offer',
+                        price: '0',
+                        priceCurrency: 'INR',
+                        availability: 'https://schema.org/InStock',
+                    },
+          }
+        : null;
+
     return (
         <main className="min-h-screen bg-black">
+            {jsonLd && (
+                <script
+                    type="application/ld+json"
+                    dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+                />
+            )}
             {/* Floating Back Button */}
             <Link href="/" className="fixed top-4 left-4 z-50 flex items-center gap-2 px-4 py-2 glass rounded-full text-zinc-300 hover:text-white transition-all hover-lift">
                 <ArrowLeft className="w-4 h-4" />

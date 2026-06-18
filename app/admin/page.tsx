@@ -17,6 +17,7 @@ import { LogOut, Home, CheckCircle, Search, Trash2, Edit, Copy, Plus, Users, Cal
 import AuditLogViewer from '@/components/admin/AuditLogViewer';
 import IntegrationHub from '@/components/admin/IntegrationHub';
 import { ExportButton } from '@/lib/export';
+import AttendeeImportButton from '@/components/AttendeeImportButton';
 import CertificateManager from '@/components/admin/CertificateManager';
 import SessionScheduler from '@/components/admin/SessionScheduler';
 import RegistrationFormBuilder from '@/components/admin/RegistrationFormBuilder';
@@ -1622,6 +1623,13 @@ export default function AdminPage({ defaultTab }: { defaultTab?: AdminTabKey } =
                                     <p className="text-zinc-400 text-sm">View and manage event attendees</p>
                                 </div>
                                 <div className="flex gap-2">
+                                    {selectedEvent !== 'all' && (
+                                        <AttendeeImportButton
+                                            eventId={selectedEvent}
+                                            onImported={({ imported, skipped }) => showToast(`Imported ${imported} attendees${skipped ? `, skipped ${skipped}` : ''}`, 'success')}
+                                            onError={(msg) => showToast(msg, 'error')}
+                                        />
+                                    )}
                                     <ExportButton
                                         data={filteredTickets.map(t => {
                                             const event = events.find(e => e.id === t.eventId);

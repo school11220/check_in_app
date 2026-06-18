@@ -15,7 +15,10 @@ const CATEGORY_COLORS: Record<string, string> = {
 export default async function Image({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
 
-    const event = await prisma.event.findUnique({ where: { id } });
+    const event = await prisma.event.findUnique({
+        where: { id },
+        include: { EventBrand: true },
+    });
 
     if (!event) {
         return new ImageResponse(
@@ -44,9 +47,9 @@ export default async function Image({ params }: { params: Promise<{ id: string }
 
                 {/* Left image panel */}
                 <div style={{ width: 420, height: '100%', flexShrink: 0, position: 'relative', display: 'flex' }}>
-                    {event.imageUrl
+                    {(event.EventBrand?.ogImageUrl ?? event.imageUrl)
                         // eslint-disable-next-line @next/next/no-img-element
-                        ? <img src={event.imageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        ? <img src={(event.EventBrand?.ogImageUrl ?? event.imageUrl) as string} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         : <div style={{ width: '100%', height: '100%', background: `linear-gradient(180deg, ${catColor}44 0%, #000 100%)`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><div style={{ width: 120, height: 120, opacity: 0.2, border: '8px solid #fff', borderRadius: 16 }} /></div>
                     }
                     <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg, transparent 60%, #0a0a0a 100%)' }} />
@@ -68,6 +71,11 @@ export default async function Image({ params }: { params: Promise<{ id: string }
                         <div style={{ width: 6, height: 6, borderRadius: '50%', background: catColor }} />
                         {date}
                     </div>
+
+                    {/* Tagline from brand */}
+                    {event.EventBrand?.tagline && (
+                        <div style={{ fontSize: 18, color: '#d4d4d8', fontStyle: 'italic', marginBottom: 16, lineHeight: 1.4 }}>{event.EventBrand.tagline}</div>
+                    )}
 
                     {/* Venue */}
                     {event.venue && (
@@ -96,7 +104,7 @@ export default async function Image({ params }: { params: Promise<{ id: string }
                 </div>
 
                 {/* Bottom accent */}
-                <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg, ${catColor}, #dc2626, transparent)` }} />
+                <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg, ${catColor}, ${event.EventBrand?.primaryColor || '#dc2626'}, transparent)` }} />
             </div>
         ),
         { ...size }
