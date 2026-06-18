@@ -1,8 +1,10 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useScanFeedback } from '@/hooks/useScanFeedback';
 import QRScanner from '@/components/QRScanner';
 import OfflineBanner from '@/components/OfflineBanner';
+import OfflineSyncPill from '@/components/OfflineSyncPill';
 import { syncTicketsForEvent, offlineCheckIn, processBackgroundSync, getOfflineTicket } from '@/lib/offline-sync'; // Ensure getOfflineTicket is exported
 import { Wifi, WifiOff, RefreshCw, CheckCircle, XCircle, Loader2, User, Ticket as TicketIcon, Search, CalendarDays } from 'lucide-react';
 import { ParsedScanPayload, parseScanPayload } from '@/lib/scan-payload';
@@ -24,6 +26,19 @@ export default function ScannerPage() {
     const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
     const [mode, setMode] = useState<'scan' | 'verify'>('scan');
     const [deviceName, setDeviceName] = useState('');
+    const triggerFeedback = useScanFeedback();
+
+    // Trigger haptic + audio feedback whenever a new scan result is rendered.
+    useEffect(() => {
+        if (!scanResult) return;
+        if (scanResult.success) {
+            triggerFeedback('success');
+        } else if (typeof scanResult.message === 'string' && /already|duplicate/i.test(scanResult.message)) {
+            triggerFeedback('duplicate');
+        } else {
+            triggerFeedback('error');
+        }
+    }, [scanResult, triggerFeedback]);
 
     const todayEvents = useMemo(() => {
         const todayKey = new Date().toDateString();
@@ -291,6 +306,7 @@ export default function ScannerPage() {
                 </button>
                 <div className="flex items-center gap-3">
                     {isOnline ? <Wifi className="w-4 h-4 text-green-500" /> : <WifiOff className="w-4 h-4 text-red-500" />}
+                    <OfflineSyncPill />
                     <button
                         onClick={handleSync}
                         disabled={isSyncing || !isOnline}

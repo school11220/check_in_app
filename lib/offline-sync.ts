@@ -120,6 +120,36 @@ export async function offlineCheckIn(ticketId: string, eventId: string) {
     return ticket;
 }
 
+export async function getPendingCount(): Promise<number> {
+    if (typeof indexedDB === 'undefined') return 0;
+    try {
+        const db = await getDB();
+        return await db.count('pending_logs');
+    } catch {
+        return 0;
+    }
+}
+
+export function subscribePendingCount(callback: (n: number) => void): () => void {
+    if (typeof indexedDB === 'undefined') return () => {};
+    let cancelled = false;
+    let interval: ReturnType<typeof setInterval> | null = null;
+    const tick = async () => {
+        if (cancelled) return;
+        callback(await getPendingCount());
+    };
+    void tick();
+    interval = setInterval(tick, 3000);
+    // Also poll when the browser regains connectivity
+    const onOnline = () => { void tick(); };
+    if (typeof window !== 'undefined') window.addEventListener('online', onOnline);
+    return () => {
+        cancelled = true;
+        if (interval) clearInterval(interval);
+        if (typeof window !== 'undefined') window.removeEventListener('online', onOnline);
+    };
+}
+
 export async function processBackgroundSync() {
     // Requires internet
     if (!navigator.onLine) return;
