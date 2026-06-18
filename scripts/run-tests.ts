@@ -194,3 +194,117 @@ testApiError();
 testParseBodyRejectsInvalidJson();
 testParseBodyRejectsBadShape();
 testParseBodyAcceptsValid();
+
+// ---------------------------------------------------------------------------
+// Ticket lifecycle + scan payload + allocatePaidAmount idempotency
+// ---------------------------------------------------------------------------
+import {
+  getTicketLifecycleStatus,
+  getTicketFinancials,
+  isPaidLikeStatus,
+  PAID_LIKE_STATUSES,
+} from '../lib/ticket-lifecycle';
+
+function testTicketLifecycleStatus() {
+  // pending
+  assert.equal(getTicketLifecycleStatus({ status: 'pending' }), 'pending');
+  // paid not yet checked in
+  assert.equal(getTicketLifecycleStatus({ status: 'paid' }), 'paid');
+  // paid and checked in -> 'checked_in'
+  assert.equal(getTicketLifecycleStatus({ status: 'paid', checkedIn: true }), 'checked_in');
+  // partially_refunded + checkedIn -> 'checked_in'
+  assert.equal(getTicketLifecycleStatus({ status: 'partially_refunded', checkedIn: true }), 'checked_in');
+  // cancelled
+  assert.equal(getTicketLifecycleStatus({ status: 'cancelled' }), 'cancelled');
+  // refunded
+  assert.equal(getTicketLifecycleStatus({ status: 'refunded' }), 'refunded');
+  // edge: null status
+  assert.equal(isPaidLikeStatus(null), false);
+  assert.equal(isPaidLikeStatus('paid'), true);
+  assert.equal(isPaidLikeStatus('checked_in'), false);
+}
+
+function testTicketFinancials() {
+  // No explicit financials: net == event price when paid
+  const f1 = getTicketFinancials({ status: 'paid' }, 1000);
+  assert.equal(f1.netAmount, 1000);
+  assert.equal(f1.amountPaid, 1000);
+
+  // With discount
+  const f2 = getTicketFinancials({ status: 'paid', amountPaid: 800, discountAmount: 200 }, 1000);
+  assert.equal(f2.netAmount, 800);
+  assert.equal(f2.discountAmount, 200);
+
+  // With refund
+  const f3 = getTicketFinancials({ status: 'refunded', amountPaid: 0, grossAmount: 1000, refundedAmount: 1000 });
+  assert.equal(f3.refundedAmount, 1000);
+  assert.equal(f3.grossAmount, 1000);
+
+  // Cancelled: no revenue
+  const f4 = getTicketFinancials({ status: 'cancelled' }, 1000);
+  assert.equal(f4.netAmount, 0);
+  assert.equal(f4.grossAmount, 0);
+}
+
+function testTimedQRToken() {
+  const ticketId = 'ticket-abc';
+  const token = 'plain-secret-token';
+  const timed = generateTimedQRToken(ticketId, token);
+
+  // Correct token verifies
+  const ok = verifyTimedQRToken(timed, token);
+  assert.equal(ok.valid, true);
+  assert.equal(ok.ticketId, ticketId);
+
+  // Wrong token rejected
+  const wrong = verifyTimedQRToken(timed, 'wrong');
+  assert.equal(wrong.valid, false);
+  assert.equal(wrong.reason, 'Invalid ticket token');
+
+  // Tampered ticket id inside payload -> HMAC fails
+  const parts = timed.split(':');
+  parts[0] = 'ticket-other';
+  const tampered = parts.join(':');
+  const tamper = verifyTimedQRToken(tampered, token);
+  assert.equal(tamper.valid, false);
+  assert.equal(tamper.reason, 'Tampered QR code');
+
+  // Garbage input
+  const garbage = verifyTimedQRToken('not-a-qr', token);
+  assert.equal(garbage.valid, false);
+}
+
+
+function testScanPayloadEdgeCases() {
+  // Empty/whitespace -> null
+  assert.equal(parseScanPayload(''), null);
+  assert.equal(parseScanPayload('   '), null);
+  // Plain id
+  assert.deepEqual(parseScanPayload('T-001'), { ticketId: 'T-001' });
+  // URL with query
+  const url = 'https://example.com/ticket/abc-123?token=xyz';
+  const r = parseScanPayload(url);
+  assert.equal(r?.ticketId, 'abc-123');
+  assert.equal(r?.token, 'xyz');
+  // JSON object
+  const j = parseScanPayload(JSON.stringify({ ticketId: 'json-1', token: 'j-tok' }));
+  assert.deepEqual(j, { ticketId: 'json-1', token: 'j-tok', timedToken: undefined });
+  // token:payload format
+  const colon = parseScanPayload('T-007:secret');
+  assert.equal(colon?.ticketId, 'T-007');
+  assert.equal(colon?.token, 'secret');
+}
+
+
+function testPaidLikeStatuses() {
+  assert.deepEqual([...PAID_LIKE_STATUSES], ['paid', 'partially_refunded']);
+  assert.equal(isPaidLikeStatus('paid'), true);
+  assert.equal(isPaidLikeStatus('partially_refunded'), true);
+  assert.equal(isPaidLikeStatus('PENDING'), false);
+}
+
+testTicketLifecycleStatus();
+testTicketFinancials();
+testTimedQRToken();
+testScanPayloadEdgeCases();
+testPaidLikeStatuses();
