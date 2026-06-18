@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Calendar, Users, BarChart3, LogOut, Globe, Edit3, Save, Loader2, LayoutDashboard, Home, Ticket, CheckCircle, Power, Play, Pause, AlertTriangle, History, MessageSquare, Plus } from 'lucide-react';
+import {Calendar, Users, BarChart3, LogOut, Globe, Edit3, Save, Loader2, LayoutDashboard, Home, Ticket, CheckCircle, Power, Play, Pause, AlertTriangle, History, MessageSquare, Plus} from '@/components/icons';
 import { useToast } from '@/components/Toaster';
 import SessionScheduler from '@/components/admin/SessionScheduler';
 

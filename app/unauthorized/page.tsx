@@ -1,7 +1,5 @@
 'use client';
-
-import { Shield, Mail, CheckCircle, Smartphone } from 'lucide-react';
-
+import {Shield, Mail, CheckCircle, Smartphone} from '@/components/icons';
 export default function UnauthorizedPage() {
     return (
         <main className="min-h-screen bg-[#0B0B0B] flex items-center justify-center p-4">

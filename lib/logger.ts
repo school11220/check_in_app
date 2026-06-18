@@ -8,7 +8,10 @@ export type AuditAction =
     | 'LOGOUT'
     | 'CHECKIN'
     | 'EXPORT'
-    | 'SETTINGS_UPDATE';
+    | 'SETTINGS_UPDATE'
+    | 'EMAIL_TEMPLATE_UPDATE'
+    | 'EMAIL_TEMPLATE_DELETE'
+    | 'EMAIL_TEMPLATES_UPDATE';
 
 export type AuditResource =
     | 'EVENT'
@@ -16,7 +19,9 @@ export type AuditResource =
     | 'USER'
     | 'SETTINGS'
     | 'INTEGRATION'
-    | 'AUTH';
+    | 'AUTH'
+    | 'EMAIL_TEMPLATE'
+    | 'MESSAGE';
 
 interface LogAuditParams {
     action: AuditAction;

@@ -3,8 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useApp } from '@/lib/store';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell, FunnelChart, Funnel, LabelList } from 'recharts';
-import { TrendingUp, Filter } from 'lucide-react';
-
+import {TrendingUp, Filter} from '@/components/icons';
 interface CohortRow {
     cohortMonth: string;
     cohortSize: number;

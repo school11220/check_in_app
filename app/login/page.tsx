@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Lock, Mail, Loader2, ArrowRight } from 'lucide-react';
+import {Lock, Mail, Loader2, ArrowRight} from '@/components/icons';
 import { useToast } from '@/components/Toaster';
 import { useSignIn, useAuth } from '@clerk/nextjs';
 

@@ -10,31 +10,35 @@ interface ExportOptions {
     sheetName?: string;
 }
 
-// Convert data to CSV format
-function convertToCSV(data: ExportData): string {
-    if (data.length === 0) return '';
+// Convert data to CSV format (RFC 4180).
+// Always prepends a UTF-8 BOM so Excel opens it correctly with non-ASCII names.
+function convertToCSV(data: ExportData, options: { bom?: boolean; lineEnding?: '\n' | '\r\n' } = {}): string {
+    const { bom = true, lineEnding = '\r\n' } = options;
+    if (data.length === 0) return bom ? '\uFEFF' : '';
 
     const headers = Object.keys(data[0]);
     const csvRows: string[] = [];
 
     // Add headers
-    csvRows.push(headers.join(','));
+    csvRows.push(headers.map((h) => escapeCSVField(h)).join(','));
 
     // Add data rows
     for (const row of data) {
-        const values = headers.map(header => {
-            const value = row[header];
-            // Escape quotes and wrap in quotes if contains comma
-            const strValue = String(value ?? '');
-            if (strValue.includes(',') || strValue.includes('"') || strValue.includes('\n')) {
-                return `"${strValue.replace(/"/g, '""')}"`;
-            }
-            return strValue;
-        });
+        const values = headers.map(header => escapeCSVField(row[header]));
         csvRows.push(values.join(','));
     }
 
-    return csvRows.join('\n');
+    const body = csvRows.join(lineEnding);
+    return bom ? `\uFEFF${body}` : body;
+}
+
+function escapeCSVField(value: unknown): string {
+    if (value === null || value === undefined) return '';
+    const strValue = String(value);
+    if (strValue.includes(',') || strValue.includes('"') || strValue.includes('\n') || strValue.includes('\r')) {
+        return `"${strValue.replace(/"/g, '""')}"`;
+    }
+    return strValue;
 }
 
 // Download as CSV file

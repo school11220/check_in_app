@@ -6,7 +6,7 @@ import { useParams, useSearchParams } from 'next/navigation';
 import { useApp } from '@/lib/store';
 import { formatINR, generateQRCode } from '@/lib/utils';
 import { useToast } from '@/components/Toaster';
-import { downloadCalendarEvent, getGoogleCalendarUrl, canShare, shareTicket } from '@/lib/calendar-utils';
+import { downloadCalendarEvent, getGoogleCalendarUrl, getOutlookCalendarUrl, getYahooCalendarUrl, canShare, shareTicket } from '@/lib/calendar-utils';
 
 interface TicketData {
   id: string;
@@ -100,6 +100,29 @@ export default function TicketPage() {
       startDate: getEventDate(),
     });
   };
+
+  // Get Outlook Calendar link
+  const getOutlookCalendarLink = () => {
+    if (!ticket?.event) return '#';
+    return getOutlookCalendarUrl({
+      title: ticket.event.name,
+      description: `Your ticket for ${ticket.event.name}. Ticket ID: ${ticket.id}`,
+      location: ticket.event.venue || undefined,
+      startDate: getEventDate(),
+    });
+  };
+
+  // Get Yahoo Calendar link
+  const getYahooCalendarLink = () => {
+    if (!ticket?.event) return '#';
+    return getYahooCalendarUrl({
+      title: ticket.event.name,
+      description: `Your ticket for ${ticket.event.name}. Ticket ID: ${ticket.id}`,
+      location: ticket.event.venue || undefined,
+      startDate: getEventDate(),
+    });
+  };
+
 
   // Handle Share
   const handleShare = async () => {
@@ -600,6 +623,29 @@ export default function TicketPage() {
                     <path fill="white" d="M8 7.5h8v1.5H8zm0 3h8v1.5H8zm0 3h5v1.5H8z" />
                   </svg>
                   Open in Google Calendar
+                </a>
+
+                <a
+                  href={getOutlookCalendarLink()}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full px-4 py-3 text-left text-white hover:bg-zinc-800 flex items-center gap-3 text-sm border-t border-zinc-800"
+                >
+                  <svg className="w-5 h-5 text-blue-500" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M7 5h10a3 3 0 013 3v8a3 3 0 01-3 3H7a3 3 0 01-3-3V8a3 3 0 013-3zm0 2a1 1 0 00-1 1v8a1 1 0 001 1h10a1 1 0 001-1V8a1 1 0 00-1-1H7z" />
+                  </svg>
+                  Open in Outlook
+                </a>
+                <a
+                  href={getYahooCalendarLink()}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full px-4 py-3 text-left text-white hover:bg-zinc-800 rounded-b-xl flex items-center gap-3 text-sm border-t border-zinc-800"
+                >
+                  <svg className="w-5 h-5 text-purple-400" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm1 14h-2v-2h2v2zm0-4h-2V7h2v5z" />
+                  </svg>
+                  Open in Yahoo Calendar
                 </a>
               </div>
             </div>

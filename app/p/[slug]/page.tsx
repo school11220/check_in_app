@@ -2,7 +2,7 @@
 
 import { useApp } from '@/lib/store';
 import { useParams } from 'next/navigation';
-import { ArrowLeft } from 'lucide-react';
+import {ArrowLeft} from '@/components/icons';
 import Link from 'next/link';
 
 export default function CustomPage() {

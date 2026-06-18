@@ -2,8 +2,7 @@
 
 import { useState } from 'react';
 import { Survey } from '@/lib/store'; // Importing types
-import { Star } from 'lucide-react';
-
+import {Star} from '@/components/icons';
 interface SurveyFormProps {
     survey: Survey;
     siteName: string;

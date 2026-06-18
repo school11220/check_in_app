@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Trash2, Play, Pause, Mail, ChevronDown, ChevronRight, X, Loader2, Edit, Save, Lightbulb } from 'lucide-react';
+import {Plus, Trash2, Play, Pause, Mail, ChevronDown, ChevronRight, X, Loader2, Edit, Save, Lightbulb, Copy as CopyIcon} from '@/components/icons';
 import { useApp } from '@/lib/store';
 import { useToast } from '@/components/Toaster';
 
@@ -89,6 +89,19 @@ export default function DripCampaigns() {
         if (res.ok) {
             setCampaigns(prev => prev.map(c => c.id === campaign.id ? { ...c, isActive: !c.isActive } : c));
         }
+    };
+
+    const duplicateCampaign = (campaign: Campaign) => {
+        setNewName(`${campaign.name} (copy)`);
+        setNewEventId(campaign.eventId);
+        setNewSteps(campaign.steps.map((s) => ({
+            triggerType: s.triggerType,
+            offsetDays: s.offsetDays,
+            templateId: s.templateId,
+            label: s.label,
+        })));
+        setShowNew(true);
+        setExpandedId(null);
     };
 
     const deleteCampaign = async (id: string) => {
@@ -297,7 +310,10 @@ export default function DripCampaigns() {
                                         <button onClick={() => toggleActive(campaign)} className="p-1.5 text-zinc-400 hover:text-white transition rounded-lg hover:bg-zinc-800">
                                             {campaign.isActive ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
                                         </button>
-                                        <button onClick={() => deleteCampaign(campaign.id)} className="p-1.5 text-zinc-400 hover:text-red-400 transition rounded-lg hover:bg-zinc-800">
+                                        <button onClick={() => duplicateCampaign(campaign)} className="p-1.5 text-zinc-400 hover:text-white transition rounded-lg hover:bg-zinc-800" aria-label="Duplicate campaign">
+                                            <CopyIcon className="w-3.5 h-3.5" />
+                                        </button>
+                                        <button onClick={() => deleteCampaign(campaign.id)} className="p-1.5 text-zinc-400 hover:text-red-400 transition rounded-lg hover:bg-zinc-800" aria-label="Delete campaign">
                                             <Trash2 className="w-3.5 h-3.5" />
                                         </button>
                                     </div>

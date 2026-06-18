@@ -2,8 +2,7 @@
 
 import { useState } from 'react';
 import { useApp } from '@/lib/store';
-import { Layout, Eye, EyeOff, Save, RotateCcw } from 'lucide-react';
-
+import {Layout, Eye, EyeOff, Save, RotateCcw} from '@/components/icons';
 function buildLayoutSettings(siteSettings: ReturnType<typeof useApp>['siteSettings']) {
     return {
         heroTitle: siteSettings.heroTitle || 'EventHub 2024',

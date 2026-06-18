@@ -13,7 +13,7 @@ import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
     PieChart, Pie, Cell, AreaChart, Area,
 } from 'recharts';
-import { LogOut, Home, CheckCircle, Search, Trash2, Edit, Copy, Plus, Users, Calendar, BarChart as BarChartIcon, TrendingUp, LayoutDashboard, Shield, MessageSquare, Tent, Mail, ClipboardList, Layout, Tag, BarChart3, History, Ticket, Settings, Award, Clock, Smartphone, Bell, Receipt, Globe, Power, AlertTriangle, Play, Pause, FileText, Palette, Eye, EyeOff, GripVertical } from 'lucide-react';
+import {LogOut, Home, CheckCircle, Search, Trash2, Edit, Copy, Plus, Users, Calendar, BarChart as BarChartIcon, TrendingUp, LayoutDashboard, Shield, MessageSquare, Tent, Mail, ClipboardList, Layout, Tag, BarChart3, History, Ticket, Settings, Award, Clock, Smartphone, Bell, Receipt, Globe, Power, AlertTriangle, Play, Pause, FileText, Palette, Eye, EyeOff, GripVertical} from '@/components/icons';
 import AuditLogViewer from '@/components/admin/AuditLogViewer';
 import IntegrationHub from '@/components/admin/IntegrationHub';
 import { ExportButton } from '@/lib/export';
@@ -23,6 +23,9 @@ import SessionScheduler from '@/components/admin/SessionScheduler';
 import RegistrationFormBuilder from '@/components/admin/RegistrationFormBuilder';
 import LayoutManager from '@/components/admin/LayoutManager';
 import RichTextEditor from '@/components/admin/RichTextEditor';
+import DripCampaigns from '@/components/admin/DripCampaigns';
+import EmailTemplatesManager from '@/components/admin/EmailTemplatesManager';
+import Inbox from '@/components/admin/Inbox';
 import Link from 'next/link';
 import EventReviews from '@/components/organizer/EventReviews';
 import EventModal from '@/components/EventModal';
@@ -35,7 +38,7 @@ import DashboardInsights from '@/components/DashboardInsights';
 const PAID_LIKE_STATUSES = new Set(['paid', 'partially_refunded']);
 const isPaidLikeTicket = (ticket: { status?: string }) => PAID_LIKE_STATUSES.has(ticket.status || '');
 
-type AdminTabKey = 'events' | 'attendees' | 'team' | 'festivals' | 'emails' | 'surveys' | 'settings' | 'layout' | 'growth' | 'analytics' | 'history' | 'certificates' | 'sessions' | 'tickets' | 'audit' | 'integrations' | 'sales' | 'pages' | 'theme' | 'reviews';
+type AdminTabKey = 'events' | 'attendees' | 'team' | 'festivals' | 'emails' | 'surveys' | 'settings' | 'layout' | 'growth' | 'analytics' | 'history' | 'certificates' | 'sessions' | 'tickets' | 'audit' | 'integrations' | 'sales' | 'pages' | 'theme' | 'reviews' | 'automation';
 
 export default function AdminPage({ defaultTab }: { defaultTab?: AdminTabKey } = {}) {
     const router = useRouter();
@@ -71,6 +74,7 @@ export default function AdminPage({ defaultTab }: { defaultTab?: AdminTabKey } =
         { id: 'history', label: 'History', icon: History, roles: ['ADMIN', 'ORGANIZER'] },
         { id: 'sales', label: 'Sales Control', icon: Power, roles: ['ADMIN'] },
         { id: 'pages', label: 'Pages', icon: FileText, roles: ['ADMIN'] },
+        { id: 'automation', label: 'Automation', icon: Mail, roles: ['ADMIN'] },
     ]), []);
 
     const visibleTabs = tabConfig.filter(tab => tab.roles.includes(role as any));
@@ -2193,6 +2197,21 @@ export default function AdminPage({ defaultTab }: { defaultTab?: AdminTabKey } =
                             </div>
 
 
+                        </div>
+                    )
+                }
+
+                {/* Automation: Drip Campaigns + Email Templates Manager + Inbox */}
+                {
+                    activeTab === 'automation' && (
+                        <div className="space-y-10">
+                            <DripCampaigns />
+                            <div className="border-t border-zinc-800 pt-8">
+                                <EmailTemplatesManager />
+                            </div>
+                            <div className="border-t border-zinc-800 pt-8">
+                                <Inbox />
+                            </div>
                         </div>
                     )
                 }

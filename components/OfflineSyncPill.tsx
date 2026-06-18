@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { CloudOff, Loader2 } from 'lucide-react';
+import {CloudOff, Loader2} from '@/components/icons';
 import { subscribePendingCount, processBackgroundSync } from '@/lib/offline-sync';
 
 /**

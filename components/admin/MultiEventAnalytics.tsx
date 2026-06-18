@@ -3,8 +3,7 @@
 import { useState, useMemo } from 'react';
 import { useApp } from '@/lib/store';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, LineChart, Line, CartesianGrid, PieChart, Pie, Cell } from 'recharts';
-import { Users, CheckSquare, DollarSign, Star, TrendingUp, ChevronDown } from 'lucide-react';
-
+import {Users, CheckSquare, DollarSign, Star, TrendingUp, ChevronDown} from '@/components/icons';
 const PALETTE = ['#e11d2e', '#3b82f6', '#a855f7', '#f59e0b', '#22c55e', '#ec4899', '#0ea5e9', '#f97316'];
 const PAID_LIKE_STATUSES = new Set(['paid', 'partially_refunded']);
 

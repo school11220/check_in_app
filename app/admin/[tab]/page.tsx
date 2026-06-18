@@ -6,7 +6,7 @@ const VALID_TABS: AdminTabId[] = [
     'events', 'attendees', 'analytics', 'reviews', 'sessions',
     'team', 'festivals', 'emails', 'surveys', 'tickets',
     'layout', 'growth', 'certificates', 'audit', 'history',
-    'sales', 'pages',
+    'sales', 'pages', 'automation',
 ];
 
 interface AdminTabRouteProps {

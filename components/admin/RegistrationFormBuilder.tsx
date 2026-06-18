@@ -2,8 +2,7 @@
 
 import { useState } from 'react';
 import { RegistrationField } from '@/lib/store';
-import { Trash2, Plus, GripVertical } from 'lucide-react';
-
+import {Trash2, Plus, GripVertical} from '@/components/icons';
 interface RegistrationFormBuilderProps {
     fields: RegistrationField[];
     onChange: (fields: RegistrationField[]) => void;

@@ -4,8 +4,7 @@ import { Suspense } from "react";
 import { FormEvent, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Search, Ticket, ArrowRight } from "lucide-react";
-
+import {Search, Ticket, ArrowRight} from '@/components/icons';
 function TicketLookupContent() {
   const router = useRouter();
   const searchParams = useSearchParams();

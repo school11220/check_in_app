@@ -6,7 +6,7 @@ import QRScanner from '@/components/QRScanner';
 import OfflineBanner from '@/components/OfflineBanner';
 import OfflineSyncPill from '@/components/OfflineSyncPill';
 import { syncTicketsForEvent, offlineCheckIn, processBackgroundSync, getOfflineTicket } from '@/lib/offline-sync'; // Ensure getOfflineTicket is exported
-import { Wifi, WifiOff, RefreshCw, CheckCircle, XCircle, Loader2, User, Ticket as TicketIcon, Search, CalendarDays } from 'lucide-react';
+import {Wifi, WifiOff, RefreshCw, CheckCircle, XCircle, Loader2, User, Ticket as TicketIcon, Search, CalendarDays} from '@/components/icons';
 import { ParsedScanPayload, parseScanPayload } from '@/lib/scan-payload';
 
 interface Event {

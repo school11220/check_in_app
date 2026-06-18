@@ -5,17 +5,12 @@ import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { useUser } from '@clerk/nextjs';
 import { useClerk } from '@clerk/nextjs';
 import Link from 'next/link';
-import {
-    LogOut, Home, Users, Calendar, BarChart3, MessageSquare, Tent, Mail,
-    ClipboardList, Layout, TrendingUp, Award, Clock, History, Ticket,
-    Power, FileText, Settings as SettingsIcon,
-} from 'lucide-react';
-
+import {LogOut, Home, Users, Calendar, BarChart3, MessageSquare, Tent, Mail, ClipboardList, Layout, TrendingUp, Award, Clock, History, Ticket, Power, FileText, Settings as SettingsIcon} from '@/components/icons';
 export type AdminTabId =
     | 'events' | 'attendees' | 'analytics' | 'reviews' | 'sessions'
     | 'team' | 'festivals' | 'emails' | 'surveys' | 'tickets'
     | 'layout' | 'growth' | 'certificates' | 'audit' | 'history'
-    | 'sales' | 'pages';
+    | 'sales' | 'pages' | 'automation';
 
 interface TabConfig {
     id: AdminTabId;
@@ -41,6 +36,7 @@ const TABS: TabConfig[] = [
     { id: 'audit', label: 'Logs', icon: History, roles: ['ADMIN'] },
     { id: 'history', label: 'History', icon: History, roles: ['ADMIN', 'ORGANIZER'] },
     { id: 'sales', label: 'Sales Control', icon: Power, roles: ['ADMIN'] },
+    { id: 'automation', label: 'Automation', icon: Mail, roles: ['ADMIN'] },
     { id: 'pages', label: 'Pages', icon: FileText, roles: ['ADMIN'] },
 ];
 

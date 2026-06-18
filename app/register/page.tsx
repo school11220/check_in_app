@@ -1,7 +1,7 @@
 'use client';
 
 import TicketForm from '@/components/TicketForm';
-import { ArrowLeft, Ticket } from 'lucide-react';
+import {ArrowLeft, Ticket} from '@/components/icons';
 import Link from 'next/link';
 
 export default function RegisterPage() {

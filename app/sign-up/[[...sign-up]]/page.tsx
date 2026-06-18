@@ -2,8 +2,7 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2 } from 'lucide-react';
-
+import {Loader2} from '@/components/icons';
 // This page catches users who try to sign up via Clerk
 // Since we don't allow public sign-ups, redirect to unauthorized
 export default function SignUpPage() {

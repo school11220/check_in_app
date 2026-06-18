@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { Upload, Loader2 } from 'lucide-react';
-
+import {Upload, Loader2} from '@/components/icons';
 interface Props {
     eventId: string;
     onImported?: (result: { imported: number; skipped: number }) => void;

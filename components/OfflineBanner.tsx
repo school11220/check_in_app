@@ -1,8 +1,7 @@
 'use client';
 
 import { useOfflineSync } from '@/hooks/useOfflineSync';
-import { WifiOff, Wifi, RotateCcw, Loader2 } from 'lucide-react';
-
+import {WifiOff, Wifi, RotateCcw, Loader2} from '@/components/icons';
 interface OfflineBannerProps {
     className?: string;
 }

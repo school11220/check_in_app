@@ -15,7 +15,8 @@
     "backfill:users:dry": "tsx scripts/backfill-clerk-users.ts --dry-run",
     "reconcile:sold-count": "tsx scripts/reconcile-sold-count.ts",
     "check:env": "tsx scripts/check-env.ts",
-    "predev": "npm run check:env"
+    "predev": "npm run check:env",
+    "db:seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
     "@clerk/nextjs": "^6.36.9",
@@ -63,5 +64,8 @@
     "prisma": "^6.19.1",
     "tsx": "^4.19.2",
     "typescript": "^5"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
   }
 }

@@ -2,8 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Calendar, Users, BarChart3, ArrowRight, X, Sparkles } from 'lucide-react';
-
+import {Calendar, Users, BarChart3, ArrowRight, X, Sparkles} from '@/components/icons';
 interface Props {
     hasEvents: boolean;
     onDismiss?: () => void;

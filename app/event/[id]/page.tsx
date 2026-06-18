@@ -5,9 +5,7 @@ import { useApp, CATEGORY_COLORS, type Event } from '@/lib/store';
 import { useToast } from '@/components/Toaster';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-
-import { Calendar, MapPin, Share2, ArrowLeft, Clock, Users, Trophy, Map, ShieldCheck, Mail, Phone, ExternalLink, Ticket, Info, Globe, Star } from 'lucide-react';
-
+import {Calendar, MapPin, Share2, ArrowLeft, Clock, Users, Trophy, Map, ShieldCheck, Mail, Phone, ExternalLink, Ticket, Info, Globe, Star} from '@/components/icons';
 function calculateCountdown(targetDate: string) {
     const difference = new Date(targetDate).getTime() - new Date().getTime();
     if (difference > 0) {

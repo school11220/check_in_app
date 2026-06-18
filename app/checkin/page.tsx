@@ -7,17 +7,12 @@ import QRScanner from '@/components/QRScanner';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useOfflineCheckin } from '@/hooks/useOfflineCheckin';
-import {
-  ScanLine, LogOut, Ticket, Lock, CheckCircle, XCircle, Radio, Calendar, X,
-  History, Users, BarChart3, Home, Download, WifiOff, Wifi, RefreshCw,
-  FileSpreadsheet, Shield, Clock, TrendingUp, AlertTriangle, ToggleLeft, ToggleRight,
-  Search, Undo2
-} from 'lucide-react';
+import {ScanLine, LogOut, Ticket, Lock, CheckCircle, XCircle, Radio, Calendar, X, History, Users, BarChart3, Home, Download, WifiOff, Wifi, RefreshCw, FileSpreadsheet, Shield, Clock, TrendingUp, AlertTriangle, ToggleLeft, ToggleRight, Search, Undo2} from '@/components/icons';
 import SessionScheduler from '@/components/admin/SessionScheduler';
 import { useClerk, useUser } from '@clerk/nextjs';
 import { parseScanPayload } from '@/lib/scan-payload';
 
-type CheckinTabKey = 'scanner' | 'history' | 'guestlist' | 'stats';
+type CheckinTabKey = 'scanner' | 'history' | 'guestlist' | 'stats' | 'group';
 
 function CheckinPageContent({ defaultTab, defaultEventId }: { defaultTab?: CheckinTabKey; defaultEventId?: string } = {}) {
   const { events, isLoading: eventsLoading } = useApp();
@@ -645,6 +640,7 @@ function CheckinPageContent({ defaultTab, defaultEventId }: { defaultTab?: Check
             <div className="bg-[#141414] p-1.5 rounded-2xl border border-[#1F1F1F] inline-flex whitespace-nowrap shadow-xl">
               {[
                 { id: 'scanner' as const, icon: ScanLine, label: 'Scanner' },
+                { id: 'group' as const, icon: Users, label: 'Group' },
                 { id: 'guestlist' as const, icon: Users, label: 'Guest List' },
                 { id: 'stats' as const, icon: BarChart3, label: 'Live Stats' },
                 { id: 'history' as const, icon: History, label: 'History' },
@@ -663,6 +659,57 @@ function CheckinPageContent({ defaultTab, defaultEventId }: { defaultTab?: Check
         </div>
 
         <div className="grid lg:grid-cols-2 gap-8">
+          {/* Group Check-in Tab */}
+          {activeTab === 'group' && (
+            <div className="lg:col-span-2 grid grid-cols-1 lg:grid-cols-12 gap-6 animate-fade-in">
+              <div className="lg:col-span-12 bg-[#0D0D0D] border border-[#1F1F1F] rounded-2xl overflow-hidden shadow-2xl">
+                <div className="p-5 border-b border-[#1F1F1F] bg-[#141414]">
+                  <h2 className="text-lg font-bold text-white">Group Check-in</h2>
+                  <p className="text-[#737373] text-sm mt-1">
+                    Enter a group purchase ID to check in every member at once. The group lead&apos;s QR also encodes the purchase group ID.
+                  </p>
+                </div>
+                <form
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    const input = (e.currentTarget.elements.namedItem('gid') as HTMLInputElement).value.trim();
+                    if (!input) return;
+                    try {
+                      const res = await fetch('/api/checkin/group', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ purchaseGroupId: input }),
+                      });
+                      const data = await res.json();
+                      if (res.ok) {
+                        const failed = data.failed as number;
+                        alert(`${data.succeeded} of ${data.total} checked in${failed ? ` (${failed} skipped)` : ''}`);
+                      } else {
+                        alert(data.error || 'Group check-in failed');
+                      }
+                    } catch {
+                      alert('Group check-in failed');
+                    }
+                  }}
+                  className="p-5 flex flex-col sm:flex-row gap-3"
+                >
+                  <input
+                    name="gid"
+                    placeholder="grp-… or paste group ID"
+                    className="flex-1 px-4 py-3 bg-[#1A1A1A] border border-[#1F1F1F] rounded-xl text-white placeholder-[#737373] focus:outline-none focus:border-[#E11D2E]"
+                    required
+                  />
+                  <button
+                    type="submit"
+                    className="px-5 py-3 rounded-xl bg-[#E11D2E] hover:bg-[#B91C1C] text-white font-medium"
+                  >
+                    Check in whole group
+                  </button>
+                </form>
+              </div>
+            </div>
+          )}
+
           {/* Scanner Tab */}
           {activeTab === 'scanner' && (
             <div className="lg:col-span-2 grid grid-cols-1 lg:grid-cols-12 gap-6 animate-fade-in items-start">

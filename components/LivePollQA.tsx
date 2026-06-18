@@ -2,8 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useToast } from './Toaster';
-import { MessageSquare, HelpCircle, BarChart3, Pencil, Star } from 'lucide-react';
-
+import {MessageSquare, HelpCircle, BarChart3, Pencil, Star} from '@/components/icons';
 interface Question {
     id: string;
     eventId: string;

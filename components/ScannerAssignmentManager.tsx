@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { RefreshCw, Smartphone } from 'lucide-react';
+import {RefreshCw, Smartphone} from '@/components/icons';
 import { useToast } from '@/components/Toaster';
 import { Event } from '@/lib/store';
 

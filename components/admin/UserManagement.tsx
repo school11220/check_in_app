@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Trash2, Users, UserCheck, Shield, Check } from 'lucide-react';
+import {Plus, Trash2, Users, UserCheck, Shield, Check} from '@/components/icons';
 import { useToast } from '@/components/Toaster';
 import { ROLE_PERMISSIONS } from '@/lib/store';
 

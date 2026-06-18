@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Search, Download, Copy, Mail, Phone, User, Calendar, Send, ReceiptText } from 'lucide-react';
+import {Search, Download, Copy, Mail, Phone, User, Calendar, Send, ReceiptText, CheckSquare, Square, X, Loader2, Shield} from '@/components/icons';
 import { useToast } from '@/components/Toaster';
 import TicketActions from '@/components/TicketActions';
 
@@ -35,6 +35,62 @@ export default function EventAttendees({ eventId }: EventAttendeesProps) {
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
     const [resendingId, setResendingId] = useState<string | null>(null);
+    const [selected, setSelected] = useState<Set<string>>(new Set());
+    const [bulkRunning, setBulkRunning] = useState(false);
+
+    const toggleSelect = (id: string) => {
+        setSelected((prev) => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id);
+            else next.add(id);
+            return next;
+        });
+    };
+    const toggleSelectAllFiltered = () => {
+        const visible = filteredTickets.map((t) => t.id);
+        const allSelected = visible.length > 0 && visible.every((id) => selected.has(id));
+        setSelected((prev) => {
+            const next = new Set(prev);
+            if (allSelected) {
+                visible.forEach((id) => next.delete(id));
+            } else {
+                visible.forEach((id) => next.add(id));
+            }
+            return next;
+        });
+    };
+    const clearSelection = () => setSelected(new Set());
+
+    const handleBulk = async (action: 'resend' | 'cancel') => {
+        const ids = Array.from(selected);
+        if (ids.length === 0) return;
+        setBulkRunning(true);
+        try {
+            const res = await fetch('/api/tickets/bulk', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ticketIds: ids, action }),
+            });
+            const data = await res.json();
+            if (res.ok) {
+                const failed = (data.failed as number) ?? 0;
+                if (failed > 0) {
+                    const firstError = (data.results as Array<{ id: string; ok: boolean; error?: string }>).find((r) => !r.ok)?.error;
+                    showToast(`${data.succeeded} succeeded, ${failed} failed${firstError ? ` (e.g. ${firstError})` : ''}`, 'error');
+                } else {
+                    showToast(`${data.succeeded} ${action === 'resend' ? 'resent' : 'cancelled'} successfully`, 'success');
+                }
+                clearSelection();
+                await fetchTickets();
+            } else {
+                showToast(data.error || 'Bulk action failed', 'error');
+            }
+        } catch {
+            showToast('Bulk action failed', 'error');
+        } finally {
+            setBulkRunning(false);
+        }
+    };
 
     useEffect(() => {
         fetchTickets();
@@ -109,30 +165,46 @@ export default function EventAttendees({ eventId }: EventAttendeesProps) {
         showToast('Emails copied to clipboard', 'success');
     };
 
-    const handleExport = () => {
-        const headers = ['ID', 'Name', 'Email', 'Phone', 'Status', 'Registered At'];
-        const rows = filteredTickets.map(t => [
-            t.id,
-            t.name,
-            t.email || '',
-            t.phone || '',
-            t.lifecycleStatus || t.status,
-            new Date(t.createdAt).toLocaleString()
-        ]);
-
-        const csvContent = [
-            headers.join(','),
-            ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
-        ].join('\n');
-
-        const blob = new Blob([csvContent], { type: 'text/csv' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `attendees-${eventId}.csv`;
-        a.click();
-        URL.revokeObjectURL(url);
-        showToast('Attendees exported successfully', 'success');
+    const handleExport = async () => {
+        // Prefer the server endpoint so the CSV is properly escaped and Excel-friendly.
+        try {
+            const params = new URLSearchParams();
+            if (statusFilter && statusFilter !== 'all') params.set('status', statusFilter);
+            const res = await fetch(`/api/events/${eventId}/export?${params.toString()}`);
+            if (!res.ok) throw new Error('Server export failed');
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `attendees-${eventId}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast('Attendees exported', 'success');
+        } catch {
+            // Fallback: client-side CSV (filtered view, no extra columns)
+            const headers = ['ID', 'Name', 'Email', 'Phone', 'Status', 'Registered At'];
+            const rows = filteredTickets.map(t => [
+                t.id,
+                t.name,
+                t.email || '',
+                t.phone || '',
+                t.lifecycleStatus || t.status,
+                new Date(t.createdAt).toLocaleString()
+            ]);
+            const esc = (v: unknown) => {
+                const s = String(v ?? '');
+                return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+            };
+            const csv = '\uFEFF' + [headers, ...rows].map(r => r.map(esc).join(',')).join('\r\n');
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `attendees-${eventId}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast('Attendees exported (client-side)', 'success');
+        }
     };
 
     if (loading) return (
@@ -186,8 +258,57 @@ export default function EventAttendees({ eventId }: EventAttendeesProps) {
                 </div>
             </div>
 
+            {/* Bulk action bar */}
+            {selected.size > 0 && (
+                <div className="flex items-center justify-between gap-2 p-3 bg-red-600/10 border border-red-500/30 rounded-xl text-sm">
+                    <div className="flex items-center gap-2 text-white">
+                        <Shield className="w-4 h-4 text-red-400" />
+                        <span><span className="font-semibold">{selected.size}</span> selected</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => handleBulk('resend')}
+                            disabled={bulkRunning}
+                            className="px-3 py-1.5 rounded-lg bg-blue-600/20 text-blue-300 border border-blue-500/30 hover:bg-blue-600/30 text-xs flex items-center gap-1 disabled:opacity-50"
+                        >
+                            {bulkRunning ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
+                            Resend
+                        </button>
+                        <button
+                            onClick={() => handleBulk('cancel')}
+                            disabled={bulkRunning}
+                            className="px-3 py-1.5 rounded-lg bg-yellow-600/20 text-yellow-300 border border-yellow-500/30 hover:bg-yellow-600/30 text-xs flex items-center gap-1 disabled:opacity-50"
+                        >
+                            <X className="w-3 h-3" />
+                            Cancel pending
+                        </button>
+                        <button
+                            onClick={clearSelection}
+                            className="px-3 py-1.5 rounded-lg text-zinc-400 hover:text-white text-xs"
+                        >
+                            Clear
+                        </button>
+                    </div>
+                </div>
+            )}
+
             {/* Attendee List */}
             <div className="space-y-2 max-h-[50vh] overflow-y-auto">
+                {filteredTickets.length > 0 && (
+                    <label className="flex items-center gap-2 text-xs text-zinc-400 select-none cursor-pointer px-1">
+                        <button
+                            type="button"
+                            onClick={toggleSelectAllFiltered}
+                            className="text-zinc-300 hover:text-white"
+                            aria-label={filteredTickets.every((t) => selected.has(t.id)) && filteredTickets.length > 0 ? 'Deselect all' : 'Select all'}
+                        >
+                            {filteredTickets.every((t) => selected.has(t.id)) && filteredTickets.length > 0
+                                ? <CheckSquare className="w-4 h-4 text-red-400" />
+                                : <Square className="w-4 h-4" />}
+                        </button>
+                        Select all {filteredTickets.length} on this page
+                    </label>
+                )}
                 {filteredTickets.length === 0 ? (
                     <div className="text-center py-12 bg-[#1A1A1A] rounded-xl border border-dashed border-[#1F1F1F]">
                         <User className="w-10 h-10 text-[#737373] mx-auto mb-3" />
@@ -195,10 +316,20 @@ export default function EventAttendees({ eventId }: EventAttendeesProps) {
                     </div>
                 ) : (
                     filteredTickets.map(ticket => (
-                        <div key={ticket.id} className="p-4 bg-[#1A1A1A] border border-[#1F1F1F] rounded-xl hover:border-[#E11D2E]/30 transition-colors">
+                        <div key={ticket.id} className={`p-4 bg-[#1A1A1A] border rounded-xl transition-colors ${selected.has(ticket.id) ? 'border-red-500/50 bg-red-500/5' : 'border-[#1F1F1F] hover:border-[#E11D2E]/30'}`}>
                             <div className="flex items-start justify-between gap-3">
-                                {/* Avatar + Info */}
+                                {/* Checkbox + Avatar + Info */}
                                 <div className="flex items-start gap-3 min-w-0 flex-1">
+                                    <button
+                                        type="button"
+                                        onClick={() => toggleSelect(ticket.id)}
+                                        aria-label={selected.has(ticket.id) ? 'Deselect' : 'Select'}
+                                        className="mt-2 text-zinc-300 hover:text-white"
+                                    >
+                                        {selected.has(ticket.id)
+                                            ? <CheckSquare className="w-4 h-4 text-red-400" />
+                                            : <Square className="w-4 h-4" />}
+                                    </button>
                                     <div className="w-10 h-10 rounded-full bg-[#E11D2E]/20 flex items-center justify-center text-[#E11D2E] font-bold flex-shrink-0">
                                         {ticket.name?.charAt(0).toUpperCase() || '?'}
                                     </div>

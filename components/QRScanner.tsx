@@ -2,8 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { BrowserQRCodeReader } from '@zxing/browser';
-import { Flashlight, FlashlightOff } from 'lucide-react';
-
+import {Flashlight, FlashlightOff} from '@/components/icons';
 interface QRScannerProps {
   onScan: (data: string) => void;
   onError?: (error: string) => void;

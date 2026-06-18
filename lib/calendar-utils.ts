@@ -160,3 +160,45 @@ export async function shareTicket(data: {
         return false;
     }
 }
+
+/**
+ * Generates an Outlook.com / Office 365 calendar URL for the event.
+ */
+export function getOutlookCalendarUrl(event: CalendarEventData): string {
+    const start = formatICSDate(event.startDate).replace('Z', '');
+    const end = event.endDate
+        ? formatICSDate(event.endDate).replace('Z', '')
+        : formatICSDate(new Date(event.startDate.getTime() + 2 * 60 * 60 * 1000)).replace('Z', '');
+
+    const params = new URLSearchParams();
+    params.set('path', '/calendar/action/compose');
+    params.set('rru', 'addevent');
+    params.set('startdt', start);
+    params.set('enddt', end);
+    params.set('subject', event.title);
+    if (event.description) params.set('body', event.description);
+    if (event.location) params.set('location', event.location);
+    return `https://outlook.live.com/calendar/0/deeplink/compose?${params.toString()}`;
+}
+
+/**
+ * Generates a Yahoo Calendar URL for the event.
+ */
+export function getYahooCalendarUrl(event: CalendarEventData): string {
+    const start = formatICSDate(event.startDate);
+    const end = event.endDate
+        ? formatICSDate(event.endDate)
+        : formatICSDate(new Date(event.startDate.getTime() + 2 * 60 * 60 * 1000));
+
+    // Yahoo uses the YCAL format YYYYMMDDTHHMMSSZ
+    const params = new URLSearchParams();
+    params.set('v', '60');
+    params.set('view', 'd');
+    params.set('type', '20');
+    params.set('title', event.title);
+    params.set('st', start);
+    params.set('et', end);
+    if (event.description) params.set('desc', event.description);
+    if (event.location) params.set('in_loc', event.location);
+    return `https://calendar.yahoo.com/?${params.toString()}`;
+}

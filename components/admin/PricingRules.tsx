@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Trash2, TrendingUp, DollarSign, AlertCircle } from 'lucide-react';
+import {Plus, Trash2, TrendingUp, DollarSign, AlertCircle} from '@/components/icons';
 import { useToast } from '@/components/Toaster';
 
 interface PricingRule {

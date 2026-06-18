@@ -3,8 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import CohortFunnelInsights from '@/components/CohortFunnelInsights';
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { AlertTriangle, Receipt, RefreshCw, Ticket, TrendingUp, Users, type LucideIcon } from 'lucide-react';
-
+import {AlertTriangle, Receipt, RefreshCw, Ticket, TrendingUp, Users, type LucideIcon} from '@/components/icons';
 interface DashboardInsightsProps {
   eventId?: string | null;
   compact?: boolean;

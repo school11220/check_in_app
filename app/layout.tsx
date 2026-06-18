@@ -5,6 +5,8 @@ import { ToastProvider } from "@/components/Toaster";
 import { AppProvider } from "@/lib/store";
 import ThemeToggle from "@/components/ThemeToggle";
 import OfflineSyncPill from "@/components/OfflineSyncPill";
+import CookieConsent from "@/components/CookieConsent";
+import InstallPrompt from "@/components/InstallPrompt";
 import { ClerkProvider } from "@clerk/nextjs";
 
 
@@ -43,6 +45,13 @@ export const metadata: Metadata = {
     title: "EventHub",
     description: "Secure event ticketing with QR code verification and instant check-in",
     type: "website",
+    images: [{ url: "/opengraph-image", width: 1200, height: 630, alt: "EventHub" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "EventHub",
+    description: "Secure event ticketing with QR code verification and instant check-in",
+    images: ["/opengraph-image"],
   },
 };
 
@@ -115,6 +124,8 @@ export default function RootLayout({
                 {children}
               </div>
               <OfflineSyncPill />
+              <CookieConsent />
+              <InstallPrompt />
               <ThemeToggle />
             </ToastProvider>
           </AppProvider>

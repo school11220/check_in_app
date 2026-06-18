@@ -66,6 +66,12 @@ export interface Event {
     earlyBirdDeadline: string;
     sendReminders: boolean;
     registrationFields: any[];
+    features?: Record<string, boolean>;
+    brandPrimaryColor?: string;
+    brandAccentColor?: string;
+    brandLogoUrl?: string;
+    brandBannerUrl?: string;
+    customDomain?: string;
 }
 
 export interface Ticket {

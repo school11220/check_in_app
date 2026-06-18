@@ -2,8 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useToast } from './Toaster';
-import { Camera } from 'lucide-react';
-
+import {Camera} from '@/components/icons';
 interface Photo {
     id: string;
     eventId: string;

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ScanLine, LayoutDashboard, LogIn, X, Menu, Ticket, LogOut, Home as HomeIcon } from 'lucide-react';
+import {ScanLine, LayoutDashboard, LogIn, X, Menu, Ticket, LogOut, Home as HomeIcon} from '@/components/icons';
 import { useAuth, useClerk } from '@clerk/nextjs';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -63,7 +63,11 @@ export default function HomeClient({ initialSettings, initialEvents }: HomeClien
                 <div className={`absolute bottom-16 right-0 glass rounded-xl overflow-hidden shadow-2xl transition-all duration-300 ${showMenu ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}>
                     {isLoaded && isSignedIn && (
                         <>
-                            <a href="/checkin" target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 px-5 py-3.5 text-zinc-300 hover:bg-white/5 hover:text-white whitespace-nowrap transition-colors">
+                            <a href="/me/tickets" className="flex items-center gap-3 px-5 py-3.5 text-zinc-300 hover:bg-white/5 hover:text-white whitespace-nowrap transition-colors">
+                                <Ticket className="w-5 h-5" />
+                                My Tickets
+                            </a>
+                            <a href="/checkin" target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 px-5 py-3.5 text-zinc-300 hover:bg-white/5 hover:text-white whitespace-nowrap border-t border-white/5 transition-colors">
                                 <ScanLine className="w-5 h-5" />
                                 Staff Check-In
                             </a>

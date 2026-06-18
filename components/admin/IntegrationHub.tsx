@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Video, Globe, MessageSquare, CheckCircle, ExternalLink, Plus, Settings, CreditCard, Loader2 } from 'lucide-react';
+import {Video, Globe, MessageSquare, CheckCircle, ExternalLink, Plus, Settings, CreditCard, Loader2} from '@/components/icons';
 import { useToast } from '@/components/Toaster';
 
 interface Integration {

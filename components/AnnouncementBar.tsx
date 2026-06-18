@@ -1,8 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Sparkles } from 'lucide-react';
-
+import {Sparkles} from '@/components/icons';
 interface AnnouncementBarProps {
     message: string;
     linkText?: string;

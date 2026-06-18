@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { PartyPopper } from 'lucide-react';
-
+import {PartyPopper} from '@/components/icons';
 interface CountdownTimerProps {
     targetDate: string | Date;
     eventName?: string;

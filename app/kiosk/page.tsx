@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import QRScanner from "@/components/QRScanner";
 import { useOfflineCheckin } from "@/hooks/useOfflineCheckin";
-import { CheckCircle2, CloudOff, RefreshCw, Smartphone, ShoppingBag, Scan, WifiOff, Wifi } from "lucide-react";
+import {CheckCircle2, CloudOff, RefreshCw, Smartphone, ShoppingBag, Scan, WifiOff, Wifi} from '@/components/icons';
 import { ParsedScanPayload, parseScanPayload } from "@/lib/scan-payload";
 
 async function performCheckIn(payload: ParsedScanPayload) {

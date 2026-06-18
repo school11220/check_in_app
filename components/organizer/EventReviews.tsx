@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Star, MessageSquare, ThumbsUp, User } from 'lucide-react';
+import {Star, MessageSquare, ThumbsUp, User} from '@/components/icons';
 import { useToast } from '@/components/Toaster';
 
 interface Review {

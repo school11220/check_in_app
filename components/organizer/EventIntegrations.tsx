@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Globe, ExternalLink, Save } from 'lucide-react';
+import {Globe, ExternalLink, Save} from '@/components/icons';
 import { useToast } from '@/components/Toaster';
 
 interface EventIntegrationsProps {

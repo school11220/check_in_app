@@ -90,6 +90,7 @@ model Event {
   brandLogoUrl         String?
   brandBannerUrl       String?
   customDomain         String?       @unique
+  features             Json           @default("{}")
   PricingRule          PricingRule[]
   Review               Review[]
   Session              Session[]
@@ -460,4 +461,24 @@ model ReminderJob {
   @@index([eventId])
   @@index([ticketId])
   @@index([status])
+}
+
+model AttendeeMessage {
+  id           String   @id @default(cuid())
+  threadKey    String   // e.g. ticket id or email+subject
+  ticketId     String?
+  eventId      String?
+  fromEmail    String
+  fromName     String?
+  toEmail      String
+  subject      String
+  body         String
+  isInbound    Boolean  @default(true)
+  isRead       Boolean  @default(false)
+  receivedAt   DateTime @default(now())
+
+  @@index([threadKey, receivedAt])
+  @@index([eventId])
+  @@index([ticketId])
+  @@index([isRead])
 }
