@@ -13,7 +13,9 @@
     "postinstall": "prisma generate",
     "backfill:users": "tsx scripts/backfill-clerk-users.ts",
     "backfill:users:dry": "tsx scripts/backfill-clerk-users.ts --dry-run",
-    "reconcile:sold-count": "tsx scripts/reconcile-sold-count.ts"
+    "reconcile:sold-count": "tsx scripts/reconcile-sold-count.ts",
+    "check:env": "tsx scripts/check-env.ts",
+    "predev": "npm run check:env"
   },
   "dependencies": {
     "@upstash/ratelimit": "^2.0.6",

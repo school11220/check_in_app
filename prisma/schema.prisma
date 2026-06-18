@@ -23,6 +23,7 @@ model AuditLog {
   @@index([action])
   @@index([createdAt])
   @@index([resource])
+  @@index([userId, createdAt])
 }
 
 model User {
@@ -42,6 +43,7 @@ model User {
   tickets          Ticket[]
 
   @@index([role])
+  @@index([isActive, role])
 }
 
 model Event {
@@ -77,21 +79,34 @@ model Event {
   earlyBirdDeadline    String?
   sendReminders        Boolean       @default(false)
   createdAt            DateTime      @default(now())
-  updatedAt            DateTime
+  updatedAt            DateTime      @updatedAt
   registrationFields   Json          @default("[]")
   organizerVideoLink   String?
   videoLink            String?
   gallery              Json          @default("[]")
+  // New fields for per-event branding
+  brandPrimaryColor    String?       // override theme primary color for this event
+  brandAccentColor     String?
+  brandLogoUrl         String?
+  brandBannerUrl       String?
+  customDomain         String?       @unique
   PricingRule          PricingRule[]
   Review               Review[]
   Session              Session[]
   Ticket               Ticket[]
   CertificateTemplate  CertificateTemplate?
+  EventBrand           EventBrand?
+  AddOn                AddOn[]
+  GroupRegistration    GroupRegistration[]
+  WaitlistEntry        WaitlistEntry[]
   OrganizerUser        User?         @relation("OrganizerEvents", fields: [organizerId], references: [id], onDelete: SetNull)
 
   @@index([category])
   @@index([isActive])
   @@index([organizerId])
+  @@index([isActive, date])
+  @@index([isFeatured, isActive])
+  @@index([date])
 }
 
 model Integration {
@@ -102,7 +117,7 @@ model Integration {
   isEnabled Boolean  @default(false)
   config    Json     @default("{}")
   createdAt DateTime @default(now())
-  updatedAt DateTime
+  updatedAt DateTime @updatedAt
 }
 
 model PricingRule {
@@ -114,11 +129,12 @@ model PricingRule {
   adjustmentValue Int
   active          Boolean  @default(true)
   createdAt       DateTime @default(now())
-  updatedAt       DateTime
+  updatedAt       DateTime @updatedAt
   Event           Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
   @@index([active])
   @@index([eventId])
+  @@index([eventId, active])
 }
 
 model Review {
@@ -131,6 +147,8 @@ model Review {
   Event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
   @@index([eventId])
+  @@index([eventId, createdAt])
+  @@index([rating])
 }
 
 model Session {
@@ -147,10 +165,11 @@ model Session {
   capacity        Int      @default(100)
   registeredCount Int      @default(0)
   createdAt       DateTime @default(now())
-  updatedAt       DateTime
+  updatedAt       DateTime @updatedAt
   Event           Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
   @@index([eventId])
+  @@index([eventId, date, startTime])
 }
 
 model SiteConfig {
@@ -158,7 +177,7 @@ model SiteConfig {
   settings  Json     @default("{}")
   templates Json     @default("[]")
   createdAt DateTime @default(now())
-  updatedAt DateTime
+  updatedAt DateTime @updatedAt
   surveys   Json     @default("[]")
 }
 
@@ -186,7 +205,7 @@ model Ticket {
   lastDeliveredAt   DateTime?
   deliveryCount     Int          @default(0)
   createdAt         DateTime     @default(now())
-  updatedAt         DateTime
+  updatedAt         DateTime     @updatedAt
   customAnswers     Json         @default("{}")
   promoCodeId       String?
   userId            String?
@@ -200,24 +219,31 @@ model Ticket {
   @@index([razorpayOrderId])
   @@index([status])
   @@index([token])
-  @@index([eventId, status])
   @@index([userId])
   @@index([paymentMethod])
+  // Composite indexes added for dashboard counters and analytics
+  @@index([eventId, status])
+  @@index([eventId, checkedIn])
+  @@index([eventId, checkedIn, status])
+  @@index([eventId, createdAt])
+  @@index([eventId, status, createdAt])
+  @@index([status, createdAt])
+  @@index([purchaseGroupId])
 }
 
 model CheckInLog {
   id            String   @id @default(uuid())
   ticketId      String
   eventId       String
-  action        String   // "checkin" | "undo_checkin" | "manual_checkin"
-  performedBy   String   // userId or scanner name
-  performedRole String   // "ADMIN" | "ORGANIZER" | "SCANNER"
+  action        String
+  performedBy   String
+  performedRole String
   ipAddress     String?
   userAgent     String?
-  deviceId      String?  // for offline sync identification
+  deviceId      String?
   reason        String?
-  checksum      String   // HMAC of ticketId+action+timestamp for tamper evidence
-  syncedAt      DateTime? // null if created online, set when offline record syncs
+  checksum      String
+  syncedAt      DateTime?
   createdAt     DateTime @default(now())
   ticket        Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
 
@@ -225,6 +251,8 @@ model CheckInLog {
   @@index([eventId])
   @@index([createdAt])
   @@index([performedBy])
+  @@index([eventId, createdAt])
+  @@index([eventId, action])
 }
 
 model TicketDeliveryLog {
@@ -241,6 +269,7 @@ model TicketDeliveryLog {
   @@index([ticketId])
   @@index([channel])
   @@index([createdAt])
+  @@index([ticketId, createdAt])
 }
 
 model SecurityEvent {
@@ -259,13 +288,14 @@ model SecurityEvent {
   @@index([ticketId])
   @@index([eventId])
   @@index([createdAt])
+  @@index([type, createdAt])
 }
 
 model PromoCodeRecord {
   id              String    @id @default(uuid())
   code            String
-  discountType    String    // "percentage" | "fixed"
-  discountValue   Int       // percentage (0-100) or fixed amount in paise
+  discountType    String
+  discountValue   Int
   maxUses         Int       @default(100)
   usedCount       Int       @default(0)
   maxUsesPerUser  Int       @default(1)
@@ -283,31 +313,151 @@ model PromoCodeRecord {
   @@index([code])
   @@index([isActive])
   @@index([expiresAt])
+  @@index([isActive, expiresAt])
 }
 
 model PromoUsage {
   id          String   @id @default(uuid())
   promoCode   String
   ticketId    String
-  userId      String?  // email or clerk userId
+  userId      String?
   eventId     String
-  discount    Int      // discount amount applied in paise
+  discount    Int
   createdAt   DateTime @default(now())
 
   @@index([promoCode])
   @@index([userId])
   @@index([eventId])
+  @@index([promoCode, createdAt])
 }
-
-
 
 model CertificateTemplate {
   id              String   @id @default(cuid())
   name            String
   eventId         String?  @unique
   Event           Event?   @relation(fields: [eventId], references: [id])
-  bgImage         String?  // URL to background image
-  elements        Json?    // JSON array of elements { type: 'text'|'image', x: 0, y: 0, ... }
+  bgImage         String?
+  elements        Json?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+}
+
+// Per-event branding overrides (logo, colors, copy, custom CSS)
+model EventBrand {
+  id              String   @id @default(cuid())
+  eventId         String   @unique
+  Event           Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  logoUrl         String?
+  faviconUrl      String?
+  primaryColor    String?  // hex (#RRGGBB)
+  accentColor     String?
+  backgroundColor String?
+  textColor       String?
+  customCss       String?  // scoped CSS injected on the public event page
+  customDomain    String?  @unique
+  ogImageUrl      String?
+  tagline         String?
+  supportEmail    String?
+  supportPhone    String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// Per-event add-ons (merch, food, parking) selectable at checkout
+model AddOn {
+  id            String   @id @default(cuid())
+  eventId       String
+  Event         Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  name          String
+  description   String?
+  priceInPaise  Int      // stored in paise, same convention as Ticket price
+  currency      String   @default("INR")
+  maxQuantity   Int      @default(100)
+  soldQuantity  Int      @default(0)
+  isActive      Boolean  @default(true)
+  imageUrl      String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([eventId])
+  @@index([eventId, isActive])
+}
+
+// Group registrations bundle multiple tickets under one purchase
+model GroupRegistration {
+  id              String   @id @default(cuid())
+  eventId         String
+  Event           Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  purchaseGroupId String   @unique
+  primaryName     String
+  primaryEmail    String
+  primaryPhone    String?
+  memberCount     Int      @default(1)
+  totalAmount     Int      @default(0)
+  status          String   @default("pending") // pending|paid|cancelled|refunded
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([eventId])
+  @@index([eventId, status])
+  @@index([primaryEmail])
+}
+
+// Waitlist for sold-out events
+model WaitlistEntry {
+  id           String   @id @default(cuid())
+  eventId      String
+  Event        Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  name         String
+  email        String
+  phone        String?
+  ticketCount  Int      @default(1)
+  status       String   @default("waiting") // waiting|notified|converted|expired
+  notifiedAt   DateTime?
+  notifiedVia  String?  // 'email' | 'sms'
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([eventId])
+  @@index([eventId, status])
+  @@index([email])
+  @@index([eventId, status, createdAt])
+}
+
+// Push notification subscriptions (PWA)
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String?  // optional Clerk user id
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  lastUsedAt DateTime?
+
+  @@index([userId])
+}
+
+// Reminder job queue (T-7d / T-1d / T-1h)
+model ReminderJob {
+  id          String    @id @default(cuid())
+  ticketId    String
+  eventId     String
+  userId      String?
+  type        String    // 'T-7d' | 'T-1d' | 'T-1h' | 'custom'
+  scheduledAt DateTime
+  status      String    @default("pending") // pending|sent|failed|skipped
+  channel     String    @default("email")   // email|sms|push
+  attempts    Int       @default(0)
+  lastError   String?
+  sentAt      DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([status, scheduledAt])
+  @@index([eventId])
+  @@index([ticketId])
+  @@index([status])
 }

@@ -72,7 +72,6 @@
     "ticketWatermark": "",
     "customFields": [],
     "smsReminders": false,
-    "whatsappReminders": false,
     "reminderHoursBefore": 24,
     "globalSalesPaused": false,
     "maintenanceMessage": "Sales are temporarily paused. Please check back soon!",

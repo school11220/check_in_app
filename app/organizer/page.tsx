@@ -24,13 +24,13 @@ interface User {
 
 type TabId = 'overview' | 'events' | 'schedule' | 'attendees' | 'sales' | 'reviews';
 
-export default function OrganizerDashboard() {
+export default function OrganizerDashboard({ defaultTab }: { defaultTab?: TabId } = {}) {
     const router = useRouter();
     const { showToast } = useToast();
     const [events, setEvents] = useState<Event[]>([]);
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState<TabId>('overview');
+    const [activeTab, setActiveTab] = useState<TabId>(defaultTab || 'overview');
     const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
     const [showEventModal, setShowEventModal] = useState(false);
     const [editingEvent, setEditingEvent] = useState<Event | null>(null);

@@ -171,3 +171,43 @@ function openIDB() {
         req.onerror = reject;
     });
 }
+// Push notifications
+self.addEventListener('push', (event) => {
+    if (!event.data) return;
+    let payload;
+    try {
+        payload = event.data.json();
+    } catch {
+        payload = { title: 'EventHub', body: event.data.text() };
+    }
+    const title = payload.title || 'EventHub';
+    const options = {
+        body: payload.body || '',
+        icon: payload.icon || '/favicon.png',
+        badge: payload.badge || '/favicon.png',
+        data: payload.data || {},
+        tag: payload.tag || 'eventhub-notification',
+        requireInteraction: !!payload.requireInteraction,
+        actions: payload.actions || [],
+    };
+    event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener('notificationclick', (event) => {
+    event.notification.close();
+    const targetUrl = (event.notification.data && event.notification.data.url) || '/';
+    event.waitUntil(
+        self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+            for (const client of clientList) {
+                if ('focus' in client) {
+                    client.focus();
+                    if ('navigate' in client) client.navigate(targetUrl);
+                    return;
+                }
+            }
+            if (self.clients.openWindow) {
+                return self.clients.openWindow(targetUrl);
+            }
+        })
+    );
+});

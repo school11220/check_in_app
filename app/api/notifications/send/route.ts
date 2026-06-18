@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sendTicketConfirmationSMS, isSMSConfigured } from '@/lib/sms';
-import { sendTicketConfirmationWhatsApp, isWhatsAppConfigured } from '@/lib/whatsapp';
 
 export interface NotificationRequest {
     type: 'ticket_confirmation' | 'event_reminder';
-    channels: ('sms' | 'whatsapp' | 'email')[];
+    channels: ('sms' | 'email')[];
     data: {
         phone?: string;
         email?: string;
@@ -30,7 +29,6 @@ export async function POST(request: NextRequest) {
         const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
         const ticketUrl = data.ticketUrl || `${baseUrl}/ticket/${data.ticketId}`;
 
-        // Process each channel
         for (const channel of channels) {
             if (channel === 'sms' && data.phone) {
                 const result = await sendTicketConfirmationSMS({
@@ -48,24 +46,6 @@ export async function POST(request: NextRequest) {
                 });
             }
 
-            if (channel === 'whatsapp' && data.phone) {
-                const result = await sendTicketConfirmationWhatsApp({
-                    phone: data.phone,
-                    attendeeName: data.attendeeName,
-                    eventName: data.eventName,
-                    eventDate: data.eventDate,
-                    ticketId: data.ticketId,
-                    ticketUrl,
-                });
-                results.push({
-                    channel: 'whatsapp',
-                    success: result.success,
-                    messageId: result.messageId,
-                    error: result.error,
-                });
-            }
-
-            // Email is handled separately via the existing /api/email/send endpoint
             if (channel === 'email') {
                 results.push({
                     channel: 'email',
@@ -81,7 +61,6 @@ export async function POST(request: NextRequest) {
             success: allSuccessful,
             results,
             smsConfigured: isSMSConfigured(),
-            whatsappConfigured: isWhatsAppConfigured(),
         });
     } catch (error: any) {
         console.error('Notification error:', error);
@@ -93,12 +72,9 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET() {
-    // Return configuration status
     return NextResponse.json({
         smsConfigured: isSMSConfigured(),
-        whatsappConfigured: isWhatsAppConfigured(),
-        supportedChannels: ['sms', 'whatsapp', 'email'],
+        supportedChannels: ['sms', 'email'],
         smsProvider: 'Fast2SMS (India)',
-        whatsappProvider: 'WhatsApp Cloud API (Meta)',
     });
 }

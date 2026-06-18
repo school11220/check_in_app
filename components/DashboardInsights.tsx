@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import CohortFunnelInsights from '@/components/CohortFunnelInsights';
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { AlertTriangle, Receipt, RefreshCw, Ticket, TrendingUp, Users, type LucideIcon } from 'lucide-react';
 
@@ -247,6 +248,7 @@ export default function DashboardInsights({ eventId, compact = false }: Dashboar
           </div>
         </div>
       </div>
+      <CohortFunnelInsights />
     </section>
   );
 }

@@ -28,12 +28,15 @@ import EventModal from '@/components/EventModal';
 import { useClerk, useUser } from '@clerk/nextjs';
 import { useDraggable } from '@/hooks/useDraggable';
 import MultiEventAnalytics from '@/components/admin/MultiEventAnalytics';
+import CohortFunnelAnalytics from '@/components/admin/CohortFunnelAnalytics';
 import DashboardInsights from '@/components/DashboardInsights';
 
 const PAID_LIKE_STATUSES = new Set(['paid', 'partially_refunded']);
 const isPaidLikeTicket = (ticket: { status?: string }) => PAID_LIKE_STATUSES.has(ticket.status || '');
 
-export default function AdminPage() {
+type AdminTabKey = 'events' | 'attendees' | 'team' | 'festivals' | 'emails' | 'surveys' | 'settings' | 'layout' | 'growth' | 'analytics' | 'history' | 'certificates' | 'sessions' | 'tickets' | 'audit' | 'integrations' | 'sales' | 'pages' | 'theme' | 'reviews';
+
+export default function AdminPage({ defaultTab }: { defaultTab?: AdminTabKey } = {}) {
     const router = useRouter();
     const { user } = useUser();
     const { events: allEvents, tickets, teamMembers, siteSettings, festivals, emailTemplates, surveys, promoCodes, waitlist, addEvent, updateEvent, deleteEvent, duplicateEvent, addTicket, updateTicket, deleteTicket, addTeamMember, updateTeamMember, removeTeamMember, updateSiteSettings, addFestival, updateFestival, deleteFestival, updateEmailTemplate, addSurvey, updateSurvey, deleteSurvey, addPromoCode, updatePromoCode, deletePromoCode, addToWaitlist, removeFromWaitlist, notifyWaitlist } = useApp();
@@ -71,7 +74,7 @@ export default function AdminPage() {
 
     const visibleTabs = tabConfig.filter(tab => tab.roles.includes(role as any));
 
-    const [activeTab, setActiveTab] = useState<'events' | 'attendees' | 'team' | 'festivals' | 'emails' | 'surveys' | 'settings' | 'layout' | 'growth' | 'analytics' | 'history' | 'certificates' | 'sessions' | 'tickets' | 'audit' | 'integrations' | 'sales' | 'pages' | 'theme' | 'reviews'>('events');
+    const [activeTab, setActiveTab] = useState<AdminTabKey>((defaultTab as AdminTabKey) || 'events');
     const [sessionEventId, setSessionEventId] = useState<string>('');
     const [password, setPassword] = useState('');
     const [showEventModal, setShowEventModal] = useState(false);
@@ -3344,6 +3347,11 @@ export default function AdminPage() {
                             {/* Multi-event comparison */}
                             <div className="mt-6">
                                 <MultiEventAnalytics />
+                            </div>
+
+                            {/* Cohort retention + funnel across events */}
+                            <div className="mt-6">
+                                <CohortFunnelAnalytics />
                             </div>
                         </div>
                     )

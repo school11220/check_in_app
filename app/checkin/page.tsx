@@ -17,12 +17,14 @@ import SessionScheduler from '@/components/admin/SessionScheduler';
 import { useClerk, useUser } from '@clerk/nextjs';
 import { parseScanPayload } from '@/lib/scan-payload';
 
-function CheckinPageContent() {
+type CheckinTabKey = 'scanner' | 'history' | 'guestlist' | 'stats';
+
+function CheckinPageContent({ defaultTab, defaultEventId }: { defaultTab?: CheckinTabKey; defaultEventId?: string } = {}) {
   const { events, isLoading: eventsLoading } = useApp();
   const router = useRouter();
   const { showToast } = useToast();
   const searchParams = useSearchParams();
-  const eventId = searchParams.get('event');
+  const eventId = (defaultEventId || searchParams.get('event')) as string | null;
   const { signOut } = useClerk();
   const { user, isLoaded: userLoaded, isSignedIn } = useUser();
 
@@ -45,7 +47,7 @@ function CheckinPageContent() {
   const scannerStorageKey = user?.id ? `eventhub:last-checkin-event:${user.id}` : 'eventhub:last-checkin-event';
 
   const [showSchedule, setShowSchedule] = useState(false);
-  const [activeTab, setActiveTab] = useState<'scanner' | 'history' | 'guestlist' | 'stats'>('scanner');
+  const [activeTab, setActiveTab] = useState<CheckinTabKey>(defaultTab || 'scanner');
   const [eventSearch, setEventSearch] = useState('');
   const [todayOnly, setTodayOnly] = useState(false);
 
@@ -555,9 +557,9 @@ function CheckinPageContent() {
                 <Calendar className="w-3.5 h-3.5 md:w-4 md:h-4 mr-1.5 md:mr-2" /> Schedule
               </button>
             )}
-            <a href="/admin" className="px-3 py-2 md:px-5 md:py-2.5 rounded-xl bg-[#141414] hover:bg-[#1A1A1A] text-[#B3B3B3] hover:text-white text-xs md:text-sm flex items-center transition-colors border border-[#1F1F1F] hover:border-[#2A2A2A] whitespace-nowrap">
+            <Link href="/admin" className="px-3 py-2 md:px-5 md:py-2.5 rounded-xl bg-[#141414] hover:bg-[#1A1A1A] text-[#B3B3B3] hover:text-white text-xs md:text-sm flex items-center transition-colors border border-[#1F1F1F] hover:border-[#2A2A2A] whitespace-nowrap">
               <Lock className="w-3.5 h-3.5 md:w-4 md:h-4 mr-1.5 md:mr-2" /> Admin Panel
-            </a>
+            </Link>
             <button onClick={handleLogout} className="flex items-center px-3 py-2 md:px-4 md:py-2.5 bg-[#E11D2E]/10 text-[#FF6B7A] border border-[#E11D2E]/20 rounded-xl hover:bg-[#E11D2E]/15 text-xs md:text-sm transition-colors">
               <LogOut className="w-3.5 h-3.5 md:w-4 md:h-4" />
             </button>
@@ -1241,10 +1243,10 @@ function CheckinPageContent() {
   );
 }
 
-export default function CheckinPage() {
+export default function CheckinPage(props: { defaultTab?: CheckinTabKey; defaultEventId?: string } = {}) {
   return (
     <Suspense fallback={<div className="min-h-screen bg-black text-white flex items-center justify-center">Loading check-in...</div>}>
-      <CheckinPageContent />
+      <CheckinPageContent {...props} />
     </Suspense>
   );
 }
