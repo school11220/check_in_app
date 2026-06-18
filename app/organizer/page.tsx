@@ -11,6 +11,7 @@ import EventReviews from '@/components/organizer/EventReviews';
 import EventModal from '@/components/EventModal';
 import DashboardInsights from '@/components/DashboardInsights';
 import ScannerAssignmentManager from '@/components/ScannerAssignmentManager';
+import OnboardingWizard from '@/components/OnboardingWizard';
 import { useClerk } from '@clerk/nextjs';
 import { Event } from '@/lib/store';
 
@@ -206,6 +207,7 @@ export default function OrganizerDashboard({ defaultTab }: { defaultTab?: TabId 
                 {/* Overview Tab */}
                 {activeTab === 'overview' && (
                     <div className="space-y-6">
+                        <OnboardingWizard hasEvents={events.length > 0} />
                         {/* Stats */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="bg-[#141414] border border-[#1F1F1F] p-5 rounded-2xl">
