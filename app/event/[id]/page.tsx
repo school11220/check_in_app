@@ -6,6 +6,60 @@ import { useToast } from '@/components/Toaster';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {Calendar, MapPin, Share2, ArrowLeft, Clock, Users, Trophy, Map, ShieldCheck, Mail, Phone, ExternalLink, Ticket, Info, Globe, Star} from '@/components/icons';
+
+function asArray<T>(value: unknown): T[] {
+    return Array.isArray(value) ? value as T[] : [];
+}
+
+function asStringArray(value: unknown): string[] {
+    return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
+}
+
+function normalizeEvent(raw: any): Event {
+    return {
+        id: String(raw.id),
+        name: raw.name ?? 'Untitled Event',
+        description: raw.description ?? '',
+        date: raw.date ?? new Date().toISOString(),
+        startTime: raw.startTime ?? '09:00',
+        endTime: raw.endTime ?? '18:00',
+        venue: raw.venue ?? 'Venue to be announced',
+        address: raw.address ?? '',
+        price: Number(raw.price ?? 0),
+        currentPrice: raw.currentPrice === undefined ? undefined : Number(raw.currentPrice),
+        entryFee: Number(raw.entryFee ?? 0),
+        prizePool: Number(raw.prizePool ?? 0),
+        category: raw.category ?? 'other',
+        imageUrl: raw.imageUrl ?? '',
+        capacity: Number(raw.capacity ?? 0),
+        soldCount: Number(raw.soldCount ?? 0),
+        isActive: Boolean(raw.isActive),
+        isFeatured: Boolean(raw.isFeatured),
+        schedule: asArray(raw.schedule),
+        speakers: asArray(raw.speakers),
+        sponsors: asArray(raw.sponsors),
+        tags: asStringArray(raw.tags),
+        videoLink: raw.videoLink ?? undefined,
+        organizerVideoLink: raw.organizerVideoLink ?? undefined,
+        organizer: raw.organizer ?? '',
+        contactEmail: raw.contactEmail ?? '',
+        contactPhone: raw.contactPhone ?? '',
+        termsAndConditions: raw.termsAndConditions ?? '',
+        registrationDeadline: raw.registrationDeadline ?? '',
+        earlyBirdEnabled: Boolean(raw.earlyBirdEnabled),
+        earlyBirdPrice: Number(raw.earlyBirdPrice ?? 0),
+        earlyBirdDeadline: raw.earlyBirdDeadline ?? '',
+        sendReminders: Boolean(raw.sendReminders),
+        registrationFields: asArray(raw.registrationFields),
+        features: raw.features && typeof raw.features === 'object' && !Array.isArray(raw.features) ? raw.features : {},
+        brandPrimaryColor: raw.brandPrimaryColor ?? undefined,
+        brandAccentColor: raw.brandAccentColor ?? undefined,
+        brandLogoUrl: raw.brandLogoUrl ?? undefined,
+        brandBannerUrl: raw.brandBannerUrl ?? undefined,
+        customDomain: raw.customDomain ?? undefined,
+    };
+}
+
 function calculateCountdown(targetDate: string) {
     const difference = new Date(targetDate).getTime() - new Date().getTime();
     if (difference > 0) {
@@ -159,13 +213,49 @@ export default function EventDetailsPage() {
     const { events, reviews, addReview, siteSettings, isLoading } = useApp();
     const { showToast } = useToast();
 
-    const event = events.find(e => e.id === eventId);
+    const storeEvent = events.find(e => e.id === eventId);
+    const [fetchedEvent, setFetchedEvent] = useState<Event | null>(null);
+    const [failedEventId, setFailedEventId] = useState<string | null>(null);
+    const event = storeEvent ?? (fetchedEvent?.id === eventId ? fetchedEvent : null);
+    const eventLoadError = failedEventId === eventId;
     const eventReviews = reviews.filter(r => r.eventId === eventId);
 
     const [showReviewForm, setShowReviewForm] = useState(false);
     const [reviewData, setReviewData] = useState({ name: '', rating: 5, comment: '' });
     const [activeTab, setActiveTab] = useState<'about' | 'schedule' | 'reviews'>('about');
     const [showFloatingCTA, setShowFloatingCTA] = useState(false);
+
+    useEffect(() => {
+        if (!eventId) return;
+        if (storeEvent || fetchedEvent?.id === eventId) return;
+
+        let cancelled = false;
+
+        fetch(`/api/events/${encodeURIComponent(eventId)}`, { cache: 'no-store' })
+            .then(async (response) => {
+                if (!response.ok) {
+                    throw new Error(`Failed to load event ${eventId}: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then((data) => {
+                if (!cancelled) {
+                    setFetchedEvent(normalizeEvent(data));
+                    setFailedEventId(null);
+                }
+            })
+            .catch((error) => {
+                console.error(error);
+                if (!cancelled) {
+                    setFetchedEvent(null);
+                    setFailedEventId(eventId);
+                }
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [eventId, fetchedEvent?.id, storeEvent]);
 
     useEffect(() => {
         const handleScroll = () => {
@@ -176,7 +266,7 @@ export default function EventDetailsPage() {
     }, []);
 
     // Show skeleton while the store is still fetching events from the API
-    if (isLoading) {
+    if (!event && (isLoading || !eventLoadError)) {
         return (
             <main className="min-h-screen bg-black">
                 <div className="max-w-5xl mx-auto px-4 py-12 animate-pulse">
@@ -204,6 +294,11 @@ export default function EventDetailsPage() {
                         <Ticket className="w-10 h-10 text-red-500" />
                     </div>
                     <h1 className="text-2xl font-bold text-white mb-4">Event not found</h1>
+                    {eventLoadError && (
+                        <p className="text-sm text-zinc-400 mb-5">
+                            This event could not be loaded from the server.
+                        </p>
+                    )}
                     <Link href="/" className="inline-flex items-center gap-2 px-6 py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-colors">
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />

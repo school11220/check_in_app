@@ -1,21 +1,39 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { calculateDynamicPrice } from '@/lib/pricing';
 import { getSession } from '@/lib/auth';
 import { logAudit } from '@/lib/logger';
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
     try {
         const { id } = await params;
-        const event = await prisma.event.findUnique({
-            where: { id },
-            include: { PricingRule: true },
-        });
+        let event;
+        try {
+            event = await prisma.event.findUnique({
+                where: { id },
+                include: { PricingRule: true },
+            });
+        } catch (pricingError) {
+            console.warn('Failed to load pricing rules for event; falling back to base price.', pricingError);
+            const eventWithoutRules = await prisma.event.findUnique({
+                where: { id },
+            });
+            event = eventWithoutRules
+                ? {
+                      ...eventWithoutRules,
+                      PricingRule: [],
+                  }
+                : null;
+        }
 
         if (!event) {
             return NextResponse.json({ error: 'Event not found' }, { status: 404 });
         }
 
-        return NextResponse.json(event);
+        return NextResponse.json({
+            ...event,
+            currentPrice: calculateDynamicPrice(event as any),
+        });
     } catch (error) {
         console.error('Failed to fetch event:', error);
         return NextResponse.json({ error: 'Failed to fetch event' }, { status: 500 });

@@ -8,10 +8,22 @@ export const dynamic = 'force-dynamic';
 
 export async function GET() {
     try {
-        const events = await prisma.event.findMany({
-            include: { PricingRule: true },
-            orderBy: { date: 'asc' },
-        });
+        let events;
+        try {
+            events = await prisma.event.findMany({
+                include: { PricingRule: true },
+                orderBy: { date: 'asc' },
+            });
+        } catch (pricingError) {
+            console.warn('Failed to load pricing rules with events; falling back to base prices.', pricingError);
+            const eventsWithoutRules = await prisma.event.findMany({
+                orderBy: { date: 'asc' },
+            });
+            events = eventsWithoutRules.map(event => ({
+                ...event,
+                PricingRule: [],
+            }));
+        }
 
         const eventsWithPrice = events.map(event => {
             const eventForPricing = {
