@@ -18,6 +18,7 @@ interface HomeClientProps {
         price: number;
         imageUrl: string | null;
         isFeatured: boolean;
+        isActive: boolean;
         soldCount: number;
         capacity: number;
     }[];
@@ -211,13 +212,14 @@ export default function HomeClient({ initialSettings, initialEvents }: HomeClien
 
                     {events.length === 0 ? (
                         <div className="bg-[#141414] border border-[#1F1F1F] rounded-2xl p-8 text-center text-[#B3B3B3]">
-                            No active events are available right now.
+                            No events are available right now.
                         </div>
                     ) : (
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
                             {events.map((event) => {
                                 const eventDate = new Date(event.date);
                                 const soldOut = event.soldCount >= event.capacity;
+                                const isUnavailable = soldOut || !event.isActive;
 
                                 return (
                                     <article key={event.id} onClick={() => router.push(`/event/${event.id}`)} className="bg-[#141414] border border-[#1F1F1F] rounded-2xl overflow-hidden cursor-pointer hover:shadow-lg transition-transform">
@@ -229,7 +231,14 @@ export default function HomeClient({ initialSettings, initialEvents }: HomeClien
                                             )}
                                         </div>
                                         <div className="p-5 space-y-2">
-                                            <h3 className="text-white font-semibold line-clamp-2">{event.name}</h3>
+                                            <div className="flex items-start justify-between gap-3">
+                                                <h3 className="text-white font-semibold line-clamp-2">{event.name}</h3>
+                                                {!event.isActive && (
+                                                    <span className="shrink-0 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber-300">
+                                                        Paused
+                                                    </span>
+                                                )}
+                                            </div>
                                             <p className="text-[#B3B3B3] text-sm">{eventDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
                                             <p className="text-[#737373] text-sm line-clamp-1">{event.venue || 'Venue to be announced'}</p>
                                             <div className="flex items-center justify-between pt-2">
@@ -238,10 +247,10 @@ export default function HomeClient({ initialSettings, initialEvents }: HomeClien
                                                 </span>
                                                 <button
                                                     onClick={(e) => { e.stopPropagation(); handleRegisterForEvent(event.id); }}
-                                                    disabled={soldOut}
+                                                    disabled={isUnavailable}
                                                     className="px-4 py-2 text-sm font-medium rounded-lg bg-[#E11D2E] text-white hover:bg-[#B91C1C] disabled:bg-zinc-700 disabled:text-zinc-400 transition-colors"
                                                 >
-                                                    {soldOut ? 'Sold Out' : 'Register'}
+                                                    {soldOut ? 'Sold Out' : !event.isActive ? 'Unavailable' : 'Register'}
                                                 </button>
                                             </div>
                                         </div>

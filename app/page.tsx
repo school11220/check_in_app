@@ -13,7 +13,6 @@ async function getSiteConfig() {
 
 async function getHomeEvents() {
   return prisma.event.findMany({
-    where: { isActive: true },
     orderBy: [{ isFeatured: 'desc' }, { date: 'asc' }],
     take: 6,
     select: {
@@ -24,6 +23,7 @@ async function getHomeEvents() {
       price: true,
       imageUrl: true,
       isFeatured: true,
+      isActive: true,
       soldCount: true,
       capacity: true,
     },
@@ -40,6 +40,7 @@ export default async function Home() {
     price: number;
     imageUrl: string | null;
     isFeatured: boolean;
+    isActive: boolean;
     soldCount: number;
     capacity: number;
   }[] = [];

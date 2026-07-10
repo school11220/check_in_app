@@ -3,7 +3,6 @@ import { Inter, Space_Grotesk, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { ToastProvider } from "@/components/Toaster";
 import { AppProvider } from "@/lib/store";
-import ThemeToggle from "@/components/ThemeToggle";
 import OfflineSyncPill from "@/components/OfflineSyncPill";
 import CookieConsent from "@/components/CookieConsent";
 import InstallPrompt from "@/components/InstallPrompt";
@@ -126,7 +125,6 @@ export default function RootLayout({
               <OfflineSyncPill />
               <CookieConsent />
               <InstallPrompt />
-              <ThemeToggle />
             </ToastProvider>
           </AppProvider>
 
