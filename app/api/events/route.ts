@@ -8,27 +8,18 @@ export const dynamic = 'force-dynamic';
 
 export async function GET() {
     try {
-        let events;
-        try {
-            events = await prisma.event.findMany({
-                include: { PricingRule: true },
-                orderBy: { date: 'asc' },
-            });
-        } catch (pricingError) {
-            console.warn('Failed to load pricing rules with events; falling back to base prices.', pricingError);
-            const eventsWithoutRules = await prisma.event.findMany({
-                orderBy: { date: 'asc' },
-            });
-            events = eventsWithoutRules.map(event => ({
-                ...event,
-                PricingRule: [],
-            }));
-        }
+        // Use raw SQL here because Prisma can fail when the live database schema
+        // drifts from the generated client. Raw reads keep the list endpoint alive.
+        const events: any[] = await prisma.$queryRaw`
+            SELECT *
+            FROM "Event"
+            ORDER BY "date" ASC
+        `;
 
         const eventsWithPrice = events.map(event => {
             const eventForPricing = {
                 ...event,
-                pricingRules: event.PricingRule // Map Prisma relation name to expected interface property
+                pricingRules: [],
             };
             return {
                 ...event,
