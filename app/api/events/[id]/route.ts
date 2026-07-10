@@ -14,25 +14,40 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
                 include: { PricingRule: true },
             });
         } catch (pricingError) {
-            console.warn('Failed to load pricing rules for event; falling back to base price.', pricingError);
-            const eventWithoutRules = await prisma.event.findUnique({
-                where: { id },
-            });
-            event = eventWithoutRules
-                ? {
-                      ...eventWithoutRules,
-                      PricingRule: [],
-                  }
-                : null;
+            // Prisma client can throw when the database schema diverges from the
+            // generated Prisma schema (missing columns, renamed fields, etc.). In
+            // that case, fall back to a raw SQL select to avoid returning 404.
+            console.warn('Prisma findUnique failed; falling back to raw SQL select.', pricingError);
+            try {
+                const rows: any = await prisma.$queryRaw`SELECT * FROM "Event" WHERE id = ${id} LIMIT 1`;
+                const row = rows && rows[0];
+                if (row) {
+                    event = { ...row, PricingRule: [] } as any;
+                } else {
+                    event = null;
+                }
+            } catch (rawErr) {
+                console.error('Raw SQL fallback also failed:', rawErr);
+                event = null;
+            }
         }
 
         if (!event) {
             return NextResponse.json({ error: 'Event not found' }, { status: 404 });
         }
 
+        // Safely compute currentPrice — pricing logic can throw if data is unexpected.
+        let currentPrice = (event as any)?.price ?? 0;
+        try {
+            currentPrice = calculateDynamicPrice(event as any);
+        } catch (calcErr) {
+            console.warn('calculateDynamicPrice failed, falling back to base price', calcErr);
+            currentPrice = Number((event as any)?.price ?? 0);
+        }
+
         return NextResponse.json({
             ...event,
-            currentPrice: calculateDynamicPrice(event as any),
+            currentPrice,
         });
     } catch (error) {
         console.error('Failed to fetch event:', error);
