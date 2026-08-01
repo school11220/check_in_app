@@ -54,7 +54,8 @@ export async function POST(req: NextRequest) {
     }
 
     const event = await prisma.event.findUnique({
-      where: { id: body.eventId },
+        where: { id: body.eventId },
+        select: EVENT_SELECT,
     });
 
     if (!event) {
