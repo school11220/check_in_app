@@ -4,6 +4,7 @@ import { auth } from '@clerk/nextjs/server';
 import { getSession, hasEventAccess } from '@/lib/auth';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { getTicketFinancials, getTicketLifecycleStatus } from '@/lib/ticket-lifecycle';
+import { EVENT_SELECT } from '@/lib/event-select';
 
 function serializeTicket(ticket: any) {
   const { Event, ...ticketData } = ticket;
@@ -156,7 +157,7 @@ export async function GET(req: NextRequest) {
     const tickets = await prisma.ticket.findMany({
       where: eventId ? { eventId } : {},
       include: {
-        Event: true,
+        Event: { select: EVENT_SELECT },
         DeliveryLogs: {
           orderBy: { createdAt: 'desc' },
           take: 3,

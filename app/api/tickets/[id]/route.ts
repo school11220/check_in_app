@@ -5,6 +5,7 @@ import { generateTicketToken } from '@/lib/ticket-security';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { logSecurityEvent, isSecurityKeyBlocked } from '@/lib/security-events';
 import { getTicketFinancials, getTicketLifecycleStatus, isPaidLikeStatus } from '@/lib/ticket-lifecycle';
+import { EVENT_SELECT } from '@/lib/event-select';
 
 function serializeTicket(ticket: any) {
   const { Event, event, ...ticketData } = ticket;
@@ -36,7 +37,7 @@ export async function GET(
 
     let ticket: any = await prisma.ticket.findUnique({
       where: { id },
-      include: { Event: true },
+      include: { Event: { select: EVENT_SELECT } },
     });
 
     if (!ticket) {
@@ -65,7 +66,7 @@ export async function GET(
       ticket = await prisma.ticket.update({
         where: { id },
         data: { token },
-        include: { Event: true },
+        include: { Event: { select: EVENT_SELECT } },
       });
     }
 

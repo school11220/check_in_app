@@ -4,6 +4,7 @@ import { generateTicketPDF } from '@/lib/pdf-generator';
 import { authorizeTicketAccess } from '@/lib/ticket-access';
 import { generateTicketToken } from '@/lib/ticket-security';
 import { isPaidLikeStatus } from '@/lib/ticket-lifecycle';
+import { EVENT_SELECT } from '@/lib/event-select';
 
 export async function GET(
   req: NextRequest,
@@ -16,7 +17,7 @@ export async function GET(
 
     let ticket = await prisma.ticket.findUnique({
       where: { id: ticketId },
-      include: { Event: true },
+      include: { Event: { select: EVENT_SELECT } },
     });
 
     if (!ticket) {
@@ -35,7 +36,7 @@ export async function GET(
       ticket = await prisma.ticket.update({
         where: { id: ticketId },
         data: { token: generateTicketToken(ticketId) },
-        include: { Event: true },
+        include: { Event: { select: EVENT_SELECT } },
       });
     }
 

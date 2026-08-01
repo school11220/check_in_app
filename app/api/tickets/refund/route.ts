@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { EVENT_SELECT } from '@/lib/event-select';
 import { sendEmail, isEmailConfigured } from '@/lib/email';
 import { fireWebhook } from '@/lib/webhooks';
 import { getSession, hasEventAccess, hasRole, ORGANIZER_ROLES } from '@/lib/auth';
@@ -28,7 +29,7 @@ export async function POST(request: NextRequest) {
 
     const ticket = await prisma.ticket.findUnique({
       where: { id: ticketId },
-      include: { Event: true },
+      include: { Event: { select: EVENT_SELECT } },
     });
 
     if (!ticket) {
@@ -152,7 +153,7 @@ export async function POST(request: NextRequest) {
 
       const updated = await tx.ticket.findUnique({
         where: { id: ticketId },
-        include: { Event: true },
+        include: { Event: { select: EVENT_SELECT } },
       });
       if (!updated) throw new Error('Ticket not found after refund');
       return updated;

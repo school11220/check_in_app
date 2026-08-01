@@ -7,6 +7,7 @@ import { allocatePaidAmount, calculateTicketUnitPrice } from '@/lib/pricing';
 import { generateTicketToken, timingSafeStringEqual } from '@/lib/ticket-security';
 import { isPaidLikeStatus } from '@/lib/ticket-lifecycle';
 import { logSecurityEvent } from '@/lib/security-events';
+import { EVENT_WITH_PRICING_SELECT, EVENT_SELECT } from '@/lib/event-select';
 
 function createRequestError(message: string, status = 400) {
     const error = new Error(message) as Error & { status?: number };
@@ -78,7 +79,7 @@ export async function POST(request: NextRequest) {
 
         const orderTickets = await prisma.ticket.findMany({
             where: { razorpayOrderId: razorpay_order_id },
-            include: { Event: { include: { PricingRule: true } } },
+            include: { Event: { select: EVENT_WITH_PRICING_SELECT } },
             orderBy: { createdAt: 'asc' },
         });
 
@@ -136,7 +137,7 @@ export async function POST(request: NextRequest) {
                             paymentMethod: ticket.paymentMethod || 'razorpay',
                             token: ticket.token || generateTicketToken(ticket.id),
                         },
-                        include: { Event: true },
+                        include: { Event: { select: EVENT_SELECT } },
                     }));
                     continue;
                 }
@@ -160,7 +161,7 @@ export async function POST(request: NextRequest) {
 
                 const updatedTicket = await tx.ticket.findUnique({
                     where: { id: ticket.id },
-                    include: { Event: true },
+                    include: { Event: { select: EVENT_SELECT } },
                 });
                 if (!updatedTicket) throw createRequestError('Ticket not found', 404);
                 updated.push(updatedTicket);

@@ -7,6 +7,7 @@ import { isPaidLikeStatus } from '@/lib/ticket-lifecycle';
 import { sendTransactionalEmail, isEmailConfigured } from '@/lib/email';
 import { generateTicketPDF } from '@/lib/pdf-generator';
 import { generateQRCodeBase64 } from '@/lib/qr-generator';
+import { EVENT_SELECT } from '@/lib/event-select';
 
 export const dynamic = 'force-dynamic';
 
@@ -38,7 +39,7 @@ export const POST = respond(
 
         const tickets = await prisma.ticket.findMany({
             where: { id: { in: ticketIds } },
-            include: { Event: true },
+            include: { Event: { select: EVENT_SELECT } },
         });
 
         if (tickets.length === 0) {

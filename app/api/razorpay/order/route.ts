@@ -4,6 +4,8 @@ import { prisma } from '@/lib/prisma';
 import { allocatePaidAmount, calculatePromoDiscount, calculateTicketUnitPrice } from '@/lib/pricing';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { generateTicketToken } from '@/lib/ticket-security';
+import { EVENT_WITH_PRICING_SELECT, EVENT_SELECT } from '@/lib/event-select';
+import { sendTicketEmail } from '@/lib/ticket-email';
 
 // In-memory ticket storage
 const ticketOrders: Map<string, { ticketId: string; orderId: string; ticketIds?: string[] }> = new Map();
@@ -96,7 +98,7 @@ export async function POST(request: NextRequest) {
 
         const foundTickets = await prisma.ticket.findMany({
             where: { id: { in: requestedTicketIds } },
-            include: { Event: { include: { PricingRule: true } } },
+            include: { Event: { select: EVENT_WITH_PRICING_SELECT } },
         });
 
         if (foundTickets.length !== requestedTicketIds.length) {
@@ -217,7 +219,7 @@ export async function POST(request: NextRequest) {
 
                 return tx.ticket.findMany({
                     where: { id: { in: requestedTicketIds } },
-                    include: { Event: true },
+                    include: { Event: { select: EVENT_SELECT } },
                     orderBy: { createdAt: 'asc' },
                 });
             });
@@ -226,6 +228,39 @@ export async function POST(request: NextRequest) {
             const primaryUpdatedTicket = updatedTicketById.get(primaryTicket.id) || updatedTickets[0];
             const primaryToken = primaryUpdatedTicket?.token || generateTicketToken(primaryTicket.id);
             const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+
+            // Promo/free orders do not go through Razorpay verification, so
+            // deliver their tickets here just like paid orders do.
+            const emailResults = await Promise.all(updatedTickets.map(async (ticket) => {
+                if (!ticket.email || !ticket.Event) return null;
+                try {
+                    const result = await sendTicketEmail({
+                        to: ticket.email,
+                        ticketId: ticket.id,
+                        token: ticket.token || generateTicketToken(ticket.id),
+                        eventName: ticket.Event.name,
+                        attendeeName: ticket.name,
+                        eventDate: ticket.Event.date.toISOString(),
+                        venue: ticket.Event.venue || 'TBA',
+                        amountPaid: ticket.amountPaid,
+                        transactionId: 'N/A',
+                        orderId: freeOrderId,
+                        paymentMode: promo ? 'Promo Code' : 'Free Registration',
+                    });
+                    await prisma.ticketDeliveryLog.create({
+                        data: {
+                            ticketId: ticket.id,
+                            channel: 'email',
+                            recipient: ticket.email,
+                            success: Boolean(result.success),
+                            error: 'error' in result ? result.error : null,
+                        },
+                    });
+                    return result;
+                } catch (error: any) {
+                    return { success: false, error: error?.message || 'Ticket email failed' };
+                }
+            }));
 
             return NextResponse.json({
                 freeOrder: true,
@@ -240,6 +275,7 @@ export async function POST(request: NextRequest) {
                 unitPrice,
                 subtotal,
                 discountAmount,
+                emailSent: emailResults.some((result) => result?.success === true),
             });
         }
 

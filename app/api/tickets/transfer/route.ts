@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { EVENT_SELECT } from '@/lib/event-select';
 import { authorizeTicketAccess } from '@/lib/ticket-access';
 import { generateTransferToken } from '@/lib/ticket-security';
 import { enforceRateLimit } from '@/lib/rate-limit';
@@ -22,7 +23,7 @@ export async function POST(request: NextRequest) {
 
         const ticket = await prisma.ticket.findUnique({
             where: { id: ticketId },
-            include: { Event: true },
+            include: { Event: { select: EVENT_SELECT } },
         });
 
         if (!ticket) {

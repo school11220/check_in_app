@@ -8,6 +8,7 @@ import { getSession, hasEventAccess, hasRole, ORGANIZER_ROLES } from '@/lib/auth
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { ticketTokenMatches } from '@/lib/ticket-security';
 import { isPaidLikeStatus } from '@/lib/ticket-lifecycle';
+import { EVENT_SELECT } from '@/lib/event-select';
 
 // POST: Send ticket via email and/or SMS
 export async function POST(req: NextRequest) {
@@ -30,7 +31,7 @@ export async function POST(req: NextRequest) {
 
     const ticket = await prisma.ticket.findUnique({
       where: { id: ticketId },
-      include: { Event: true },
+      include: { Event: { select: EVENT_SELECT } },
     });
 
     if (!ticket) {

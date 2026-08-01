@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { EVENT_SELECT } from '@/lib/event-select';
 import { getSession, hasEventAccess, hasRole, ORGANIZER_ROLES } from '@/lib/auth';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { isPaidLikeStatus } from '@/lib/ticket-lifecycle';
@@ -21,7 +22,7 @@ export async function POST(request: NextRequest) {
 
     const ticket = await prisma.ticket.findUnique({
       where: { id: ticketId },
-      include: { Event: true },
+      include: { Event: { select: EVENT_SELECT } },
     });
 
     if (!ticket) return NextResponse.json({ error: 'Ticket not found' }, { status: 404 });

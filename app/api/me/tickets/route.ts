@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession } from '@/lib/auth';
 import { getTicketFinancials, getTicketLifecycleStatus } from '@/lib/ticket-lifecycle';
+import { EVENT_SELECT } from '@/lib/event-select';
 
 export const dynamic = 'force-dynamic';
 
@@ -40,7 +41,7 @@ export async function GET(_req: NextRequest) {
                     email ? { email } : { id: '__none__' },
                 ],
             },
-            include: { Event: true },
+            include: { Event: { select: EVENT_SELECT } },
             orderBy: { createdAt: 'desc' },
         });
 

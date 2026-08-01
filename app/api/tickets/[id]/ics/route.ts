@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { authorizeTicketAccess } from '@/lib/ticket-access';
 import { generateICSContent } from '@/lib/calendar-utils';
+import { EVENT_SELECT } from '@/lib/event-select';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,7 +23,7 @@ export async function GET(
 
         const ticket = await prisma.ticket.findUnique({
             where: { id: ticketId },
-            include: { Event: true },
+            include: { Event: { select: EVENT_SELECT } },
         });
         if (!ticket) {
             return NextResponse.json({ error: 'Ticket not found' }, { status: 404 });
