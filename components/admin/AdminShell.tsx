@@ -12,7 +12,7 @@ export type AdminTabId =
     | 'events' | 'attendees' | 'analytics' | 'reviews' | 'sessions'
     | 'team' | 'festivals' | 'emails' | 'surveys' | 'tickets'
     | 'layout' | 'growth' | 'certificates' | 'audit' | 'history'
-    | 'sales' | 'pages' | 'automation';
+    | 'sales' | 'pages';
 
 interface TabConfig {
     id: AdminTabId;
@@ -38,7 +38,6 @@ const TABS: TabConfig[] = [
     { id: 'audit', label: 'Logs', icon: History, roles: ['ADMIN'] },
     { id: 'history', label: 'History', icon: History, roles: ['ADMIN', 'ORGANIZER'] },
     { id: 'sales', label: 'Sales Control', icon: Power, roles: ['ADMIN'] },
-    { id: 'automation', label: 'Automation', icon: Mail, roles: ['ADMIN'] },
     { id: 'pages', label: 'Pages', icon: FileText, roles: ['ADMIN'] },
 ];
 

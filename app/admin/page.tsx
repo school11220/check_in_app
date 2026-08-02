@@ -23,9 +23,6 @@ import SessionScheduler from '@/components/admin/SessionScheduler';
 import RegistrationFormBuilder from '@/components/admin/RegistrationFormBuilder';
 import LayoutManager from '@/components/admin/LayoutManager';
 import RichTextEditor from '@/components/admin/RichTextEditor';
-import DripCampaigns from '@/components/admin/DripCampaigns';
-import EmailTemplatesManager from '@/components/admin/EmailTemplatesManager';
-import Inbox from '@/components/admin/Inbox';
 import Link from 'next/link';
 import EventReviews from '@/components/organizer/EventReviews';
 import EventModal from '@/components/EventModal';
@@ -39,7 +36,7 @@ import DashboardInsights from '@/components/DashboardInsights';
 const PAID_LIKE_STATUSES = new Set(['paid', 'partially_refunded']);
 const isPaidLikeTicket = (ticket: { status?: string }) => PAID_LIKE_STATUSES.has(ticket.status || '');
 
-type AdminTabKey = 'events' | 'attendees' | 'team' | 'festivals' | 'emails' | 'surveys' | 'settings' | 'layout' | 'growth' | 'analytics' | 'history' | 'certificates' | 'sessions' | 'tickets' | 'audit' | 'integrations' | 'sales' | 'pages' | 'theme' | 'reviews' | 'automation';
+type AdminTabKey = 'events' | 'attendees' | 'team' | 'festivals' | 'emails' | 'surveys' | 'settings' | 'layout' | 'growth' | 'analytics' | 'history' | 'certificates' | 'sessions' | 'tickets' | 'audit' | 'integrations' | 'sales' | 'pages' | 'theme' | 'reviews';
 
 export default function AdminPage({ defaultTab }: { defaultTab?: AdminTabKey } = {}) {
     const router = useRouter();
@@ -76,7 +73,6 @@ export default function AdminPage({ defaultTab }: { defaultTab?: AdminTabKey } =
         { id: 'history', label: 'History', icon: History, roles: ['ADMIN', 'ORGANIZER'] },
         { id: 'sales', label: 'Sales Control', icon: Power, roles: ['ADMIN'] },
         { id: 'pages', label: 'Pages', icon: FileText, roles: ['ADMIN'] },
-        { id: 'automation', label: 'Automation', icon: Mail, roles: ['ADMIN'] },
     ]), []);
 
     const visibleTabs = tabConfig.filter(tab => tab.roles.includes(role as any));
@@ -322,31 +318,31 @@ export default function AdminPage({ defaultTab }: { defaultTab?: AdminTabKey } =
     // if (!isAdminLoggedIn) ... logic removed
 
     return (
-        <main className="min-h-screen bg-[#0B0B0B] py-6 px-4 pb-20">
+        <main className="min-h-screen w-full min-w-0 overflow-x-hidden bg-[#0B0B0B] py-4 px-3 pb-20 sm:px-4 sm:py-6">
             <div className="max-w-dashboard mx-auto">
                 {/* Header */}
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8 glass p-5 rounded-2xl">
-                    <div className="flex items-center gap-4">
-                        <img src="/logo.png" alt="EventHub" className="w-12 h-12 rounded-xl shadow-lg shadow-red-900/30" />
-                        <div>
-                            <h1 className="font-heading text-2xl font-bold text-white">EventHub Dashboard</h1>
-                            <div className="flex items-center gap-4 text-sm mt-1">
+                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-6 md:mb-8 glass p-4 sm:p-5 rounded-2xl">
+                    <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+                        <img src="/logo.png" alt="EventHub" className="h-10 w-10 shrink-0 rounded-xl shadow-lg shadow-red-900/30 sm:h-12 sm:w-12" />
+                        <div className="min-w-0">
+                            <h1 className="font-heading text-xl font-bold leading-tight text-white sm:text-2xl">EventHub Dashboard</h1>
+                            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs sm:gap-4 sm:text-sm">
                                 <span className="flex items-center gap-1.5 text-[#22C55E]"><span className="w-2 h-2 bg-[#22C55E] rounded-full animate-pulse"></span>{events.filter(e => e.isActive).length} active events</span>
                                 <span className="text-[#737373] font-mono">{dailyCheckIns} check-ins today</span>
                             </div>
                         </div>
                     </div>
-                    <div className="flex items-center gap-3 mt-4 md:mt-0">
-                        <a href="/" target="_blank" rel="noopener noreferrer" className="flex items-center text-[#B3B3B3] hover:text-white text-sm px-4 py-2 rounded-lg hover:bg-white/5 transition-colors">
+                    <div className="flex w-full flex-wrap items-center gap-2 sm:gap-3 md:w-auto md:shrink-0">
+                        <a href="/" target="_blank" rel="noopener noreferrer" className="flex flex-1 items-center justify-center text-[#B3B3B3] hover:text-white text-xs px-3 py-2 rounded-lg hover:bg-white/5 transition-colors sm:flex-none sm:text-sm sm:px-4">
                             <Home className="w-4 h-4 mr-1.5" /> Home
                         </a>
-                        <a href="/checkin" target="_blank" rel="noopener noreferrer" className="flex items-center text-[#B3B3B3] hover:text-white text-sm px-4 py-2 rounded-lg hover:bg-white/5 transition-colors">
+                        <a href="/checkin" target="_blank" rel="noopener noreferrer" className="flex flex-1 items-center justify-center text-[#B3B3B3] hover:text-white text-xs px-3 py-2 rounded-lg hover:bg-white/5 transition-colors sm:flex-none sm:text-sm sm:px-4">
                             <CheckCircle className="w-4 h-4 mr-1.5" /> Check-In
                         </a>
-                        <a href="/kiosk" target="_blank" rel="noopener noreferrer" className="flex items-center text-[#B3B3B3] hover:text-white text-sm px-4 py-2 rounded-lg hover:bg-white/5 transition-colors">
+                        <a href="/kiosk" target="_blank" rel="noopener noreferrer" className="flex flex-1 items-center justify-center text-[#B3B3B3] hover:text-white text-xs px-3 py-2 rounded-lg hover:bg-white/5 transition-colors sm:flex-none sm:text-sm sm:px-4">
                             <Smartphone className="w-4 h-4 mr-1.5" /> Kiosk
                         </a>
-                        <button onClick={handleLogout} className="flex items-center px-4 py-2.5 bg-[#141414] text-[#B3B3B3] rounded-xl hover:bg-[#1A1A1A] hover:text-white text-sm border border-[#1F1F1F] transition-colors">
+                        <button onClick={handleLogout} className="flex flex-1 items-center justify-center px-3 py-2.5 bg-[#141414] text-[#B3B3B3] rounded-xl hover:bg-[#1A1A1A] hover:text-white text-xs border border-[#1F1F1F] transition-colors sm:flex-none sm:px-4 sm:text-sm">
                             Logout <LogOut className="w-4 h-4 ml-2" />
                         </button>
                     </div>
@@ -365,7 +361,7 @@ export default function AdminPage({ defaultTab }: { defaultTab?: AdminTabKey } =
                 <div
                     {...dragEvents}
                     ref={scrollRef}
-                    className={`flex gap-2 mb-6 sm:mb-8 overflow-x-auto pb-2 scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0 cursor-grab active:cursor-grabbing ${isDragging ? '[&>*]:pointer-events-none' : ''}`}
+                    className={`flex min-w-0 gap-2 mb-6 sm:mb-8 overflow-x-auto pb-2 scrollbar-hide -mx-3 px-3 sm:mx-0 sm:px-0 cursor-grab active:cursor-grabbing ${isDragging ? '[&>*]:pointer-events-none' : ''}`}
                 >
                     {visibleTabs.map(tab => {
                         const Icon = tab.icon;
@@ -2199,21 +2195,6 @@ export default function AdminPage({ defaultTab }: { defaultTab?: AdminTabKey } =
                             </div>
 
 
-                        </div>
-                    )
-                }
-
-                {/* Automation: Drip Campaigns + Email Templates Manager + Inbox */}
-                {
-                    activeTab === 'automation' && (
-                        <div className="space-y-10">
-                            <DripCampaigns />
-                            <div className="border-t border-zinc-800 pt-8">
-                                <EmailTemplatesManager />
-                            </div>
-                            <div className="border-t border-zinc-800 pt-8">
-                                <Inbox />
-                            </div>
                         </div>
                     )
                 }
