@@ -124,7 +124,7 @@ export default function KioskPage() {
           </div>
         </header>
 
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {[{ id: "scan", label: "Scan & Check-in", icon: <Scan className="w-4 h-4" /> }, { id: "sell", label: "Sell Tickets", icon: <ShoppingBag className="w-4 h-4" /> }].map(tab => (
             <button
               key={tab.id}

@@ -468,7 +468,7 @@ export default function TicketPage() {
           <div className={`${siteSettings.ticketCompactMode ? 'p-4' : 'p-6'} relative z-10`}>
             {/* Date & Venue Grid */}
             {(siteSettings.ticketShowDate !== false || siteSettings.ticketShowVenue !== false) && (
-              <div className={`grid ${siteSettings.ticketShowDate !== false && siteSettings.ticketShowVenue !== false ? 'grid-cols-2' : 'grid-cols-1'} gap-4 mb-6`}>
+              <div className={`grid ${siteSettings.ticketShowDate !== false && siteSettings.ticketShowVenue !== false ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1'} gap-4 mb-6`}>
                 {siteSettings.ticketShowDate !== false && (
                   <div className="rounded-xl p-4" style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}>
                     <div className="flex items-center gap-2 text-xs mb-1 opacity-70" style={{ color: siteSettings.ticketTextColor || '#ffffff' }}>
@@ -506,7 +506,7 @@ export default function TicketPage() {
             {siteSettings.ticketShowPrice !== false && (
               <div className="rounded-xl p-4 mb-6" style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}>
                 <div className="text-xs mb-3 opacity-70" style={{ color: siteSettings.ticketTextColor || '#ffffff' }}>PAYMENT SUMMARY</div>
-                <div className="grid grid-cols-2 gap-3 text-sm">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                   <div>
                     <p className="text-xs opacity-60" style={{ color: siteSettings.ticketTextColor || '#ffffff' }}>Gross</p>
                     <p className="font-semibold" style={{ color: siteSettings.ticketTextColor || '#ffffff' }}>{formatINR(ticket.grossAmount ?? ticket.event?.price ?? 0)}</p>

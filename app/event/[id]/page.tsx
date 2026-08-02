@@ -772,7 +772,7 @@ export default function EventDetailsPage() {
                                         </svg>
                                         Add to Calendar
                                     </h4>
-                                    <div className="grid grid-cols-2 gap-3">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                         {/* Google Calendar */}
                                         <a
                                             href={`https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(event.name)}&dates=${(() => {

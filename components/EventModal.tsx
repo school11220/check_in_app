@@ -76,16 +76,16 @@ export default function EventModal({ event, onSave, onClose, isOrganizer = false
     };
 
     return (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
-                <div className="px-6 py-4 border-b border-zinc-800 flex justify-between items-center">
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-2 sm:p-4">
+            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-2xl max-h-[94vh] sm:max-h-[90vh] overflow-hidden flex min-w-0 flex-col">
+                <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-zinc-800 flex justify-between items-center gap-3">
                     <h2 className="text-xl font-semibold text-white">{event ? 'Edit Event' : 'Create Event'}</h2>
                     <button onClick={onClose} className="text-zinc-400 hover:text-white">
                         <X className="w-6 h-6" />
                     </button>
                 </div>
 
-                <div className="flex border-b border-zinc-800 px-6 overflow-x-auto">
+                <div className="flex border-b border-zinc-800 px-3 sm:px-6 overflow-x-auto">
                     {(['basic', 'details', 'pricing', 'registration', 'schedule', 'sponsors', 'media', 'features'] as const)
                         .filter(t => !isOrganizer || (t !== 'pricing' && t !== 'sponsors'))
                         .map(t => (
@@ -95,12 +95,12 @@ export default function EventModal({ event, onSave, onClose, isOrganizer = false
                         ))}
                 </div>
 
-                <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-4">
+                <form onSubmit={handleSubmit} className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 space-y-4">
                     {tab === 'basic' && (
                         <>
                             <div><label className="block text-sm font-medium text-zinc-300 mb-1">Event Name *</label><input type="text" required value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl text-white" /></div>
                             <div><label className="block text-sm font-medium text-zinc-300 mb-1">Description</label><textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl text-white" rows={3} /></div>
-                            <div className="grid grid-cols-3 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                 <div><label className="block text-sm font-medium text-zinc-300 mb-1">Date *</label><input type="date" required value={formData.date} onChange={(e) => setFormData({ ...formData, date: e.target.value })} className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl text-white" /></div>
                                 <div><label className="block text-sm font-medium text-zinc-300 mb-1">Start Time</label><input type="time" value={formData.startTime} onChange={(e) => setFormData({ ...formData, startTime: e.target.value })} className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl text-white" /></div>
                                 <div><label className="block text-sm font-medium text-zinc-300 mb-1">End Time</label><input type="time" value={formData.endTime} onChange={(e) => setFormData({ ...formData, endTime: e.target.value })} className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl text-white" /></div>
@@ -124,25 +124,25 @@ export default function EventModal({ event, onSave, onClose, isOrganizer = false
 
                     {tab === 'details' && (
                         <>
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div><label className="block text-sm font-medium text-zinc-300 mb-1">Venue *</label><input type="text" required value={formData.venue} onChange={(e) => setFormData({ ...formData, venue: e.target.value })} className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl text-white" /></div>
                                 <div><label className="block text-sm font-medium text-zinc-300 mb-1">Full Address</label><input type="text" value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl text-white" /></div>
                             </div>
                             {!isOrganizer && (
-                                <div className="grid grid-cols-3 gap-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                     <div><label className="block text-sm font-medium text-zinc-300 mb-1">Ticket Price (₹)</label><input type="number" min="0" value={formData.price} onChange={(e) => setFormData({ ...formData, price: Number(e.target.value) })} className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl text-white" /></div>
                                     <div><label className="block text-sm font-medium text-zinc-300 mb-1">Entry Fee (₹)</label><input type="number" min="0" value={formData.entryFee} onChange={(e) => setFormData({ ...formData, entryFee: Number(e.target.value) })} className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl text-white" /></div>
                                     <div><label className="block text-sm font-medium text-zinc-300 mb-1">Prize Pool (₹)</label><input type="number" min="0" value={formData.prizePool} onChange={(e) => setFormData({ ...formData, prizePool: Number(e.target.value) })} className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl text-white" /></div>
                                 </div>
                             )}
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 {!isOrganizer && (
                                     <div><label className="block text-sm font-medium text-zinc-300 mb-1">Capacity</label><input type="number" min="1" value={formData.capacity} onChange={(e) => setFormData({ ...formData, capacity: Number(e.target.value) })} className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl text-white" /></div>
                                 )}
                                 <div><label className="block text-sm font-medium text-zinc-300 mb-1">Registration Deadline</label><input type="date" value={formData.registrationDeadline} onChange={(e) => setFormData({ ...formData, registrationDeadline: e.target.value })} className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl text-white" /></div>
                             </div>
                             <div><label className="block text-sm font-medium text-zinc-300 mb-1">Tags (comma separated)</label><input type="text" value={formData.tags} onChange={(e) => setFormData({ ...formData, tags: e.target.value })} className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl text-white" placeholder="gaming, esports, tournament" /></div>
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div><label className="block text-sm font-medium text-zinc-300 mb-1">Organizer</label><input type="text" value={formData.organizer} onChange={(e) => setFormData({ ...formData, organizer: e.target.value })} className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl text-white" /></div>
                                 <div><label className="block text-sm font-medium text-zinc-300 mb-1">Contact Email</label><input type="email" value={formData.contactEmail} onChange={(e) => setFormData({ ...formData, contactEmail: e.target.value })} className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-xl text-white" /></div>
                             </div>
@@ -176,7 +176,7 @@ export default function EventModal({ event, onSave, onClose, isOrganizer = false
                                 </div>
 
                                 {formData.earlyBirdEnabled && (
-                                    <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-zinc-700">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4 pt-4 border-t border-zinc-700">
                                         <div>
                                             <label className="block text-sm font-medium text-zinc-300 mb-1">Early Bird Price (₹)</label>
                                             <input

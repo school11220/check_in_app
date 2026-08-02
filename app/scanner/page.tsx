@@ -338,7 +338,7 @@ export default function ScannerPage() {
                             <XCircle className="w-24 h-24 text-red-500 mb-4" />
                         )}
 
-                        <h2 className={`text-3xl font-bold mb-2 ${scanResult.success ? 'text-green-500' : 'text-red-500'}`}>
+                        <h2 className={`max-w-full text-2xl sm:text-3xl font-bold mb-2 break-words ${scanResult.success ? 'text-green-500' : 'text-red-500'}`}>
                             {scanResult.message}
                         </h2>
 

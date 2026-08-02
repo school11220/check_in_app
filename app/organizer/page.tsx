@@ -145,22 +145,22 @@ export default function OrganizerDashboard({ defaultTab }: { defaultTab?: TabId 
             <div className="bg-[#0B0B0B] border-b border-[#1F1F1F] sticky top-0 z-50">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
                     {/* Header Row */}
-                    <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-3">
+                    <div className="flex flex-col gap-3 mb-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex min-w-0 items-center gap-3">
                             <img src="/favicon.png" alt="EventHub" className="w-10 h-10 rounded-xl" />
                             <div>
                                 <h1 className="font-heading text-lg sm:text-xl font-bold text-white">Organizer</h1>
                                 <p className="text-[#737373] text-xs sm:text-sm">Welcome, {user?.name}</p>
                             </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                            <a href="/" target="_blank" rel="noopener noreferrer" className="flex items-center text-[#B3B3B3] hover:text-white text-sm px-3 py-2 rounded-lg hover:bg-white/5 transition-colors">
+                        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+                            <a href="/" target="_blank" rel="noopener noreferrer" className="flex flex-1 items-center justify-center text-[#B3B3B3] hover:text-white text-xs px-3 py-2 rounded-lg hover:bg-white/5 transition-colors sm:flex-none sm:text-sm">
                                 <Home className="w-4 h-4 mr-1.5" /> Home
                             </a>
-                            <a href="/checkin" target="_blank" rel="noopener noreferrer" className="flex items-center text-[#B3B3B3] hover:text-white text-sm px-3 py-2 rounded-lg hover:bg-white/5 transition-colors">
+                            <a href="/checkin" target="_blank" rel="noopener noreferrer" className="flex flex-1 items-center justify-center text-[#B3B3B3] hover:text-white text-xs px-3 py-2 rounded-lg hover:bg-white/5 transition-colors sm:flex-none sm:text-sm">
                                 <CheckCircle className="w-4 h-4 mr-1.5" /> Check-In
                             </a>
-                            <button onClick={handleLogout} className="flex items-center px-3 py-2 bg-[#141414] text-[#B3B3B3] rounded-xl hover:bg-[#1A1A1A] hover:text-white text-sm border border-[#1F1F1F] transition-colors">
+                            <button onClick={handleLogout} className="flex flex-1 items-center justify-center px-3 py-2 bg-[#141414] text-[#B3B3B3] rounded-xl hover:bg-[#1A1A1A] hover:text-white text-xs border border-[#1F1F1F] transition-colors sm:flex-none sm:text-sm">
                                 <span className="hidden sm:inline mr-2">Logout</span>
                                 <LogOut className="w-4 h-4" />
                             </button>
