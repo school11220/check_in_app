@@ -2,9 +2,11 @@
 
 import { useEffect, useState, ReactNode } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
-import { useUser } from '@clerk/nextjs';
+import { OrganizationSwitcher, useAuth, useUser } from '@clerk/nextjs';
+import { resolveRole } from '@/lib/clerk-role-utils';
 import { useClerk } from '@clerk/nextjs';
 import Link from 'next/link';
+import Image from 'next/image';
 import {LogOut, Home, Users, Calendar, BarChart3, MessageSquare, Tent, Mail, ClipboardList, Layout, TrendingUp, Award, Clock, History, Ticket, Power, FileText, Settings as SettingsIcon} from '@/components/icons';
 export type AdminTabId =
     | 'events' | 'attendees' | 'analytics' | 'reviews' | 'sessions'
@@ -58,9 +60,10 @@ export default function AdminShell({ initialTab = 'events', title, children }: A
     const pathname = usePathname();
     const searchParams = useSearchParams();
     const { user } = useUser();
+    const { orgRole } = useAuth();
     const { signOut } = useClerk();
 
-    const role = (user?.publicMetadata?.role as string) || 'UNAUTHORIZED';
+    const role = resolveRole(orgRole, user?.publicMetadata?.role);
     const visibleTabs = TABS.filter(t => t.roles.includes(role));
     const tabFromUrl = (searchParams.get('tab') as AdminTabId) || initialTab;
     const [activeTab, setActiveTab] = useState<AdminTabId>(tabFromUrl);
@@ -89,21 +92,22 @@ export default function AdminShell({ initialTab = 'events', title, children }: A
     };
 
     return (
-        <div className="min-h-screen bg-[#0B0B0B] text-white">
-            <header className="sticky top-0 z-30 bg-[#0B0B0B]/90 backdrop-blur border-b border-[#1F1F1F]">
+        <div className="min-h-screen bg-[#171e19] text-white">
+            <header className="sticky top-0 z-30 bg-[#ffe17c] text-black border-b-2 border-black">
                 <div className="max-w-screen-2xl mx-auto px-4 py-3 flex items-center gap-3">
-                    <Link href="/" className="text-zinc-400 hover:text-white flex items-center gap-2 text-sm">
-                        <Home className="w-4 h-4" />
+                    <Link href="/" className="font-bold flex items-center gap-2 text-sm hover:underline">
+                        <Image src="/logo.png" alt="EventHub" width={28} height={28} className="h-7 w-7 object-contain border-2 border-black bg-black" />
                         <span className="hidden sm:inline">Home</span>
                     </Link>
                     <div className="flex-1 min-w-0">
-                        <h1 className="text-base sm:text-lg font-semibold truncate">
+                        <h1 className="text-base sm:text-lg font-extrabold truncate uppercase tracking-tight">
                             {title || 'Admin Console'}
                         </h1>
                     </div>
+                    <OrganizationSwitcher hidePersonal={false} afterCreateOrganizationUrl="/admin" afterLeaveOrganizationUrl="/" />
                     <button
                         onClick={handleLogout}
-                        className="px-3 py-1.5 text-sm bg-zinc-900 border border-zinc-800 rounded-lg hover:bg-zinc-800 flex items-center gap-2"
+                        className="px-3 py-1.5 text-sm bg-black text-white border-2 border-black rounded-lg flex items-center gap-2"
                     >
                         <LogOut className="w-4 h-4" />
                         <span className="hidden sm:inline">Sign out</span>
@@ -118,10 +122,10 @@ export default function AdminShell({ initialTab = 'events', title, children }: A
                                 <li key={tab.id}>
                                     <button
                                         onClick={() => switchTab(tab.id)}
-                                        className={`px-3 py-2 text-sm font-medium rounded-t-lg flex items-center gap-2 whitespace-nowrap transition-colors ${
+                                        className={`px-3 py-2 text-sm font-bold rounded-t-lg flex items-center gap-2 whitespace-nowrap transition-colors border-2 border-b-0 border-black ${
                                             isActive
-                                                ? 'bg-[#141414] text-white border-b-2 border-red-500'
-                                                : 'text-zinc-400 hover:text-white hover:bg-[#141414]/50'
+                                                ? 'bg-[#171e19] text-white'
+                                                : 'text-black hover:bg-white'
                                         }`}
                                         aria-current={isActive ? 'page' : undefined}
                                     >

@@ -446,10 +446,10 @@ export default function TicketForm() {
   }
 
   return (
-    <div className="w-full max-w-2xl mx-auto">
+    <div className="w-full max-w-2xl mx-auto ticket-form-shell">
       <div className="glass rounded-2xl shadow-2xl overflow-hidden border border-[#1F1F1F]">
         {/* Card Header */}
-        <div className="relative overflow-hidden px-8 py-7">
+        <div className="relative overflow-hidden px-8 py-7 ticket-form-header">
           {/* Background gradient */}
           <div className="absolute inset-0 bg-gradient-to-r from-[#E11D2E]/80 to-[#B91C1C]/80" />
           <div className="absolute inset-0 noise-texture" />
@@ -461,7 +461,7 @@ export default function TicketForm() {
         </div>
 
         {/* Card Body */}
-        <div className="px-8 py-8 space-y-6">
+        <div className="px-8 py-8 space-y-6 ticket-form-body">
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Event Selection */}
             <div>
@@ -495,7 +495,7 @@ export default function TicketForm() {
 
             {/* Event Details */}
             {selectedEventData && (
-              <div className="bg-[#141414] border border-[#1F1F1F] rounded-xl p-5">
+              <div className="bg-[#141414] border border-[#1F1F1F] rounded-xl p-5 ticket-form-section">
                 {/* Early Bird Banner */}
                 {isEarlyBird && (
                   <div className="mb-4 -mt-1 -mx-1 px-4 py-3 bg-gradient-to-r from-[#22C55E]/15 to-[#16A34A]/15 rounded-lg border border-[#22C55E]/30 flex items-center justify-between">
@@ -564,7 +564,7 @@ export default function TicketForm() {
 
             {/* Quantity Selector - Enhanced */}
             {selectedEventData && (
-              <div className="bg-[#141414] border border-[#1F1F1F] rounded-xl p-5">
+              <div className="bg-[#141414] border border-[#1F1F1F] rounded-xl p-5 ticket-form-section">
                 <div className="flex items-center justify-between">
                   <div>
                     <label className="block text-sm font-semibold text-[#B3B3B3] mb-1">
@@ -605,7 +605,7 @@ export default function TicketForm() {
 
             {/* Promo Code Section */}
             {selectedEventData && (
-              <div className="bg-[#141414] border border-[#1F1F1F] rounded-xl p-5">
+              <div className="bg-[#141414] border border-[#1F1F1F] rounded-xl p-5 ticket-form-section">
                 <label className="block text-sm font-semibold text-[#B3B3B3] mb-3">
                   Promo Code
                 </label>
@@ -659,7 +659,7 @@ export default function TicketForm() {
               </label>
 
               {attendees.map((attendee, index) => (
-                <div key={index} className={`p-5 rounded-xl border transition-colors ${index === 0 ? 'bg-[#141414] border-[#E11D2E]/20' : 'bg-[#0D0D0D] border-[#1F1F1F]'}`}>
+                <div key={index} className={`ticket-form-section p-5 rounded-xl border transition-colors ${index === 0 ? 'bg-[#141414] border-[#E11D2E]/20' : 'bg-[#0D0D0D] border-[#1F1F1F]'}`}>
                   {quantity > 1 && (
                     <div className="flex items-center gap-3 mb-4">
                       <span className="w-7 h-7 rounded-full bg-[#E11D2E] text-white text-xs flex items-center justify-center font-bold">
@@ -710,7 +710,7 @@ export default function TicketForm() {
                 <label className="block text-sm font-semibold text-[#B3B3B3]">
                   Additional Information
                 </label>
-                <div className="bg-[#141414] border border-[#1F1F1F] rounded-xl p-5 space-y-4">
+                <div className="ticket-form-section bg-[#141414] border border-[#1F1F1F] rounded-xl p-5 space-y-4">
                   {selectedEventData.registrationFields.map((field: any) => (
                     <div key={field.id}>
                       <label className="block text-sm text-[#B3B3B3] mb-2">
@@ -760,7 +760,7 @@ export default function TicketForm() {
             <button
               type="submit"
               disabled={loading || !selectedEvent}
-              className={`w-full py-5 px-6 rounded-xl font-semibold text-lg transition-all duration-300 relative overflow-hidden shimmer-hover ${isEarlyBird
+              className={`ticket-form-submit w-full py-5 px-6 rounded-xl font-semibold text-lg transition-all duration-300 relative overflow-hidden shimmer-hover ${isEarlyBird
                 ? 'bg-gradient-to-r from-[#22C55E] to-[#16A34A] hover:shadow-[0_0_32px_rgba(34,197,94,0.3)]'
                 : 'bg-gradient-to-r from-[#E11D2E] to-[#B91C1C] hover:shadow-[0_0_32px_rgba(225,29,46,0.4)]'
                 } text-white disabled:from-[#333] disabled:to-[#333] disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#0B0B0B] ${isEarlyBird ? 'focus:ring-[#22C55E]' : 'focus:ring-[#E11D2E]'}`}

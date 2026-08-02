@@ -1,15 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { auth, clerkClient } from '@clerk/nextjs/server';
+import { getCurrentClerkRole } from '@/lib/clerk-roles';
 
 async function getUserRole(userId: string): Promise<string> {
-  try {
-    const client = await clerkClient();
-    const user = await client.users.getUser(userId);
-    return (user.publicMetadata?.role as string) || 'UNAUTHORIZED';
-  } catch {
-    return 'UNAUTHORIZED';
-  }
+  return (await getCurrentClerkRole()).role;
 }
 
 // GET: List promo codes

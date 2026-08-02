@@ -1,6 +1,7 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import { clerkClient } from '@clerk/nextjs/server';
+import { resolveRole } from '@/lib/clerk-roles';
 
 // Define protected routes
 const isAdminRoute = createRouteMatcher(['/admin(.*)']);
@@ -15,7 +16,7 @@ const isUnauthorizedRoute = createRouteMatcher(['/unauthorized']);
 const CHECKIN_ALLOWED_ROLES = ['ADMIN', 'ORGANIZER', 'ORGANISER', 'SCANNER'];
 
 export default clerkMiddleware(async (auth, request) => {
-    const { userId } = await auth();
+    const { userId, orgRole } = await auth();
 
     // Allow SSO callback, API routes, and unauthorized page to proceed
     if (isSSOCallback(request) || isApiRoute(request) || isUnauthorizedRoute(request)) {
@@ -36,7 +37,7 @@ export default clerkMiddleware(async (auth, request) => {
     try {
         const client = await clerkClient();
         const user = await client.users.getUser(userId);
-        role = (user.publicMetadata?.role as string) || 'UNAUTHORIZED';
+        role = resolveRole(orgRole, user.publicMetadata?.role);
     } catch (error) {
         console.error('Failed to fetch user from Clerk:', error);
     }
@@ -98,5 +99,6 @@ export const config = {
         '/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
         // Always run for API routes
         '/(api|trpc)(.*)',
+        '/__clerk/:path*',
     ],
 };

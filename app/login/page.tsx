@@ -99,26 +99,20 @@ export default function LoginPage() {
     // Show loading while checking auth
     if (!authLoaded || isSignedIn) {
         return (
-            <main className="min-h-screen flex items-center justify-center bg-black">
+            <main className="min-h-screen flex items-center justify-center bg-[#ffe17c]">
                 <Loader2 className="w-8 h-8 animate-spin text-red-500" />
             </main>
         );
     }
 
     return (
-        <main className="min-h-screen flex items-center justify-center p-4 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-zinc-900 via-[#050505] to-black">
+        <main className="min-h-screen flex items-center justify-center p-4 bg-[#ffe17c] noise-texture">
             {/* Background Effects */}
-            <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-red-600/10 rounded-full blur-[100px]" />
-                <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-600/10 rounded-full blur-[100px]" />
-            </div>
-
             <div className="glass-card w-full max-w-md p-8 rounded-3xl relative overflow-hidden animate-scale-in">
-                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-red-600 to-transparent opacity-50" />
 
                 <div className="text-center mb-8 relative z-10">
-                    <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-red-600 to-red-900 rounded-2xl mb-6 shadow-[0_0_40px_rgba(220,38,38,0.4)] animate-float">
-                        <Lock className="w-8 h-8 text-white" />
+                    <div className="inline-flex items-center justify-center w-20 h-20 bg-black text-[#ffe17c] border-2 border-black rounded-lg mb-6 shadow-[4px_4px_0_#000]">
+                        <Lock className="w-8 h-8" />
                     </div>
                     <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">Welcome Back</h1>
                     <p className="text-zinc-400 text-sm">Sign in to your EventHub account</p>
@@ -155,6 +149,7 @@ export default function LoginPage() {
                 </div>
 
                 <form onSubmit={handleLogin} className="space-y-4 relative z-10">
+                    <div id="clerk-captcha" data-cl-theme="light" data-cl-size="flexible" className="min-h-0" />
                     <div className="space-y-2">
                         <label className="text-xs font-semibold text-zinc-500 ml-1 uppercase tracking-wider">Email Address</label>
                         <div className="relative">
@@ -188,7 +183,7 @@ export default function LoginPage() {
                     <button
                         type="submit"
                         disabled={loading || !isLoaded}
-                        className="w-full py-4 bg-gradient-to-r from-red-600 to-red-800 text-white rounded-xl hover:via-red-700 font-semibold shadow-lg shadow-red-900/20 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:hover:scale-100 flex items-center justify-center gap-2 group"
+                        className="w-full py-4 bg-black text-white rounded-xl font-semibold flex items-center justify-center gap-2 group"
                     >
                         {loading ? (
                             <Loader2 className="w-5 h-5 animate-spin" />

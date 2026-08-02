@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { auth, clerkClient } from '@clerk/nextjs/server';
 import { sendCertificateEmail } from '@/lib/ticket-email';
 import { PAID_LIKE_STATUSES } from '@/lib/ticket-lifecycle';
+import { getCurrentClerkRole } from '@/lib/clerk-roles';
 
 export async function POST(req: NextRequest) {
     try {
@@ -12,9 +13,7 @@ export async function POST(req: NextRequest) {
         }
 
         // Verify Admin Role
-        const client = await clerkClient();
-        const user = await client.users.getUser(userId);
-        const role = (user.publicMetadata?.role as string) || '';
+        const role = (await getCurrentClerkRole()).role;
         if (role !== 'ADMIN') {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
         }

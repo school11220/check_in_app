@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { sendTransactionalEmail, isEmailConfigured } from '@/lib/email';
 import { auth, clerkClient } from '@clerk/nextjs/server';
 import { PAID_LIKE_STATUSES } from '@/lib/ticket-lifecycle';
+import { getCurrentClerkRole } from '@/lib/clerk-roles';
 
 // NOTE: Emails are only sent when GMAIL_USER + GMAIL_APP_PASSWORD (or SMTP_*) env vars are set.
 
@@ -16,9 +17,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Fetch user from Clerk to get the role from publicMetadata
-        const client = await clerkClient();
-        const user = await client.users.getUser(userId);
-        const role = (user.publicMetadata?.role as string) || '';
+        const role = (await getCurrentClerkRole()).role;
 
         if (role !== 'ADMIN') {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

@@ -4,15 +4,12 @@ import { auth, clerkClient } from '@clerk/nextjs/server';
 import { verifyAuditChecksum } from '@/lib/qr-security';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { getSession, hasEventAccess } from '@/lib/auth';
+import { getCurrentClerkRole } from '@/lib/clerk-roles';
 
 const ALLOWED_ROLES = ['ADMIN', 'ORGANIZER', 'ORGANISER'];
 
 async function getUserRole(userId: string): Promise<string> {
-  try {
-    const client = await clerkClient();
-    const user = await client.users.getUser(userId);
-    return (user.publicMetadata?.role as string) || 'UNAUTHORIZED';
-  } catch { return 'UNAUTHORIZED'; }
+  return (await getCurrentClerkRole()).role;
 }
 
 // GET: Export audit logs as CSV

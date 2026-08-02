@@ -9,7 +9,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useOfflineCheckin } from '@/hooks/useOfflineCheckin';
 import {ScanLine, LogOut, Ticket, Lock, CheckCircle, XCircle, Radio, Calendar, X, History, Users, BarChart3, Home, Download, WifiOff, Wifi, RefreshCw, FileSpreadsheet, Shield, Clock, TrendingUp, AlertTriangle, ToggleLeft, ToggleRight, Search, Undo2} from '@/components/icons';
 import SessionScheduler from '@/components/admin/SessionScheduler';
-import { useClerk, useUser } from '@clerk/nextjs';
+import { useAuth, useClerk, useUser } from '@clerk/nextjs';
+import { resolveRole } from '@/lib/clerk-role-utils';
 import { parseScanPayload } from '@/lib/scan-payload';
 
 type CheckinTabKey = 'scanner' | 'history' | 'guestlist' | 'stats' | 'group';
@@ -22,9 +23,10 @@ function CheckinPageContent({ defaultTab, defaultEventId }: { defaultTab?: Check
   const eventId = (defaultEventId || searchParams.get('event')) as string | null;
   const { signOut } = useClerk();
   const { user, isLoaded: userLoaded, isSignedIn } = useUser();
+  const { orgRole } = useAuth();
 
   // Role verification on client side
-  const userRole = (user?.publicMetadata?.role as string) || '';
+  const userRole = resolveRole(orgRole, user?.publicMetadata?.role);
   const allowedRoles = ['ADMIN', 'ORGANIZER', 'ORGANISER', 'SCANNER'];
   const isAllowed = allowedRoles.includes(userRole);
   const canExport = ['ADMIN', 'ORGANIZER', 'ORGANISER'].includes(userRole);

@@ -12,9 +12,9 @@ const config: Config = {
                 background: "var(--background)",
                 foreground: "var(--foreground)",
                 primary: {
-                    DEFAULT: "#E11D2E",
-                    hover: "#FF2D3F",
-                    dark: "#B91C1C",
+                    DEFAULT: "#ffe17c",
+                    hover: "#b7c6c2",
+                    dark: "#171e19",
                 },
                 card: {
                     bg: "#141414",
@@ -44,10 +44,9 @@ const config: Config = {
                 "dashboard": "1200px",
             },
             boxShadow: {
-                "glow-red": "0 0 24px rgba(225, 29, 46, 0.35)",
-                "glow-red-lg": "0 0 40px rgba(225, 29, 46, 0.4)",
-                "card": "0 4px 24px -2px rgba(0, 0, 0, 0.2)",
-                "card-hover": "0 16px 48px rgba(0, 0, 0, 0.4)",
+                "neo": "4px 4px 0 #000000",
+                "neo-lg": "8px 8px 0 #000000",
+                "neo-xl": "12px 12px 0 #000000",
             },
             borderRadius: {
                 "input": "10px",

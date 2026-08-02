@@ -44,11 +44,11 @@ export default function HomeClient({ initialSettings, initialEvents }: HomeClien
     };
 
     return (
-        <main className="min-h-screen bg-[#0B0B0B] flex flex-col">
+        <main className="min-h-screen bg-[#ffe17c] text-black flex flex-col">
             {/* Announcement Banner */}
             {siteSettings.announcement?.isActive && siteSettings.announcement?.message && (
                 <div
-                    className="w-full py-2.5 px-4 text-center text-sm font-medium"
+                    className="w-full py-2.5 px-4 text-center text-sm font-bold border-b-2 border-black"
                     style={{ backgroundColor: siteSettings.announcement.bgColor, color: siteSettings.announcement.textColor }}
                     dangerouslySetInnerHTML={{
                         __html: siteSettings.announcement.message +
@@ -76,7 +76,7 @@ export default function HomeClient({ initialSettings, initialEvents }: HomeClien
                                 <LayoutDashboard className="w-5 h-5" />
                                 Dashboard
                             </a>
-                            <button
+                    <button
                                 onClick={handleLogout}
                                 className="flex items-center gap-3 px-5 py-3.5 text-red-400 hover:bg-red-500/10 hover:text-red-300 whitespace-nowrap border-t border-white/5 transition-colors w-full"
                             >
@@ -94,7 +94,7 @@ export default function HomeClient({ initialSettings, initialEvents }: HomeClien
                 </div>
                 <button
                     onClick={() => setShowMenu(!showMenu)}
-                    className="w-14 h-14 bg-gradient-to-br from-[#E11D2E] to-[#B91C1C] rounded-full shadow-lg shadow-red-900/30 flex items-center justify-center hover:scale-105 transition-all duration-300 glow-hover"
+                    className="w-14 h-14 bg-black text-white rounded-lg flex items-center justify-center"
                 >
                     {showMenu ? (
                         <X className="w-6 h-6 text-white" />
@@ -127,9 +127,9 @@ export default function HomeClient({ initialSettings, initialEvents }: HomeClien
             {/* Mobile Menu Drawer */}
             {showMenu && (
                 <div className="md:hidden fixed inset-0 z-[60] bg-black/80 backdrop-blur-md flex items-end animate-fade-in-up">
-                    <div className="w-full bg-[#141414] rounded-t-2xl p-6 border-t border-[#1F1F1F]">
+                <div className="w-full bg-[#ffe17c] text-black rounded-t-2xl p-6 border-2 border-black shadow-[8px_8px_0_#000]">
                         <div className="flex justify-between items-center mb-6">
-                            <h3 className="text-xl font-bold text-white">Menu</h3>
+                            <h3 className="text-xl font-bold">Menu</h3>
                             <button onClick={() => setShowMenu(false)} className="p-2 bg-zinc-800 rounded-full text-white">
                                 <X className="w-5 h-5" />
                             </button>
@@ -165,13 +165,13 @@ export default function HomeClient({ initialSettings, initialEvents }: HomeClien
             )}
 
             {/* Header */}
-            <header className="sticky top-0 z-40 bg-[#0B0B0B]/90 backdrop-blur-md border-b border-white/5">
-                <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+            <header className="sticky top-0 z-40 bg-[#ffe17c] border-b-2 border-black">
+                <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <Image src="/logo.png" alt="EventHub" width={40} height={40} className="rounded-xl" priority />
-                        <span className="font-heading text-lg font-bold text-white hidden sm:block">EventHub</span>
+                        <Image src="/logo.png" alt="EventHub" width={40} height={40} className="h-10 w-10 object-contain border-2 border-black bg-black" priority />
+                        <span className="font-heading text-lg font-black hidden sm:block">EventHub</span>
                     </div>
-                    <a href="/register" target="_blank" rel="noopener noreferrer" className="px-4 py-2 bg-[#E11D2E] text-white text-sm font-medium rounded-xl hover:bg-[#B91C1C] transition-colors flex items-center gap-2">
+                    <a href="/register" target="_blank" rel="noopener noreferrer" className="px-4 py-2 bg-black text-white text-sm font-bold rounded-lg border-2 border-black shadow-[4px_4px_0_#000] flex items-center gap-2">
                         <Ticket className="w-4 h-4" />
                         Get Tickets
                     </a>
@@ -179,22 +179,21 @@ export default function HomeClient({ initialSettings, initialEvents }: HomeClien
             </header>
 
             {/* Main Content — Simple Landing */}
-            <div className="flex-1 flex flex-col items-center justify-center px-4 py-20 md:py-32 relative overflow-hidden noise-texture">
-                <div className="absolute inset-0 ambient-glow-red pointer-events-none" />
-                <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[#0B0B0B] pointer-events-none" />
+            <div className="flex-1 flex flex-col items-center justify-center px-4 py-20 md:py-32 relative overflow-hidden noise-texture border-b-2 border-black">
 
                 <div className="relative z-10 text-center max-w-3xl mx-auto">
-                    <h1 className="font-heading text-3xl md:text-6xl lg:text-7xl font-bold text-white mb-6 tracking-tight" style={{ letterSpacing: '-0.03em' }}>
+                    <p className="inline-block bg-white border-2 border-black shadow-[4px_4px_0_#000] px-3 py-1 text-xs font-black uppercase tracking-wider mb-6">Secure event operations</p>
+                    <h1 className="font-heading text-4xl md:text-7xl lg:text-8xl font-black mb-6 tracking-tight" style={{ letterSpacing: '-0.06em' }}>
                         {siteSettings.heroTitle}
                     </h1>
-                    <p className="text-base md:text-xl text-[#B3B3B3] max-w-2xl mx-auto leading-relaxed mb-10 px-4">
+                    <p className="text-base md:text-xl text-black max-w-2xl mx-auto leading-relaxed mb-10 px-4">
                         {siteSettings.heroSubtitle}
                     </p>
                     <Link
                         href="/register"
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-[#E11D2E] to-[#B91C1C] text-white font-semibold rounded-xl hover:scale-105 transition-transform shadow-lg shadow-red-900/30 glow-hover"
+                        className="inline-flex items-center gap-3 px-8 py-4 bg-black text-white font-bold rounded-lg border-2 border-black shadow-[8px_8px_0_#000]"
                     >
                         <Ticket className="w-5 h-5" />
                         Register Now
@@ -203,15 +202,15 @@ export default function HomeClient({ initialSettings, initialEvents }: HomeClien
             </div>
 
             {/* Upcoming Events */}
-            <section className="px-4 pb-16">
+            <section className="px-4 py-16 bg-white border-b-2 border-black">
                 <div className="max-w-6xl mx-auto">
                     <div className="flex items-center justify-between mb-6">
-                        <h2 className="font-heading text-2xl md:text-3xl font-bold text-white">Upcoming Events</h2>
-                        <Link href="/" className="text-sm text-[#E11D2E] hover:text-white transition-colors">View all</Link>
+                        <h2 className="font-heading text-2xl md:text-3xl font-black">Upcoming Events</h2>
+                        <Link href="/" className="text-sm font-bold underline">View all</Link>
                     </div>
 
                     {events.length === 0 ? (
-                        <div className="bg-[#141414] border border-[#1F1F1F] rounded-2xl p-8 text-center text-[#B3B3B3]">
+                        <div className="bg-[#b7c6c2] border-2 border-black shadow-[4px_4px_0_#000] rounded-lg p-8 text-center text-black">
                             No events are available right now.
                         </div>
                     ) : (
@@ -222,12 +221,12 @@ export default function HomeClient({ initialSettings, initialEvents }: HomeClien
                                 const isUnavailable = soldOut || !event.isActive;
 
                                 return (
-                                    <article key={event.id} onClick={() => router.push(`/event/${event.id}`)} className="bg-[#141414] border border-[#1F1F1F] rounded-2xl overflow-hidden cursor-pointer hover:shadow-lg transition-transform">
-                                        <div className="h-36 bg-[#0D0D0D]">
+                                    <article key={event.id} onClick={() => router.push(`/event/${event.id}`)} className="bg-white text-black border-2 border-black shadow-[4px_4px_0_#000] rounded-lg overflow-hidden cursor-pointer hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all">
+                                        <div className="h-36 bg-[#171e19]">
                                             {event.imageUrl ? (
                                                 <img src={event.imageUrl} alt={event.name} className="w-full h-full object-cover" />
                                             ) : (
-                                                <div className="w-full h-full flex items-center justify-center text-[#737373] text-sm">No image</div>
+                                                <div className="w-full h-full flex items-center justify-center text-[#b7c6c2] text-sm">No image</div>
                                             )}
                                         </div>
                                         <div className="p-5 space-y-2">
@@ -242,13 +241,13 @@ export default function HomeClient({ initialSettings, initialEvents }: HomeClien
                                             <p className="text-[#B3B3B3] text-sm">{eventDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
                                             <p className="text-[#737373] text-sm line-clamp-1">{event.venue || 'Venue to be announced'}</p>
                                             <div className="flex items-center justify-between pt-2">
-                                                <span className="text-[#E11D2E] font-semibold">
+                                                <span className="bg-[#ffe17c] border-2 border-black px-2 py-1 font-black">
                                                     {event.price === 0 ? 'Free' : `₹${Math.round(event.price / 100)}`}
                                                 </span>
                                                 <button
                                                     onClick={(e) => { e.stopPropagation(); handleRegisterForEvent(event.id); }}
                                                     disabled={isUnavailable}
-                                                    className="px-4 py-2 text-sm font-medium rounded-lg bg-[#E11D2E] text-white hover:bg-[#B91C1C] disabled:bg-zinc-700 disabled:text-zinc-400 transition-colors"
+                                                    className="px-4 py-2 text-sm font-bold rounded-lg bg-black text-white disabled:bg-zinc-700 disabled:text-zinc-400"
                                                 >
                                                     {soldOut ? 'Sold Out' : !event.isActive ? 'Unavailable' : 'Register'}
                                                 </button>
@@ -263,7 +262,7 @@ export default function HomeClient({ initialSettings, initialEvents }: HomeClien
             </section>
 
             {/* Footer */}
-            <footer className="border-t border-[#1F1F1F] py-10 px-4">
+            <footer className="bg-[#171e19] text-white border-t-2 border-black py-10 px-4">
                 <div className="max-w-6xl mx-auto flex flex-col items-center gap-6">
                     {siteSettings.socialLinks && siteSettings.socialLinks.length > 0 && (
                         <div className="flex items-center gap-6">

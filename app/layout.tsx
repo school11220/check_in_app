@@ -55,7 +55,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0B0B0B",
+  themeColor: "#ffe17c",
 };
 
 export default function RootLayout({
@@ -68,8 +68,8 @@ export default function RootLayout({
   if (!publishableKey) {
     return (
       <html lang="en" className="dark">
-        <body className="antialiased bg-[#0B0B0B] min-h-screen text-white">
-          <div className="max-w-xl mx-auto py-24 px-6 space-y-4">
+        <body className="antialiased bg-[#171e19] min-h-screen text-white">
+          <div className="max-w-xl mx-auto py-24 px-6 space-y-4 neo-panel">
             <h1 className="text-2xl font-bold">Missing Clerk publishable key</h1>
             <p className="text-zinc-400 text-sm leading-relaxed">
               Set NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY in your environment (Vercel/CI or .env.local) and rerun the build.
@@ -86,12 +86,12 @@ export default function RootLayout({
       publishableKey={publishableKey}
       appearance={{
         variables: {
-          colorPrimary: '#E11D2E',
-          colorBackground: '#0B0B0B',
+          colorPrimary: '#ffe17c',
+          colorBackground: '#171e19',
         },
         elements: {
-          formButtonPrimary: 'bg-red-600 hover:bg-red-700',
-          card: 'bg-zinc-900',
+          formButtonPrimary: 'bg-[#ffe17c] text-black border-2 border-black',
+          card: 'bg-[#ffffff] border-2 border-black shadow-[8px_8px_0_#000000]',
         }
       }}
     >
@@ -102,20 +102,14 @@ export default function RootLayout({
             ${spaceGrotesk.variable} 
             ${jetbrainsMono.variable} 
             antialiased 
-            bg-[#0B0B0B]
+            bg-[#171e19]
             min-h-screen 
-            selection:bg-red-500/30
+            selection:bg-[#ffe17c] selection:text-black
           `}
           style={{
             fontFamily: 'var(--font-inter), system-ui, sans-serif',
           }}
         >
-          {/* Ambient background glow */}
-          <div className="fixed inset-0 pointer-events-none z-0">
-            <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(225,29,46,0.12),transparent_70%)]" />
-            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,rgba(20,20,20,0.8),transparent_60%)]" />
-          </div>
-
           <AppProvider>
 
             <ToastProvider>
@@ -145,4 +139,3 @@ export default function RootLayout({
     </ClerkProvider>
   );
 }
-

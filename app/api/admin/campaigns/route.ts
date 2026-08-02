@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import type { Prisma } from '@prisma/client';
 import { auth, clerkClient } from '@clerk/nextjs/server';
 import { prisma } from '@/lib/prisma';
+import { getCurrentClerkRole } from '@/lib/clerk-roles';
 
 type SiteSettings = Record<string, unknown> & {
     campaigns?: unknown[];
@@ -15,9 +16,7 @@ type SiteSettings = Record<string, unknown> & {
 async function requireAdmin() {
     const { userId } = await auth();
     if (!userId) return null;
-    const client = await clerkClient();
-    const user = await client.users.getUser(userId);
-    const role = (user.publicMetadata?.role as string) || '';
+    const role = (await getCurrentClerkRole()).role;
     return role === 'ADMIN' ? userId : null;
 }
 

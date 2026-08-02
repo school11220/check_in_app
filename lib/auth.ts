@@ -1,5 +1,6 @@
 import { auth, clerkClient } from '@clerk/nextjs/server';
 import { syncUserById } from '@/lib/user-sync';
+import { resolveRole } from '@/lib/clerk-roles';
 
 export const ADMIN_ROLES = ['ADMIN'] as const;
 export const ORGANIZER_ROLES = ['ADMIN', 'ORGANIZER', 'ORGANISER'] as const;
@@ -8,7 +9,7 @@ export const CHECKIN_ROLES = ['ADMIN', 'ORGANIZER', 'ORGANISER', 'SCANNER'] as c
 // Updated to use Clerk authentication
 export async function getSession() {
     try {
-        const { userId } = await auth();
+        const { userId, orgId, orgRole } = await auth();
         if (!userId) return null;
 
         const syncedUser = await syncUserById(userId).catch(() => null);
@@ -19,8 +20,9 @@ export async function getSession() {
                     id: syncedUser.id,
                     name: syncedUser.name || syncedUser.email,
                     email: syncedUser.email,
-                    role: syncedUser.role,
+                    role: resolveRole(orgRole, syncedUser.role),
                     assignedEventIds: syncedUser.assignedEventIds || [],
+                    organizationId: orgId || null,
                 }
             };
         }
@@ -28,7 +30,7 @@ export async function getSession() {
         // Get user from Clerk
         const client = await clerkClient();
         const clerkUser = await client.users.getUser(userId);
-        const role = (clerkUser.publicMetadata?.role as string) || 'UNAUTHORIZED';
+        const role = resolveRole(orgRole, clerkUser.publicMetadata?.role);
 
         if (role === 'UNAUTHORIZED') {
             return null;
@@ -45,6 +47,7 @@ export async function getSession() {
                 email: clerkUser.emailAddresses[0]?.emailAddress,
                 role: role,
                 assignedEventIds: assignedEventIds,
+                organizationId: orgId || null,
             }
         };
     } catch (error) {
@@ -64,7 +67,7 @@ export function hasEventAccess(
     if (!session) return false;
     if (session.user.role === 'ADMIN') return true;
 
-    if (session.user.role === 'ORGANIZER' || session.user.role === 'ORGANISER' || session.user.role === 'SCANNER') {
+    if (session.user.role === 'ORGANIZER' || session.user.role === 'SCANNER') {
         return (session.user.assignedEventIds || []).includes(eventId);
     }
 

@@ -29,7 +29,8 @@ import Inbox from '@/components/admin/Inbox';
 import Link from 'next/link';
 import EventReviews from '@/components/organizer/EventReviews';
 import EventModal from '@/components/EventModal';
-import { useClerk, useUser } from '@clerk/nextjs';
+import { useAuth, useClerk, useUser } from '@clerk/nextjs';
+import { resolveRole } from '@/lib/clerk-role-utils';
 import { useDraggable } from '@/hooks/useDraggable';
 import MultiEventAnalytics from '@/components/admin/MultiEventAnalytics';
 import CohortFunnelAnalytics from '@/components/admin/CohortFunnelAnalytics';
@@ -43,10 +44,11 @@ type AdminTabKey = 'events' | 'attendees' | 'team' | 'festivals' | 'emails' | 's
 export default function AdminPage({ defaultTab }: { defaultTab?: AdminTabKey } = {}) {
     const router = useRouter();
     const { user } = useUser();
+    const { orgRole } = useAuth();
     const { events: allEvents, tickets, teamMembers, siteSettings, festivals, emailTemplates, surveys, promoCodes, waitlist, addEvent, updateEvent, deleteEvent, duplicateEvent, addTicket, updateTicket, deleteTicket, addTeamMember, updateTeamMember, removeTeamMember, updateSiteSettings, addFestival, updateFestival, deleteFestival, updateEmailTemplate, addSurvey, updateSurvey, deleteSurvey, addPromoCode, updatePromoCode, deletePromoCode, addToWaitlist, removeFromWaitlist, notifyWaitlist } = useApp();
 
     // Filter events based on role
-    const role = (user?.publicMetadata?.role as string) || 'UNAUTHORIZED';
+    const role = resolveRole(orgRole, user?.publicMetadata?.role);
     const assignedIds = (user?.publicMetadata?.assignedEventIds as string[]) || [];
 
     const events = (role === 'ADMIN')

@@ -11,6 +11,7 @@ import { prisma } from '@/lib/prisma';
 import { sendTransactionalEmail, isEmailConfigured } from '@/lib/email';
 import { auth, clerkClient } from '@clerk/nextjs/server';
 import { PAID_LIKE_STATUSES } from '@/lib/ticket-lifecycle';
+import { getCurrentClerkRole } from '@/lib/clerk-roles';
 
 type SiteSettings = Record<string, unknown> & {
     campaigns?: unknown[];
@@ -20,9 +21,7 @@ type SiteSettings = Record<string, unknown> & {
 async function requireAdmin() {
     const { userId } = await auth();
     if (!userId) return null;
-    const client = await clerkClient();
-    const user = await client.users.getUser(userId);
-    return (user.publicMetadata?.role as string) === 'ADMIN' ? userId : null;
+    return (await getCurrentClerkRole()).role === 'ADMIN' ? userId : null;
 }
 
 const MS_PER_DAY = 86_400_000;

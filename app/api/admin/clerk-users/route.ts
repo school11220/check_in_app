@@ -1,21 +1,18 @@
 import { NextResponse } from 'next/server';
-import { auth, clerkClient } from '@clerk/nextjs/server';
+import { clerkClient } from '@clerk/nextjs/server';
+import { clerkRoleKey, getCurrentClerkRole, normalizeLegacyRole } from '@/lib/clerk-roles';
 
 // POST: Create a new user in Clerk with role
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
     try {
-        const { userId } = await auth();
+        const { userId, orgId, role: currentRole } = await getCurrentClerkRole();
         if (!userId) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        // Check if current user is admin
         const client = await clerkClient();
-        const currentUser = await client.users.getUser(userId);
-        const currentRole = currentUser.publicMetadata?.role as string;
-
         if (currentRole !== 'ADMIN') {
             return NextResponse.json({ error: 'Only admins can create users' }, { status: 403 });
         }
@@ -25,6 +22,10 @@ export async function POST(request: Request) {
 
         if (!email || !role) {
             return NextResponse.json({ error: 'Email and role are required' }, { status: 400 });
+        }
+        const appRole = normalizeLegacyRole(role);
+        if (appRole === 'UNAUTHORIZED') {
+            return NextResponse.json({ error: 'Invalid role' }, { status: 400 });
         }
 
         // Check if user already exists in Clerk
@@ -42,8 +43,23 @@ export async function POST(request: Request) {
             }
 
             await client.users.updateUser(existingUsers.data[0].id, {
-                publicMetadata: { role, assignedEventIds: assignedEventIds || [] }
+                publicMetadata: { role: appRole, assignedEventIds: assignedEventIds || [] }
             });
+            if (orgId) {
+                try {
+                    await client.organizations.updateOrganizationMembership({
+                        organizationId: orgId,
+                        userId: existingUsers.data[0].id,
+                        role: clerkRoleKey(appRole),
+                    });
+                } catch {
+                    await client.organizations.createOrganizationMembership({
+                        organizationId: orgId,
+                        userId: existingUsers.data[0].id,
+                        role: clerkRoleKey(appRole),
+                    });
+                }
+            }
             return NextResponse.json({
                 success: true,
                 message: 'User role updated',
@@ -73,10 +89,18 @@ export async function POST(request: Request) {
             firstName: name?.split(' ')[0] || 'User',
             lastName: name?.split(' ').slice(1).join(' ') || '',
             publicMetadata: {
-                role: role,
+                role: appRole,
                 assignedEventIds: assignedEventIds || []
             }
         });
+
+        if (orgId) {
+            await client.organizations.createOrganizationMembership({
+                organizationId: orgId,
+                userId: newUser.id,
+                role: clerkRoleKey(appRole),
+            });
+        }
 
         return NextResponse.json({
             success: true,
@@ -95,28 +119,40 @@ export async function POST(request: Request) {
 // GET: List all Clerk users with their roles
 export async function GET() {
     try {
-        const { userId } = await auth();
+        const { userId, orgId, role: currentRole } = await getCurrentClerkRole();
         if (!userId) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        // Check if current user is admin
         const client = await clerkClient();
-        const currentUser = await client.users.getUser(userId);
-        const currentRole = currentUser.publicMetadata?.role as string;
-
         if (currentRole !== 'ADMIN') {
             return NextResponse.json({ error: 'Only admins can view users' }, { status: 403 });
         }
 
-        // Get all users from Clerk
+        if (orgId) {
+            const memberships = await client.organizations.getOrganizationMembershipList({ organizationId: orgId, limit: 100 });
+            const formattedMembers = await Promise.all(memberships.data.map(async membership => {
+                const memberId = membership.publicUserData?.userId;
+                const user = memberId ? await client.users.getUser(memberId) : null;
+                return {
+                    id: memberId || membership.id,
+                    email: user?.emailAddresses[0]?.emailAddress || membership.publicUserData?.identifier || '',
+                    name: `${membership.publicUserData?.firstName || ''} ${membership.publicUserData?.lastName || ''}`.trim() || 'Unknown',
+                    role: normalizeLegacyRole(membership.role.replace(/^org:/, '')),
+                    assignedEventIds: (user?.publicMetadata?.assignedEventIds as string[]) || [],
+                    createdAt: membership.createdAt,
+                };
+            }));
+            return NextResponse.json(formattedMembers);
+        }
+
         const users = await client.users.getUserList({ limit: 100 });
 
         const formattedUsers = users.data.map(user => ({
             id: user.id,
             email: user.emailAddresses[0]?.emailAddress || '',
             name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Unknown',
-            role: (user.publicMetadata?.role as string) || 'UNAUTHORIZED',
+            role: normalizeLegacyRole(user.publicMetadata?.role),
             assignedEventIds: (user.publicMetadata?.assignedEventIds as string[]) || [],
             createdAt: user.createdAt
         }));
@@ -132,16 +168,12 @@ export async function GET() {
 // DELETE: Remove a user from Clerk
 export async function DELETE(request: Request) {
     try {
-        const { userId: currentUserId } = await auth();
+        const { userId: currentUserId, orgId, role: currentRole } = await getCurrentClerkRole();
         if (!currentUserId) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        // Check if current user is admin
         const client = await clerkClient();
-        const currentUser = await client.users.getUser(currentUserId);
-        const currentRole = currentUser.publicMetadata?.role as string;
-
         if (currentRole !== 'ADMIN') {
             return NextResponse.json({ error: 'Only admins can delete users' }, { status: 403 });
         }
@@ -158,7 +190,11 @@ export async function DELETE(request: Request) {
             return NextResponse.json({ error: 'Cannot delete your own account' }, { status: 400 });
         }
 
-        await client.users.deleteUser(userIdToDelete);
+        if (orgId) {
+            await client.organizations.deleteOrganizationMembership({ organizationId: orgId, userId: userIdToDelete });
+        } else {
+            await client.users.deleteUser(userIdToDelete);
+        }
 
         return NextResponse.json({ success: true, message: 'User deleted' });
 

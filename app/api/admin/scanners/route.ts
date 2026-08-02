@@ -2,13 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { auth, clerkClient } from '@clerk/nextjs/server';
 import crypto from 'crypto';
+import { getCurrentClerkRole } from '@/lib/clerk-roles';
 
 async function getUserRole(userId: string): Promise<string> {
-  try {
-    const client = await clerkClient();
-    const user = await client.users.getUser(userId);
-    return (user.publicMetadata?.role as string) || 'UNAUTHORIZED';
-  } catch { return 'UNAUTHORIZED'; }
+  return (await getCurrentClerkRole()).role;
 }
 
 // GET: List all registered scanner devices
@@ -18,7 +15,7 @@ export async function GET(req: NextRequest) {
     if (!userId) return NextResponse.json({ error: 'Auth required' }, { status: 401 });
     const client = await clerkClient();
     const user = await client.users.getUser(userId);
-    const role = (user.publicMetadata?.role as string) || 'UNAUTHORIZED';
+    const role = (await getCurrentClerkRole()).role;
     const assignedEventIds = Array.isArray(user.publicMetadata?.assignedEventIds)
       ? user.publicMetadata.assignedEventIds as string[]
       : [];
@@ -115,7 +112,7 @@ export async function PATCH(req: NextRequest) {
     if (!userId) return NextResponse.json({ error: 'Auth required' }, { status: 401 });
     const client = await clerkClient();
     const user = await client.users.getUser(userId);
-    const role = (user.publicMetadata?.role as string) || 'UNAUTHORIZED';
+    const role = (await getCurrentClerkRole()).role;
     const assignedEventIds = Array.isArray(user.publicMetadata?.assignedEventIds)
       ? user.publicMetadata.assignedEventIds as string[]
       : [];

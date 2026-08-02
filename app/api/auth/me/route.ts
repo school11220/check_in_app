@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth, clerkClient } from '@clerk/nextjs/server';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { syncUserById } from '@/lib/user-sync';
+import { resolveRole } from '@/lib/clerk-role-utils';
 
 export async function GET(request: NextRequest) {
     try {
-        const { userId } = await auth();
+        const { userId, orgId, orgRole } = await auth();
 
         if (!userId) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -16,7 +17,8 @@ export async function GET(request: NextRequest) {
 
         const syncedUser = await syncUserById(userId).catch(() => null);
         if (syncedUser) {
-            if (syncedUser.role === 'UNAUTHORIZED' || !syncedUser.isActive) {
+            const role = resolveRole(orgRole, syncedUser.role);
+            if (role === 'UNAUTHORIZED' || !syncedUser.isActive) {
                 return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
             }
 
@@ -24,15 +26,16 @@ export async function GET(request: NextRequest) {
                 id: syncedUser.id,
                 name: syncedUser.name || syncedUser.email,
                 email: syncedUser.email,
-                role: syncedUser.role,
+                role,
                 assignedEventIds: syncedUser.assignedEventIds || [],
+                organizationId: orgId || null,
             });
         }
 
         // Get user from Clerk
         const client = await clerkClient();
         const clerkUser = await client.users.getUser(userId);
-        const role = (clerkUser.publicMetadata?.role as string) || 'UNAUTHORIZED';
+        const role = resolveRole(orgRole, clerkUser.publicMetadata?.role);
 
         if (role === 'UNAUTHORIZED') {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -46,7 +49,8 @@ export async function GET(request: NextRequest) {
             name: clerkUser.firstName ? `${clerkUser.firstName} ${clerkUser.lastName || ''}`.trim() : clerkUser.emailAddresses[0]?.emailAddress,
             email: clerkUser.emailAddresses[0]?.emailAddress,
             role: role,
-            assignedEventIds: assignedEventIds
+            assignedEventIds: assignedEventIds,
+            organizationId: orgId || null,
         });
     } catch (error) {
         console.error('Auth check failed:', error);
