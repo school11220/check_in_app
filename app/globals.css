@@ -134,6 +134,15 @@ button:disabled { cursor: not-allowed; }
 .unauthorized-steps { background: var(--sage) !important; color: var(--ink); }
 .unauthorized-card > button { background: var(--ink) !important; color: var(--paper) !important; }
 
+/* Shared recovery surface for missing routes and caught application errors. */
+.error-page { background: var(--sage); color: var(--ink); }
+.error-card { background: var(--paper); border: 2px solid var(--ink); box-shadow: 8px 8px 0 var(--ink); }
+.error-card-header { background: var(--yellow); border-bottom: 2px solid var(--ink); }
+.error-code { color: var(--ink); }
+.error-copy { color: #36403b; }
+.error-back { background: var(--sage); color: var(--ink); border: 2px solid var(--ink); border-radius: 10px; box-shadow: 4px 4px 0 var(--ink); transition: transform .16s ease, box-shadow .16s ease; }
+.error-back:hover { transform: translate(4px, 4px); box-shadow: 0 0 0 var(--ink); }
+
 /* Buttons and interactive controls share the physical push interaction. */
 button, .btn-primary, .btn-ghost {
   border: 2px solid var(--ink) !important;
