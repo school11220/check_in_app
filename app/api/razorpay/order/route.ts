@@ -7,10 +7,6 @@ import { generateTicketToken } from '@/lib/ticket-security';
 import { EVENT_WITH_PRICING_SELECT, EVENT_SELECT } from '@/lib/event-select';
 import { sendTicketEmail } from '@/lib/ticket-email';
 
-// In-memory ticket storage
-const ticketOrders: Map<string, { ticketId: string; orderId: string; ticketIds?: string[] }> = new Map();
-
-// Validate Razorpay credentials on startup
 // Validate Razorpay credentials on startup
 const ENV_RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID;
 const ENV_RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET;
@@ -301,13 +297,6 @@ export async function POST(request: NextRequest) {
             },
         });
 
-        // Store order mapping with all ticket IDs
-        ticketOrders.set(primaryTicket.id, {
-            ticketId: primaryTicket.id,
-            orderId: order.id,
-            ticketIds: requestedTicketIds,
-        });
-
         await prisma.$transaction(
             tickets.map((ticket, index) => prisma.ticket.update({
                 where: { id: ticket.id },
@@ -341,5 +330,3 @@ export async function POST(request: NextRequest) {
         );
     }
 }
-
-export { ticketOrders };

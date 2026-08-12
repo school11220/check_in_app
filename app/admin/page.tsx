@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { useApp, CATEGORY_COLORS, Event, ScheduleItem, Speaker, Sponsor, TeamMember, TeamRole, ROLE_PERMISSIONS, SiteSettings, Festival, EmailTemplate, Survey, SurveyQuestion, PromoCode, WaitlistEntry, Announcement, NavLink, CustomPage, ThemeSettings, DEFAULT_THEME } from '@/lib/store';
+import { useApp, CATEGORY_COLORS, Event, ScheduleItem, Speaker, Sponsor, TeamMember, TeamRole, ROLE_PERMISSIONS, SiteSettings, Festival, PromoCode, Announcement, NavLink, CustomPage, ThemeSettings, DEFAULT_THEME } from '@/lib/store';
 import { useToast } from '@/components/Toaster';
 import { useRouter } from 'next/navigation';
 import AttendeeInsights from '@/components/AttendeeInsights';
@@ -13,9 +13,8 @@ import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
     PieChart, Pie, Cell, AreaChart, Area,
 } from 'recharts';
-import {LogOut, Home, CheckCircle, Search, Trash2, Edit, Copy, Plus, Users, Calendar, BarChart as BarChartIcon, TrendingUp, LayoutDashboard, Shield, MessageSquare, Tent, Mail, ClipboardList, Layout, Tag, BarChart3, History, Ticket, Settings, Award, Clock, Smartphone, Bell, Receipt, Globe, Power, AlertTriangle, Play, Pause, FileText, Palette, Eye, EyeOff, GripVertical} from '@/components/icons';
+import {LogOut, Home, CheckCircle, Search, Trash2, Edit, Copy, Plus, Users, Calendar, BarChart as BarChartIcon, TrendingUp, LayoutDashboard, Shield, MessageSquare, Tent, Mail, Layout, Tag, BarChart3, History, Ticket, Settings, Award, Clock, Bell, Receipt, Power, AlertTriangle, Play, Pause, FileText, Palette, Eye, EyeOff, GripVertical, Loader2} from '@/components/icons';
 import AuditLogViewer from '@/components/admin/AuditLogViewer';
-import IntegrationHub from '@/components/admin/IntegrationHub';
 import { ExportButton } from '@/lib/export';
 import AttendeeImportButton from '@/components/AttendeeImportButton';
 import CertificateManager from '@/components/admin/CertificateManager';
@@ -36,13 +35,13 @@ import DashboardInsights from '@/components/DashboardInsights';
 const PAID_LIKE_STATUSES = new Set(['paid', 'partially_refunded']);
 const isPaidLikeTicket = (ticket: { status?: string }) => PAID_LIKE_STATUSES.has(ticket.status || '');
 
-type AdminTabKey = 'events' | 'attendees' | 'team' | 'festivals' | 'emails' | 'surveys' | 'settings' | 'layout' | 'growth' | 'analytics' | 'history' | 'certificates' | 'sessions' | 'tickets' | 'audit' | 'integrations' | 'sales' | 'pages' | 'theme' | 'reviews';
+type AdminTabKey = 'events' | 'attendees' | 'team' | 'festivals' | 'settings' | 'layout' | 'growth' | 'analytics' | 'history' | 'certificates' | 'sessions' | 'tickets' | 'audit' | 'sales' | 'pages' | 'theme' | 'reviews';
 
 export default function AdminPage({ defaultTab }: { defaultTab?: AdminTabKey } = {}) {
     const router = useRouter();
     const { user } = useUser();
     const { orgRole } = useAuth();
-    const { events: allEvents, tickets, teamMembers, siteSettings, festivals, emailTemplates, surveys, promoCodes, waitlist, addEvent, updateEvent, deleteEvent, duplicateEvent, addTicket, updateTicket, deleteTicket, addTeamMember, updateTeamMember, removeTeamMember, updateSiteSettings, addFestival, updateFestival, deleteFestival, updateEmailTemplate, addSurvey, updateSurvey, deleteSurvey, addPromoCode, updatePromoCode, deletePromoCode, addToWaitlist, removeFromWaitlist, notifyWaitlist } = useApp();
+    const { events: allEvents, tickets, teamMembers, siteSettings, festivals, promoCodes, addEvent, updateEvent, deleteEvent, duplicateEvent, addTicket, updateTicket, deleteTicket, addTeamMember, updateTeamMember, removeTeamMember, updateSiteSettings, addFestival, updateFestival, deleteFestival, addPromoCode, updatePromoCode, deletePromoCode } = useApp();
 
     // Filter events based on role
     const role = resolveRole(orgRole, user?.publicMetadata?.role);
@@ -63,8 +62,6 @@ export default function AdminPage({ defaultTab }: { defaultTab?: AdminTabKey } =
         { id: 'sessions', label: 'Sessions', icon: Clock, roles: ['ADMIN', 'ORGANIZER'] },
         { id: 'team', label: 'Team', icon: Shield, roles: ['ADMIN'] },
         { id: 'festivals', label: 'Festivals', icon: Tent, roles: ['ADMIN'] },
-        { id: 'emails', label: 'Emails', icon: Mail, roles: ['ADMIN', 'ORGANIZER'] },
-        { id: 'surveys', label: 'Surveys', icon: ClipboardList, roles: ['ADMIN', 'ORGANIZER'] },
         { id: 'tickets', label: 'Ticket Design', icon: Ticket, roles: ['ADMIN', 'ORGANIZER'] },
         { id: 'layout', label: 'Layout', icon: Layout, roles: ['ADMIN'] },
         { id: 'growth', label: 'Pricing', icon: TrendingUp, roles: ['ADMIN'] },
@@ -85,68 +82,6 @@ export default function AdminPage({ defaultTab }: { defaultTab?: AdminTabKey } =
     const [selectedEvent, setSelectedEvent] = useState<string>('all');
     const [attendeeSearch, setAttendeeSearch] = useState('');
     const [checkInFilter, setCheckInFilter] = useState<'all' | 'checked' | 'unchecked'>('all');
-    // Bulk Email State
-    const [showBulkEmailModal, setShowBulkEmailModal] = useState(false);
-    const [selectedBulkEvent, setSelectedBulkEvent] = useState('');
-    const [selectedBulkTemplate, setSelectedBulkTemplate] = useState('');
-    const [selectedBulkSurvey, setSelectedBulkSurvey] = useState('');
-
-    // Google Sheets Config State
-    const [googleSheetId, setGoogleSheetId] = useState('');
-    const [serviceAccountEmail, setServiceAccountEmail] = useState('');
-    const [privateKey, setPrivateKey] = useState('');
-    const [isSavingSheets, setIsSavingSheets] = useState(false);
-
-    // Fetch Google Sheets Config
-    useEffect(() => {
-        if (activeTab === 'surveys') {
-            fetch('/api/admin/integrations')
-                .then(res => res.json())
-                .then(data => {
-                    if (Array.isArray(data)) {
-                        const sheets = data.find((i: any) => i.provider === 'google_sheets');
-                        if (sheets && sheets.config) {
-                            setGoogleSheetId(sheets.config.sheetId || '');
-                            setServiceAccountEmail(sheets.config.serviceAccountEmail || '');
-                            // If private key is present (masked or not), set it. 
-                            setPrivateKey(sheets.config.privateKey || '');
-                        }
-                    }
-                })
-                .catch(err => console.error('Failed to load integrations', err));
-        }
-    }, [activeTab]);
-
-    const saveGoogleSheetsConfig = async () => {
-        setIsSavingSheets(true);
-        try {
-            const res = await fetch('/api/admin/integrations', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    provider: 'google_sheets',
-                    name: 'Google Sheets',
-                    type: 'analytics',
-                    isEnabled: true,
-                    config: {
-                        sheetId: googleSheetId,
-                        serviceAccountEmail: serviceAccountEmail,
-                        privateKey: privateKey
-                    }
-                })
-            });
-            if (res.ok) {
-                showToast('Google Sheets configuration saved!', 'success');
-            } else {
-                showToast('Failed to save configuration', 'error');
-            }
-        } catch (error) {
-            showToast('Error saving configuration', 'error');
-        } finally {
-            setIsSavingSheets(false);
-        }
-    };
-
     // Calculate daily metrics
     const today = new Date().toDateString();
     const dailyCheckIns = tickets.filter(t => t.checkedIn && t.checkedInAt && new Date(t.checkedInAt).toDateString() === today).length;
@@ -154,6 +89,7 @@ export default function AdminPage({ defaultTab }: { defaultTab?: AdminTabKey } =
 
     const [ticketDraft, setTicketDraft] = useState<SiteSettings | null>(null);
     const [hasUnsaved, setHasUnsaved] = useState(false);
+    const [isSavingTicketDesign, setIsSavingTicketDesign] = useState(false);
 
     // Initialize draft when entering tickets tab
     useEffect(() => {
@@ -179,10 +115,29 @@ export default function AdminPage({ defaultTab }: { defaultTab?: AdminTabKey } =
         return () => window.removeEventListener('beforeunload', beforeUnload);
     }, [hasUnsaved]);
 
-    const handleSaveTicketDraft = () => {
-        if (ticketDraft) {
+    const handleSaveTicketDraft = async () => {
+        if (!ticketDraft || isSavingTicketDesign) return;
+
+        setIsSavingTicketDesign(true);
+        try {
+            const response = await fetch('/api/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ siteSettings: ticketDraft }),
+            });
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok || !result.success) {
+                throw new Error(result.error || 'Failed to save ticket design');
+            }
+
             updateSiteSettings(ticketDraft);
+            setHasUnsaved(false);
             showToast('Ticket design saved successfully', 'success');
+        } catch (error) {
+            console.error('Failed to save ticket design', error);
+            showToast(error instanceof Error ? error.message : 'Failed to save ticket design', 'error');
+        } finally {
+            setIsSavingTicketDesign(false);
         }
     };
 
@@ -315,8 +270,6 @@ export default function AdminPage({ defaultTab }: { defaultTab?: AdminTabKey } =
     };
 
     // Middleware protects this route
-    // if (!isAdminLoggedIn) ... logic removed
-
     return (
         <main className="min-h-screen w-full min-w-0 overflow-x-hidden bg-[#0B0B0B] py-4 px-3 pb-20 sm:px-4 sm:py-6">
             <div className="max-w-dashboard mx-auto">
@@ -333,14 +286,11 @@ export default function AdminPage({ defaultTab }: { defaultTab?: AdminTabKey } =
                         </div>
                     </div>
                     <div className="flex w-full flex-wrap items-center gap-2 sm:gap-3 md:w-auto md:shrink-0">
-                        <a href="/" target="_blank" rel="noopener noreferrer" className="flex flex-1 items-center justify-center text-[#B3B3B3] hover:text-white text-xs px-3 py-2 rounded-lg hover:bg-white/5 transition-colors sm:flex-none sm:text-sm sm:px-4">
+                        <a href="/" target="_blank" rel="noopener noreferrer" className="interactive-control flex flex-1 items-center justify-center text-[#B3B3B3] hover:text-white text-xs px-3 py-2 rounded-lg hover:bg-white/5 transition-colors sm:flex-none sm:text-sm sm:px-4">
                             <Home className="w-4 h-4 mr-1.5" /> Home
                         </a>
-                        <a href="/checkin" target="_blank" rel="noopener noreferrer" className="flex flex-1 items-center justify-center text-[#B3B3B3] hover:text-white text-xs px-3 py-2 rounded-lg hover:bg-white/5 transition-colors sm:flex-none sm:text-sm sm:px-4">
+                        <a href="/checkin" target="_blank" rel="noopener noreferrer" className="interactive-control flex flex-1 items-center justify-center text-[#B3B3B3] hover:text-white text-xs px-3 py-2 rounded-lg hover:bg-white/5 transition-colors sm:flex-none sm:text-sm sm:px-4">
                             <CheckCircle className="w-4 h-4 mr-1.5" /> Check-In
-                        </a>
-                        <a href="/kiosk" target="_blank" rel="noopener noreferrer" className="flex flex-1 items-center justify-center text-[#B3B3B3] hover:text-white text-xs px-3 py-2 rounded-lg hover:bg-white/5 transition-colors sm:flex-none sm:text-sm sm:px-4">
-                            <Smartphone className="w-4 h-4 mr-1.5" /> Kiosk
                         </a>
                         <button onClick={handleLogout} className="flex flex-1 items-center justify-center px-3 py-2.5 bg-[#141414] text-[#B3B3B3] rounded-xl hover:bg-[#1A1A1A] hover:text-white text-xs border border-[#1F1F1F] transition-colors sm:flex-none sm:px-4 sm:text-sm">
                             Logout <LogOut className="w-4 h-4 ml-2" />
@@ -541,59 +491,9 @@ export default function AdminPage({ defaultTab }: { defaultTab?: AdminTabKey } =
                                     ))}
                                 </div>
                             )}
-
-                            {/* Waitlist Section */}
-                            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 mt-6">
-                                <h3 className="text-lg font-medium text-white mb-4 flex items-center gap-2">
-                                    <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                    </svg>
-                                    Event Waitlist ({waitlist.length})
-                                </h3>
-                                {waitlist.length === 0 ? (
-                                    <p className="text-zinc-500 text-sm">No waitlist entries yet. When events sell out, customers can join the waitlist.</p>
-                                ) : (
-                                    <div className="space-y-3">
-                                        {waitlist.map(entry => {
-                                            const event = events.find(e => e.id === entry.eventId);
-                                            return (
-                                                <div key={entry.id} className="flex items-center justify-between p-3 bg-zinc-800/50 rounded-xl">
-                                                    <div>
-                                                        <p className="text-white font-medium">{entry.name}</p>
-                                                        <p className="text-sm text-zinc-500">{entry.email} • {event?.name}</p>
-                                                    </div>
-                                                    <div className="flex items-center gap-2">
-                                                        {entry.notified ? (
-                                                            <span className="px-2 py-1 bg-green-600/20 text-green-400 rounded text-xs">Notified</span>
-                                                        ) : (
-                                                            <button
-                                                                onClick={() => {
-                                                                    notifyWaitlist(entry.eventId);
-                                                                    showToast(`Notified ${entry.name}`, 'success');
-                                                                }}
-                                                                className="px-2 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700"
-                                                            >
-                                                                Notify
-                                                            </button>
-                                                        )}
-                                                        <button
-                                                            onClick={() => removeFromWaitlist(entry.id)}
-                                                            className="p-1 text-zinc-500 hover:text-red-400"
-                                                        >
-                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                                            </svg>
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                )}
-                            </div>
                         </div>
 
-                        {/* Pricing Rules Section */}
+                       {/* Pricing Rules Section */}
                         <div className="pt-8 border-t border-zinc-800">
                             <h2 className="text-xl font-semibold text-white flex items-center gap-2 mb-6">
                                 <svg className="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -665,11 +565,12 @@ export default function AdminPage({ defaultTab }: { defaultTab?: AdminTabKey } =
                                     Reset
                                 </button>
                                 <button
-                                    onClick={handleSaveTicketDraft}
-                                    className="px-4 py-2 bg-[#E11D2E] hover:bg-red-700 text-white rounded-xl text-sm font-medium transition-colors flex items-center gap-2"
+                                    onClick={() => void handleSaveTicketDraft()}
+                                    disabled={isSavingTicketDesign || !hasUnsaved}
+                                    className="px-4 py-2 bg-[#E11D2E] hover:bg-red-700 text-white rounded-xl text-sm font-medium transition-colors flex items-center gap-2 disabled:cursor-not-allowed disabled:opacity-50"
                                 >
-                                    <CheckCircle className="w-4 h-4" />
-                                    Save Changes
+                                    {isSavingTicketDesign ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+                                    {isSavingTicketDesign ? 'Saving...' : 'Save Changes'}
                                 </button>
                             </div>
                         </div>
@@ -1320,15 +1221,13 @@ export default function AdminPage({ defaultTab }: { defaultTab?: AdminTabKey } =
 
                                         {ticketDraft?.ticketShowEventImage && (
                                             <div>
-                                                <label className="block text-sm font-medium text-[#B3B3B3] mb-2">Default Event Banner URL</label>
-                                                <input
-                                                    type="text"
+                                                <ImageUpload
                                                     value={ticketDraft?.ticketHeaderImage || ''}
-                                                    onChange={(e) => setTicketDraft(prev => ({ ...(prev || siteSettings), ticketHeaderImage: e.target.value }))}
-                                                    className="w-full px-4 py-3 bg-[#0D0D0D] border border-[#2A2A2A] rounded-xl text-white focus:border-[#E11D2E]/50 focus:outline-none placeholder:text-[#737373]"
-                                                    placeholder="https://example.com/event-banner.jpg"
+                                                    onChange={(url) => setTicketDraft(prev => ({ ...(prev || siteSettings), ticketHeaderImage: url }))}
+                                                    label="Ticket Event Banner"
+                                                    placeholder="Upload Event Banner"
                                                 />
-                                                <p className="text-xs text-[#737373] mt-1">Fallback image when event has no image</p>
+                                                <p className="text-xs text-[#737373] mt-2">This image is used on tickets. If it is empty, the event poster is used instead.</p>
                                             </div>
                                         )}
 
@@ -1574,7 +1473,7 @@ export default function AdminPage({ defaultTab }: { defaultTab?: AdminTabKey } =
                                             <div className="h-32 relative">
                                                 <img src={event.imageUrl || 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800'} alt={event.name || 'Event'} className="w-full h-full object-cover" />
                                                 <span className={`absolute top-2 left-2 px-2 py-0.5 rounded-full text-xs font-medium ${categoryStyle.bg} ${categoryStyle.text}`}>{event.category || 'other'}</span>
-                                                {event.isFeatured && <span className="absolute top-2 right-2 px-2 py-0.5 bg-yellow-600 text-white rounded-full text-xs font-bold">FEATURED</span>}
+                                                {event.isFeatured && <span className="absolute top-2 right-2 px-2 py-0.5 bg-yellow-500 text-black border border-black rounded-full text-xs font-bold">FEATURED</span>}
                                                 {(event.prizePool || 0) > 0 && <span className="absolute bottom-2 right-2 px-2 py-0.5 bg-green-600 text-white rounded-full text-xs font-bold">₹{((event.prizePool || 0) / 100).toLocaleString()} Prize</span>}
                                             </div>
                                             <div className="p-4">
@@ -1593,7 +1492,7 @@ export default function AdminPage({ defaultTab }: { defaultTab?: AdminTabKey } =
                                                     </div>
                                                 </div>
                                                 <div className="flex gap-1">
-                                                    <a href={`/event/${event.id}`} target="_blank" rel="noopener noreferrer" className="flex-1 px-2 py-1.5 bg-zinc-800 text-white rounded-lg hover:bg-zinc-700 text-xs text-center">View</a>
+                                                    <a href={`/event/${event.id}`} target="_blank" rel="noopener noreferrer" className="interactive-control flex-1 px-2 py-1.5 bg-zinc-800 text-white rounded-lg hover:bg-zinc-700 text-xs text-center">View</a>
                                                     <button onClick={() => { setEditingEvent(event); setShowEventModal(true); }} className="flex-1 px-2 py-1.5 bg-zinc-800 text-white rounded-lg hover:bg-zinc-700 text-xs">Edit</button>
                                                     <button onClick={() => handleDuplicateEvent(event.id)} className="px-2 py-1.5 bg-zinc-800 text-white rounded-lg hover:bg-zinc-700 text-xs" title="Duplicate">
                                                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
@@ -1710,7 +1609,7 @@ export default function AdminPage({ defaultTab }: { defaultTab?: AdminTabKey } =
                                     </button>
                                     <button
                                         onClick={() => setCheckInFilter('unchecked')}
-                                        className={`px-4 py-2 text-sm font-medium transition-colors ${checkInFilter === 'unchecked' ? 'bg-yellow-600 text-white' : 'text-zinc-400 hover:text-white'}`}
+                                        className={`px-4 py-2 text-sm font-medium transition-colors ${checkInFilter === 'unchecked' ? 'bg-yellow-500 text-black' : 'text-zinc-400 hover:text-white'}`}
                                     >
                                         Pending
                                     </button>
@@ -1724,7 +1623,7 @@ export default function AdminPage({ defaultTab }: { defaultTab?: AdminTabKey } =
                             </p>
 
                             {/* Attendee Table */}
-                            <div className="glass-card rounded-2xl overflow-hidden">
+                            <div className="light-surface glass-card rounded-2xl overflow-hidden">
                                 <div className="overflow-x-auto">
                                     {filteredTickets.length === 0 ? (
                                         <div className="p-12 text-center">
@@ -1754,12 +1653,12 @@ export default function AdminPage({ defaultTab }: { defaultTab?: AdminTabKey } =
                                                             return (
                                                                 <tr key={ticket.id} className="hover:bg-zinc-800/50">
                                                                     <td className="px-6 py-4">
-                                                                        <p className="text-white font-medium">{ticket.name}</p>
+                                                                        <p className="text-black font-semibold">{ticket.name}</p>
                                                                         <p className="text-zinc-500 text-sm">{ticket.email}</p>
                                                                         <p className="text-zinc-600 text-xs">{ticket.phone}</p>
                                                                     </td>
                                                                     <td className="px-6 py-4">
-                                                                        <code className="text-xs bg-zinc-800 px-2 py-1 rounded text-zinc-400">{ticket.id}</code>
+                                                                        <code className="text-xs bg-[#b7c6c2] px-2 py-1 rounded text-black border border-black">{ticket.id}</code>
                                                                     </td>
                                                                     <td className="px-6 py-4">
                                                                         <p className="text-zinc-300">{event?.name}</p>
@@ -1991,215 +1890,7 @@ export default function AdminPage({ defaultTab }: { defaultTab?: AdminTabKey } =
                     )
                 }
 
-                {/* Email Templates */}
-                {
-                    activeTab === 'emails' && (
-                        <div className="space-y-6">
-                            <div className="flex justify-between items-center">
-                                <div>
-                                    <h2 className="text-xl font-semibold text-white flex items-center gap-2">
-                                        <svg className="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                                        </svg>
-                                        Email Templates
-                                    </h2>
-                                    <p className="text-zinc-400 text-sm">Customize automated emails sent to attendees</p>
-                                </div>
-                                {/* Bulk Send Button - Only for non-confirmation templates normally, but for now allow all */}
-                                <div className="flex gap-2">
-                                    <button
-                                        onClick={() => {
-                                            // Logic to open modal (we'll need to add the state/modal in next step)
-                                            // For now, let's just use a prompt or simple alert to simulate the flow if we can't easily add state in one go
-                                            // Better: We will add the state in a subsequent edit or assume it exists.
-                                            // Let's actually add the functionality to OPEN the bulk sender here.
-                                            // We need to inject the state first.
-                                            // I will use a simple hack: Add a "Bulk Send" button that toggles a mode.
-                                            setShowBulkEmailModal(true);
-                                        }}
-                                        className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
-                                    >
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                                        </svg>
-                                        Send Campaign
-                                    </button>
-                                </div>
-                            </div>
-
-                            {/* Bulk Email Modal */}
-                            {showBulkEmailModal && (
-                                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-                                    <div className="bg-[#141414] border border-[#1F1F1F] rounded-2xl w-full max-w-md overflow-hidden">
-                                        <div className="p-6">
-                                            <h3 className="text-xl font-bold text-white mb-4">Send Email Campaign</h3>
-
-                                            <div className="space-y-4">
-                                                <div>
-                                                    <label className="block text-sm font-medium text-zinc-400 mb-2">Select Campaign Type</label>
-                                                    <select
-                                                        className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-red-500"
-                                                        onChange={(e) => setSelectedBulkTemplate(e.target.value)}
-                                                    >
-                                                        <option value="">Select a template...</option>
-                                                        {emailTemplates.filter(t => t.isActive && t.type !== 'confirmation').map(t => (
-                                                            <option key={t.id} value={t.id}>{t.name} ({t.type})</option>
-                                                        ))}
-                                                    </select>
-                                                </div>
-
-                                                <div>
-                                                    <label className="block text-sm font-medium text-zinc-400 mb-2">Select Event to Target</label>
-                                                    <select
-                                                        className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-red-500"
-                                                        onChange={(e) => setSelectedBulkEvent(e.target.value)}
-                                                    >
-                                                        <option value="">Select an event...</option>
-                                                        {events.filter(e => e.isActive).map(e => (
-                                                            <option key={e.id} value={e.id}>{e.name}</option>
-                                                        ))}
-                                                    </select>
-                                                </div>
-
-                                                {/* Survey Selection (Conditional) */}
-                                                {emailTemplates.find(t => t.id === selectedBulkTemplate)?.body.includes('{{surveyLink}}') && (
-                                                    <div className="mb-4 animate-fade-in">
-                                                        <label className="block text-sm font-medium text-zinc-400 mb-2">Select Survey to Link</label>
-                                                        <select
-                                                            className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-red-500"
-                                                            value={selectedBulkSurvey}
-                                                            onChange={(e) => setSelectedBulkSurvey(e.target.value)}
-                                                        >
-                                                            <option value="">Select a survey...</option>
-                                                            {surveys.filter(s => s.isActive).map(s => (
-                                                                <option key={s.id} value={s.id}>{s.title}</option>
-                                                            ))}
-                                                        </select>
-                                                        <p className="text-xs text-zinc-500 mt-1">This survey link will replace {'{{surveyLink}}'} in the email.</p>
-                                                    </div>
-                                                )}
-
-                                                <div className="bg-yellow-900/20 border border-yellow-700/30 rounded-lg p-4">
-                                                    <p className="text-yellow-500 text-sm">
-                                                        Important: This will send emails to <strong>ALL paid attendees</strong> of the selected event immediately.
-                                                    </p>
-                                                </div>
-                                            </div>
-
-                                            <div className="flex items-center gap-3 mt-8">
-                                                <button
-                                                    onClick={() => setShowBulkEmailModal(false)}
-                                                    className="flex-1 px-4 py-3 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl font-medium transition-colors"
-                                                >
-                                                    Cancel
-                                                </button>
-                                                <button
-                                                    onClick={async () => {
-                                                        if (!selectedBulkEvent || !selectedBulkTemplate) {
-                                                            showToast('Please select both event and template', 'error');
-                                                            return;
-                                                        }
-                                                        if (confirm('Are you sure you want to send emails to all attendees?')) {
-                                                            const res = await fetch('/api/admin/emails/bulk-send', {
-                                                                method: 'POST',
-                                                                headers: { 'Content-Type': 'application/json' },
-                                                                body: JSON.stringify({
-                                                                    eventId: selectedBulkEvent,
-                                                                    templateId: selectedBulkTemplate,
-                                                                    surveyId: selectedBulkSurvey // Pass selected survey ID
-                                                                })
-                                                            });
-                                                            const data = await res.json();
-                                                            if (data.success) {
-                                                                showToast(data.message, 'success');
-                                                                setShowBulkEmailModal(false);
-                                                            } else {
-                                                                showToast(data.error || 'Failed to send', 'error');
-                                                            }
-                                                        }
-                                                    }}
-                                                    className="flex-1 px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold transition-colors"
-                                                >
-                                                    Send Now
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-
-                            <div className="grid gap-4">
-                                {emailTemplates.map(template => (
-                                    <div key={template.id} className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden">
-                                        <div className="p-4 border-b border-zinc-800 flex items-center justify-between">
-                                            <div className="flex items-center gap-3">
-                                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${template.type === 'confirmation' ? 'bg-green-600/20 text-green-400' :
-                                                    template.type === 'reminder' ? 'bg-blue-600/20 text-blue-400' :
-                                                        template.type === 'thankyou' ? 'bg-purple-600/20 text-purple-400' :
-                                                            'bg-zinc-700 text-zinc-400'
-                                                    }`}>
-                                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        {template.type === 'confirmation' && <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />}
-                                                        {template.type === 'reminder' && <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />}
-                                                        {template.type === 'thankyou' && <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />}
-                                                    </svg>
-                                                </div>
-                                                <div>
-                                                    <h3 className="font-medium text-white">{template.name}</h3>
-                                                    <p className="text-xs text-zinc-500 capitalize">{template.type}</p>
-                                                </div>
-                                            </div>
-                                            <div className="flex items-center gap-3">
-                                                <span className={`px-2 py-1 rounded-lg text-xs font-medium ${template.isActive ? 'bg-green-600/20 text-green-400' : 'bg-zinc-800 text-zinc-500'}`}>
-                                                    {template.isActive ? 'Active' : 'Inactive'}
-                                                </span>
-                                                <button
-                                                    onClick={() => updateEmailTemplate(template.id, { isActive: !template.isActive })}
-                                                    className="text-zinc-400 hover:text-white"
-                                                >
-                                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                                    </svg>
-                                                </button>
-                                            </div>
-                                        </div>
-                                        <div className="p-4 space-y-3">
-                                            <div>
-                                                <label className="block text-xs font-medium text-zinc-500 mb-1">Subject</label>
-                                                <input
-                                                    type="text"
-                                                    value={template.subject}
-                                                    onChange={(e) => updateEmailTemplate(template.id, { subject: e.target.value })}
-                                                    className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white text-sm focus:border-red-500 focus:outline-none"
-                                                />
-                                            </div>
-                                            <div>
-                                                <label className="block text-xs font-medium text-zinc-500 mb-1">Body</label>
-                                                <textarea
-                                                    value={template.body}
-                                                    onChange={(e) => updateEmailTemplate(template.id, { body: e.target.value })}
-                                                    rows={6}
-                                                    className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white text-sm focus:border-red-500 focus:outline-none resize-none font-mono"
-                                                />
-                                            </div>
-                                            <div className="flex flex-wrap gap-2">
-                                                <span className="text-xs text-zinc-500">Variables:</span>
-                                                {['{{name}}', '{{eventName}}', '{{eventDate}}', '{{eventTime}}', '{{eventVenue}}', '{{ticketId}}', '{{siteName}}'].map(v => (
-                                                    <code key={v} className="px-2 py-0.5 bg-zinc-800 rounded text-xs text-zinc-400">{v}</code>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-
-
-                        </div>
-                    )
-                }
-
-                {/* Reviews */}
+               {/* Reviews */}
                 {
                     activeTab === 'reviews' && (
                         <div className="space-y-6">
@@ -2220,267 +1911,7 @@ export default function AdminPage({ defaultTab }: { defaultTab?: AdminTabKey } =
                     )
                 }
 
-                {/* Surveys */}
-                {
-                    activeTab === 'surveys' && (
-                        <div className="space-y-6">
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                {/* Header and list column */}
-                                <div className="space-y-6">
-                                    <div className="flex justify-between items-center">
-                                        <div>
-                                            <h2 className="text-xl font-semibold text-white flex items-center gap-2">
-                                                <svg className="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-                                                </svg>
-                                                Post-Event Surveys
-                                            </h2>
-                                            <p className="text-zinc-400 text-sm">Collect feedback from attendees after events</p>
-                                        </div>
-                                        <button
-                                            onClick={() => {
-                                                const eventId = events[0]?.id || '';
-                                                addSurvey({
-                                                    id: `survey-${Date.now()}`,
-                                                    eventId,
-                                                    title: 'Event Feedback Survey',
-                                                    description: 'We\'d love to hear your thoughts about the event!',
-                                                    questions: [
-                                                        { id: 'q1', question: 'How would you rate the overall event?', type: 'rating', required: true },
-                                                        { id: 'q2', question: 'What did you enjoy most?', type: 'text', required: false },
-                                                        { id: 'q3', question: 'Would you attend future events?', type: 'multipleChoice', options: ['Definitely!', 'Maybe', 'Unlikely'], required: true },
-                                                    ],
-                                                    isActive: true,
-                                                    createdAt: new Date().toISOString(),
-                                                });
-                                                showToast('Survey created!', 'success');
-                                            }}
-                                            className="px-4 py-2 bg-red-600 text-white rounded-xl hover:bg-red-700 flex items-center gap-2"
-                                        >
-                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                                            </svg>
-                                            Create Survey
-                                        </button>
-                                    </div>
-
-                                    {surveys.length === 0 ? (
-                                        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-12 text-center">
-                                            <svg className="w-16 h-16 text-zinc-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-                                            </svg>
-                                            <p className="text-zinc-400 mb-2">No surveys yet</p>
-                                            <p className="text-zinc-500 text-sm">Create a survey to collect feedback after your events</p>
-                                        </div>
-                                    ) : (
-                                        <div className="grid gap-4">
-                                            {surveys.map(survey => {
-                                                const surveyEvent = events.find(e => e.id === survey.eventId);
-                                                return (
-                                                    <div key={survey.id} className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden">
-                                                        <div className="p-5 border-b border-zinc-800">
-                                                            <div className="flex items-start justify-between mb-3">
-                                                                <div className="flex-1">
-                                                                    <input
-                                                                        type="text"
-                                                                        value={survey.title}
-                                                                        onChange={(e) => updateSurvey(survey.id, { title: e.target.value })}
-                                                                        className="font-semibold text-white bg-transparent border-none outline-none w-full focus:bg-zinc-800 focus:px-2 rounded"
-                                                                    />
-                                                                    <input
-                                                                        type="text"
-                                                                        value={survey.description}
-                                                                        onChange={(e) => updateSurvey(survey.id, { description: e.target.value })}
-                                                                        className="text-sm text-zinc-500 mt-1 bg-transparent border-none outline-none w-full focus:bg-zinc-800 focus:px-2 rounded"
-                                                                    />
-                                                                    <p className="text-xs text-zinc-600 mt-2">Event: {surveyEvent?.name || 'Unknown'}</p>
-                                                                </div>
-                                                                <div className="flex items-center gap-2">
-                                                                    <button
-                                                                        onClick={() => updateSurvey(survey.id, { isActive: !survey.isActive })}
-                                                                        className={`px-2 py-1 rounded-lg text-xs font-medium transition-colors ${survey.isActive ? 'bg-green-600/20 text-green-400 hover:bg-green-600/30' : 'bg-zinc-800 text-zinc-500 hover:bg-zinc-700'}`}
-                                                                    >
-                                                                        {survey.isActive ? 'Active' : 'Inactive'}
-                                                                    </button>
-                                                                    <button
-                                                                        onClick={() => deleteSurvey(survey.id)}
-                                                                        className="p-1.5 text-zinc-400 hover:text-red-500 rounded-lg hover:bg-red-500/10"
-                                                                    >
-                                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                                        </svg>
-                                                                    </button>
-                                                                </div>
-                                                            </div>
-                                                            <div className="space-y-4">
-                                                                {survey.questions.map((question, idx) => (
-                                                                    <div key={question.id || idx} className="bg-zinc-950/50 p-4 rounded-lg border border-zinc-800 group transition-all hover:border-zinc-700">
-                                                                        <div className="flex flex-col gap-3">
-                                                                            <div className="flex gap-3 items-start">
-                                                                                <span className="text-zinc-500 py-2.5 font-mono text-sm">#{idx + 1}</span>
-                                                                                <div className="flex-1 space-y-3">
-                                                                                    <input
-                                                                                        type="text"
-                                                                                        value={question.question}
-                                                                                        onChange={(e) => {
-                                                                                            const newQs = [...survey.questions];
-                                                                                            newQs[idx] = { ...newQs[idx], question: e.target.value };
-                                                                                            updateSurvey(survey.id, { questions: newQs });
-                                                                                        }}
-                                                                                        placeholder="Enter question text..."
-                                                                                        className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:border-red-500 focus:outline-none"
-                                                                                    />
-                                                                                    <div className="flex gap-4 items-center">
-                                                                                        <select
-                                                                                            value={question.type}
-                                                                                            onChange={(e) => {
-                                                                                                const newQs = [...survey.questions];
-                                                                                                newQs[idx] = { ...newQs[idx], type: e.target.value as any };
-                                                                                                updateSurvey(survey.id, { questions: newQs });
-                                                                                            }}
-                                                                                            className="bg-zinc-900 border border-zinc-800 rounded-lg px-2 py-1.5 text-xs text-zinc-300 focus:border-red-500 focus:outline-none"
-                                                                                        >
-                                                                                            <option value="text">Short Text</option>
-                                                                                            <option value="longText">Long Text</option>
-                                                                                            <option value="rating">Rating (5 Stars)</option>
-                                                                                            <option value="multipleChoice">Multiple Choice</option>
-                                                                                        </select>
-
-                                                                                        <label className="flex items-center gap-2 cursor-pointer">
-                                                                                            <input
-                                                                                                type="checkbox"
-                                                                                                checked={question.required}
-                                                                                                onChange={(e) => {
-                                                                                                    const newQs = [...survey.questions];
-                                                                                                    newQs[idx] = { ...newQs[idx], required: e.target.checked };
-                                                                                                    updateSurvey(survey.id, { questions: newQs });
-                                                                                                }}
-                                                                                                className="rounded border-zinc-700 bg-zinc-900 text-red-600 focus:ring-red-500"
-                                                                                            />
-                                                                                            <span className="text-xs text-zinc-400 select-none">Required</span>
-                                                                                        </label>
-                                                                                    </div>
-
-                                                                                    {question.type === 'multipleChoice' && (
-                                                                                        <div className="pt-1">
-                                                                                            <input
-                                                                                                type="text"
-                                                                                                value={question.options?.join(', ') || ''}
-                                                                                                onChange={(e) => {
-                                                                                                    const newQs = [...survey.questions];
-                                                                                                    newQs[idx] = { ...newQs[idx], options: e.target.value.split(',').map(s => s.trim()) };
-                                                                                                    updateSurvey(survey.id, { questions: newQs });
-                                                                                                }}
-                                                                                                placeholder="Option 1, Option 2, Option 3 (comma separated)"
-                                                                                                className="w-full bg-zinc-900 border border-zinc-800 border-dashed rounded-lg px-3 py-2 text-xs text-zinc-300 focus:border-red-500 focus:outline-none"
-                                                                                            />
-                                                                                        </div>
-                                                                                    )}
-                                                                                </div>
-                                                                                <button
-                                                                                    onClick={() => {
-                                                                                        const newQs = survey.questions.filter((_, i) => i !== idx);
-                                                                                        updateSurvey(survey.id, { questions: newQs });
-                                                                                    }}
-                                                                                    className="p-2 text-zinc-500 hover:text-red-500 hover:bg-zinc-800 rounded-lg transition-colors"
-                                                                                    title="Remove Question"
-                                                                                >
-                                                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                                                                                </button>
-                                                                            </div>
-                                                                        </div>
-                                                                    </div>
-                                                                ))}
-                                                                <button
-                                                                    onClick={() => {
-                                                                        const newQs: SurveyQuestion[] = [...survey.questions, { id: `q-${Date.now()}`, question: '', type: 'text' as const, required: false }];
-                                                                        updateSurvey(survey.id, { questions: newQs });
-                                                                    }}
-                                                                    className="w-full py-3 border-2 border-dashed border-zinc-800 hover:border-zinc-700 text-zinc-500 hover:text-white rounded-xl transition-all flex items-center justify-center gap-2 text-sm font-medium"
-                                                                >
-                                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-                                                                    Add Question
-                                                                </button>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* Google Sheets Config Column - Column 2 */}
-                                <div className="bg-[#141414] border border-[#1F1F1F] rounded-xl p-6 h-fit sticky top-6">
-                                    <div className="flex items-center gap-3 mb-4">
-                                        <div className="w-10 h-10 rounded-lg bg-green-900/20 flex items-center justify-center text-green-500">
-                                            <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
-                                                <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z" />
-                                            </svg>
-                                        </div>
-                                        <div>
-                                            <h3 className="text-lg font-bold text-white">Google Sheets Sync</h3>
-                                            <p className="text-xs text-zinc-400">Auto-save responses to a spreadsheet</p>
-                                        </div>
-                                    </div>
-                                    <div className="space-y-4">
-                                        <div className="bg-zinc-900/50 p-3 rounded border border-zinc-800 mb-2">
-                                            <p className="text-xs text-zinc-500 leading-relaxed">
-                                                To enable sync, create a project in Google Cloud Console, enable &quot;Google Sheets API&quot;, create a service account, and paste the JSON details below.
-                                            </p>
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-semibold text-zinc-500 mb-1">Sheet ID</label>
-                                            <input
-                                                type="text"
-                                                value={googleSheetId}
-                                                onChange={(e) => setGoogleSheetId(e.target.value)}
-                                                placeholder="1BxiMVs0XRA5nFMdKbBdB_..."
-                                                className="w-full bg-zinc-900 border border-zinc-800 rounded px-3 py-2 text-sm text-white focus:border-green-500 focus:outline-none"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-semibold text-zinc-500 mb-1">Service Account Email</label>
-                                            <input
-                                                type="text"
-                                                value={serviceAccountEmail}
-                                                onChange={(e) => setServiceAccountEmail(e.target.value)}
-                                                placeholder="service-account@project.iam.gserviceaccount.com"
-                                                className="w-full bg-zinc-900 border border-zinc-800 rounded px-3 py-2 text-sm text-white focus:border-green-500 focus:outline-none"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-semibold text-zinc-500 mb-1">Private Key</label>
-                                            <textarea
-                                                rows={3}
-                                                value={privateKey}
-                                                onChange={(e) => setPrivateKey(e.target.value)}
-                                                placeholder="-----BEGIN PRIVATE KEY-----..."
-                                                className="w-full bg-zinc-900 border border-zinc-800 rounded px-3 py-2 text-sm text-white focus:border-green-500 focus:outline-none font-mono text-xs"
-                                            ></textarea>
-                                        </div>
-                                        <button
-                                            onClick={saveGoogleSheetsConfig}
-                                            disabled={isSavingSheets}
-                                            className="w-full py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-sm font-medium transition-colors border border-zinc-700 flex justify-center items-center gap-2"
-                                        >
-                                            {isSavingSheets ? (
-                                                <>
-                                                    <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                                                    Saving...
-                                                </>
-                                            ) : 'Save Configuration'}
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    )
-                }
-
-
-
-                {/* Sales Control */}
+               {/* Sales Control */}
                 {
                     activeTab === 'sales' && (
                         <div className="space-y-6">
@@ -2906,38 +2337,6 @@ export default function AdminPage({ defaultTab }: { defaultTab?: AdminTabKey } =
 
 
 
-                            {/* Event Page Settings */}
-                            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
-                                <h3 className="text-lg font-medium text-white mb-4 flex items-center gap-2">
-                                    <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                    </svg>
-                                    Event Page Sections
-                                </h3>
-                                <div className="grid sm:grid-cols-2 gap-4">
-                                    {[
-                                        { key: 'showEventSchedule', label: 'Schedule', desc: 'Show event schedule/timeline' },
-                                        { key: 'showEventReviews', label: 'Reviews', desc: 'Show reviews section' },
-                                        { key: 'showEventShare', label: 'Share Buttons', desc: 'Show social share buttons' },
-                                        { key: 'showEventCalendar', label: 'Add to Calendar', desc: 'Show calendar buttons' },
-                                        { key: 'showEventCountdown', label: 'Countdown', desc: 'Show countdown timer' },
-                                    ].map(item => (
-                                        <div key={item.key} className="flex items-center justify-between p-3 bg-zinc-800/50 rounded-xl">
-                                            <div>
-                                                <p className="font-medium text-white text-sm">{item.label}</p>
-                                                <p className="text-xs text-zinc-500">{item.desc}</p>
-                                            </div>
-                                            <button
-                                                onClick={() => updateSiteSettings({ [item.key]: !siteSettings[item.key as keyof SiteSettings] })}
-                                                className={`w-10 h-5 rounded-full transition-colors relative ${siteSettings[item.key as keyof SiteSettings] ? 'bg-red-600' : 'bg-zinc-700'}`}
-                                            >
-                                                <span className={`absolute w-4 h-4 bg-white rounded-full top-0.5 transition-all ${siteSettings[item.key as keyof SiteSettings] ? 'left-5' : 'left-0.5'}`} />
-                                            </button>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-
                             {/* Announcement Banner */}
                             <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
                                 <h3 className="text-lg font-medium text-white mb-4 flex items-center gap-2">
@@ -3090,7 +2489,6 @@ export default function AdminPage({ defaultTab }: { defaultTab?: AdminTabKey } =
                                         { key: 'privacyPolicy', label: 'Privacy Policy', icon: <Shield className="w-5 h-5 text-blue-400" /> },
                                         { key: 'termsOfService', label: 'Terms of Service', icon: <FileText className="w-5 h-5 text-purple-400" /> },
                                         { key: 'refundPolicy', label: 'Refund Policy', icon: <Receipt className="w-5 h-5 text-green-400" /> },
-                                        { key: 'cookiePolicy', label: 'Cookie Policy', icon: <Globe className="w-5 h-5 text-orange-400" /> },
                                     ].map(item => (
                                         <div key={item.key} className="flex items-center gap-3 p-3 bg-zinc-800/50 rounded-xl">
                                             {item.icon}
@@ -3371,14 +2769,6 @@ export default function AdminPage({ defaultTab }: { defaultTab?: AdminTabKey } =
                     activeTab === 'audit' && (
                         <div className="animate-fade-in-up">
                             <AuditLogViewer />
-                        </div>
-                    )
-                }
-
-                {
-                    activeTab === 'integrations' && (
-                        <div className="animate-fade-in-up">
-                            <IntegrationHub />
                         </div>
                     )
                 }

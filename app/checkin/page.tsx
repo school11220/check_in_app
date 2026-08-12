@@ -13,7 +13,7 @@ import { useAuth, useClerk, useUser } from '@clerk/nextjs';
 import { resolveRole } from '@/lib/clerk-role-utils';
 import { parseScanPayload } from '@/lib/scan-payload';
 
-type CheckinTabKey = 'scanner' | 'history' | 'guestlist' | 'stats' | 'group';
+type CheckinTabKey = 'scanner' | 'history' | 'guestlist' | 'stats';
 
 function CheckinPageContent({ defaultTab, defaultEventId }: { defaultTab?: CheckinTabKey; defaultEventId?: string } = {}) {
   const { events, isLoading: eventsLoading } = useApp();
@@ -477,7 +477,7 @@ function CheckinPageContent({ defaultTab, defaultEventId }: { defaultTab?: Check
           <Lock className="w-10 h-10 text-[#E11D2E] mx-auto mb-4" />
           <h2 className="text-2xl font-bold text-white mb-2">Sign In Required</h2>
           <p className="text-[#737373] mb-6">Sign in with an admin, organizer, or scanner account to access check-in.</p>
-          <Link href="/login" className="inline-flex justify-center w-full py-3 bg-[#E11D2E] text-white rounded-xl hover:bg-[#B91C1C] text-sm font-medium">
+          <Link href="/login" className="interactive-control inline-flex justify-center w-full py-3 bg-[#E11D2E] text-white rounded-xl hover:bg-[#B91C1C] text-sm font-medium">
             Go to Login
           </Link>
         </div>
@@ -500,7 +500,7 @@ function CheckinPageContent({ defaultTab, defaultEventId }: { defaultTab?: Check
           </p>
           <p className="text-xs text-[#737373] mb-6">Current role: <span className="text-[#E11D2E] font-mono">{userRole || 'UNAUTHORIZED'}</span></p>
           <div className="flex gap-3">
-            <Link href="/" className="flex-1 py-3 bg-[#1A1A1A] text-white rounded-xl hover:bg-[#2A2A2A] text-center text-sm font-medium">Home</Link>
+            <Link href="/" className="interactive-control flex-1 py-3 bg-[#1A1A1A] text-white rounded-xl hover:bg-[#2A2A2A] text-center text-sm font-medium">Home</Link>
             <button onClick={handleLogout} className="flex-1 py-3 bg-[#E11D2E] text-white rounded-xl hover:bg-[#B91C1C] text-sm font-medium">Sign Out</button>
           </div>
         </div>
@@ -543,7 +543,7 @@ function CheckinPageContent({ defaultTab, defaultEventId }: { defaultTab?: Check
             </div>
           </div>
           <div className="flex items-center gap-2 md:gap-3 self-start md:self-auto overflow-x-auto max-w-full pb-1 md:pb-0">
-            <a href="/" target="_blank" rel="noopener noreferrer" className="px-3 py-2 md:px-5 md:py-2.5 rounded-xl bg-[#141414] hover:bg-[#1A1A1A] text-[#B3B3B3] hover:text-white text-xs md:text-sm flex items-center transition-colors border border-[#1F1F1F] hover:border-[#2A2A2A] whitespace-nowrap">
+            <a href="/" target="_blank" rel="noopener noreferrer" className="interactive-control px-3 py-2 md:px-5 md:py-2.5 rounded-xl bg-[#141414] hover:bg-[#1A1A1A] text-[#B3B3B3] hover:text-white text-xs md:text-sm flex items-center transition-colors border border-[#1F1F1F] hover:border-[#2A2A2A] whitespace-nowrap">
               <Home className="w-3.5 h-3.5 md:w-4 md:h-4 mr-1.5 md:mr-2" /> Home
             </a>
             {eventId && (
@@ -554,7 +554,7 @@ function CheckinPageContent({ defaultTab, defaultEventId }: { defaultTab?: Check
                 <Calendar className="w-3.5 h-3.5 md:w-4 md:h-4 mr-1.5 md:mr-2" /> Schedule
               </button>
             )}
-            <Link href="/admin" className="px-3 py-2 md:px-5 md:py-2.5 rounded-xl bg-[#141414] hover:bg-[#1A1A1A] text-[#B3B3B3] hover:text-white text-xs md:text-sm flex items-center transition-colors border border-[#1F1F1F] hover:border-[#2A2A2A] whitespace-nowrap">
+            <Link href="/admin" className="interactive-control px-3 py-2 md:px-5 md:py-2.5 rounded-xl bg-[#141414] hover:bg-[#1A1A1A] text-[#B3B3B3] hover:text-white text-xs md:text-sm flex items-center transition-colors border border-[#1F1F1F] hover:border-[#2A2A2A] whitespace-nowrap">
               <Lock className="w-3.5 h-3.5 md:w-4 md:h-4 mr-1.5 md:mr-2" /> Admin Panel
             </Link>
             <button onClick={handleLogout} className="flex items-center px-3 py-2 md:px-4 md:py-2.5 bg-[#E11D2E]/10 text-[#FF6B7A] border border-[#E11D2E]/20 rounded-xl hover:bg-[#E11D2E]/15 text-xs md:text-sm transition-colors">
@@ -642,7 +642,6 @@ function CheckinPageContent({ defaultTab, defaultEventId }: { defaultTab?: Check
             <div className="bg-[#141414] p-1.5 rounded-2xl border border-[#1F1F1F] inline-flex whitespace-nowrap shadow-xl">
               {[
                 { id: 'scanner' as const, icon: ScanLine, label: 'Scanner' },
-                { id: 'group' as const, icon: Users, label: 'Group' },
                 { id: 'guestlist' as const, icon: Users, label: 'Guest List' },
                 { id: 'stats' as const, icon: BarChart3, label: 'Live Stats' },
                 { id: 'history' as const, icon: History, label: 'History' },
@@ -661,57 +660,6 @@ function CheckinPageContent({ defaultTab, defaultEventId }: { defaultTab?: Check
         </div>
 
         <div className="grid lg:grid-cols-2 gap-8">
-          {/* Group Check-in Tab */}
-          {activeTab === 'group' && (
-            <div className="lg:col-span-2 grid grid-cols-1 lg:grid-cols-12 gap-6 animate-fade-in">
-              <div className="lg:col-span-12 bg-[#0D0D0D] border border-[#1F1F1F] rounded-2xl overflow-hidden shadow-2xl">
-                <div className="p-5 border-b border-[#1F1F1F] bg-[#141414]">
-                  <h2 className="text-lg font-bold text-white">Group Check-in</h2>
-                  <p className="text-[#737373] text-sm mt-1">
-                    Enter a group purchase ID to check in every member at once. The group lead&apos;s QR also encodes the purchase group ID.
-                  </p>
-                </div>
-                <form
-                  onSubmit={async (e) => {
-                    e.preventDefault();
-                    const input = (e.currentTarget.elements.namedItem('gid') as HTMLInputElement).value.trim();
-                    if (!input) return;
-                    try {
-                      const res = await fetch('/api/checkin/group', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ purchaseGroupId: input }),
-                      });
-                      const data = await res.json();
-                      if (res.ok) {
-                        const failed = data.failed as number;
-                        alert(`${data.succeeded} of ${data.total} checked in${failed ? ` (${failed} skipped)` : ''}`);
-                      } else {
-                        alert(data.error || 'Group check-in failed');
-                      }
-                    } catch {
-                      alert('Group check-in failed');
-                    }
-                  }}
-                  className="p-5 flex flex-col sm:flex-row gap-3"
-                >
-                  <input
-                    name="gid"
-                    placeholder="grp-… or paste group ID"
-                    className="flex-1 px-4 py-3 bg-[#1A1A1A] border border-[#1F1F1F] rounded-xl text-white placeholder-[#737373] focus:outline-none focus:border-[#E11D2E]"
-                    required
-                  />
-                  <button
-                    type="submit"
-                    className="px-5 py-3 rounded-xl bg-[#E11D2E] hover:bg-[#B91C1C] text-white font-medium"
-                  >
-                    Check in whole group
-                  </button>
-                </form>
-              </div>
-            </div>
-          )}
-
           {/* Scanner Tab */}
           {activeTab === 'scanner' && (
             <div className="lg:col-span-2 grid grid-cols-1 lg:grid-cols-12 gap-6 animate-fade-in items-start">

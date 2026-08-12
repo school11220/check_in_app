@@ -36,8 +36,6 @@ async function writeSettings(settings: SiteSettings) {
     create: {
       id: 'default',
       settings: jsonSettings,
-      templates: [],
-      surveys: [],
       updatedAt: new Date(),
     },
     update: {

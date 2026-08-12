@@ -106,7 +106,7 @@ export async function PATCH(request: Request) {
             'termsAndConditions', 'registrationDeadline', 'earlyBirdEnabled',
             'earlyBirdPrice', 'earlyBirdDeadline', 'sendReminders', 'videoLink',
             'organizerVideoLink', 'tags', 'registrationFields', 'schedule',
-            'speakers', 'sponsors', 'gallery'
+            'speakers', 'sponsors'
         ];
 
         for (const field of allowedFields) {

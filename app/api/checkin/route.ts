@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { generateAuditChecksum, verifyTimedQRToken } from '@/lib/qr-security';
 import { CheckInResponse } from '@/types';
-import { fireWebhook } from '@/lib/webhooks';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { getSession, hasEventAccess } from '@/lib/auth';
 import { ticketTokenMatches } from '@/lib/ticket-security';
@@ -239,12 +238,6 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      // Fire webhook
-      fireWebhook('checkin.undo', {
-        ticketId, attendeeName: updatedTicket.name, eventId: updatedTicket.eventId,
-        eventName: updatedTicket.Event.name, undoneBy: userId, role,
-      }).catch(() => {});
-
       return NextResponse.json<CheckInResponse>({
         success: true,
         message: 'Check-in undone',
@@ -368,13 +361,6 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
-
-    // Fire webhook (non-blocking)
-    fireWebhook('ticket.checked_in', {
-      ticketId, attendeeName: updatedTicket.name, attendeeEmail: updatedTicket.email,
-      eventId: updatedTicket.eventId, eventName: updatedTicket.Event.name,
-      checkedInBy: userId, role, deviceId, offline: !!deviceId,
-    }).catch(() => {});
 
     return NextResponse.json<CheckInResponse>({
       success: true,

@@ -104,7 +104,7 @@ export default function MyTicketsPage() {
                     <p className="text-zinc-400 text-sm mb-5">Your bookings, receipts, and QR codes — all in one place.</p>
                     <Link
                         href="/login?redirect=/me/tickets"
-                        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-medium"
+                        className="interactive-control inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-medium"
                     >
                         Sign in <ArrowRight className="w-4 h-4" />
                     </Link>
@@ -149,7 +149,7 @@ export default function MyTicketsPage() {
                     </p>
                     <Link
                         href="/discover"
-                        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-medium"
+                        className="interactive-control inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-medium"
                     >
                         Discover events <ArrowRight className="w-4 h-4" />
                     </Link>
@@ -187,7 +187,7 @@ export default function MyTicketsPage() {
                             <div className="flex sm:flex-col gap-2 sm:items-end sm:justify-center shrink-0">
                                 <Link
                                     href={`/ticket/${t.id}`}
-                                    className="px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white text-sm flex items-center gap-1.5"
+                                    className="interactive-control px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white text-sm flex items-center gap-1.5"
                                 >
                                     View ticket <ArrowRight className="w-3.5 h-3.5" />
                                 </Link>

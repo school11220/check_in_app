@@ -154,10 +154,10 @@ export default function OrganizerDashboard({ defaultTab }: { defaultTab?: TabId 
                             </div>
                         </div>
                         <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
-                            <a href="/" target="_blank" rel="noopener noreferrer" className="flex flex-1 items-center justify-center text-[#B3B3B3] hover:text-white text-xs px-3 py-2 rounded-lg hover:bg-white/5 transition-colors sm:flex-none sm:text-sm">
+                            <a href="/" target="_blank" rel="noopener noreferrer" className="interactive-control flex flex-1 items-center justify-center text-[#B3B3B3] hover:text-white text-xs px-3 py-2 rounded-lg hover:bg-white/5 transition-colors sm:flex-none sm:text-sm">
                                 <Home className="w-4 h-4 mr-1.5" /> Home
                             </a>
-                            <a href="/checkin" target="_blank" rel="noopener noreferrer" className="flex flex-1 items-center justify-center text-[#B3B3B3] hover:text-white text-xs px-3 py-2 rounded-lg hover:bg-white/5 transition-colors sm:flex-none sm:text-sm">
+                            <a href="/checkin" target="_blank" rel="noopener noreferrer" className="interactive-control flex flex-1 items-center justify-center text-[#B3B3B3] hover:text-white text-xs px-3 py-2 rounded-lg hover:bg-white/5 transition-colors sm:flex-none sm:text-sm">
                                 <CheckCircle className="w-4 h-4 mr-1.5" /> Check-In
                             </a>
                             <button onClick={handleLogout} className="flex flex-1 items-center justify-center px-3 py-2 bg-[#141414] text-[#B3B3B3] rounded-xl hover:bg-[#1A1A1A] hover:text-white text-xs border border-[#1F1F1F] transition-colors sm:flex-none sm:text-sm">

@@ -1,10 +1,14 @@
 import { redirect } from 'next/navigation';
 import AdminPage from '@/app/admin/page';
-import { AdminTabId } from '@/components/admin/AdminShell';
+
+type AdminTabId =
+    | 'events' | 'attendees' | 'analytics' | 'reviews' | 'sessions'
+    | 'team' | 'festivals' | 'tickets' | 'layout' | 'growth'
+    | 'certificates' | 'audit' | 'history' | 'sales' | 'pages';
 
 const VALID_TABS: AdminTabId[] = [
     'events', 'attendees', 'analytics', 'reviews', 'sessions',
-    'team', 'festivals', 'emails', 'surveys', 'tickets',
+    'team', 'festivals', 'tickets',
     'layout', 'growth', 'certificates', 'audit', 'history',
     'sales', 'pages',
 ];

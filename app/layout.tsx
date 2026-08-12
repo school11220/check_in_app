@@ -3,8 +3,6 @@ import { Inter, Space_Grotesk, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { ToastProvider } from "@/components/Toaster";
 import { AppProvider } from "@/lib/store";
-import OfflineSyncPill from "@/components/OfflineSyncPill";
-import CookieConsent from "@/components/CookieConsent";
 import InstallPrompt from "@/components/InstallPrompt";
 import { ClerkProvider } from "@clerk/nextjs";
 
@@ -30,7 +28,16 @@ const jetbrainsMono = JetBrains_Mono({
   weight: ["400", "500"],
 });
 
+const metadataBase = (() => {
+  try {
+    return new URL(process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000');
+  } catch {
+    return new URL('http://localhost:3000');
+  }
+})();
+
 export const metadata: Metadata = {
+  metadataBase,
   title: "EventHub",
   description: "Secure event ticketing with QR code verification and instant check-in. Powered by EventHub.",
   keywords: ["event", "ticketing", "check-in", "QR code", "tickets"],
@@ -116,8 +123,6 @@ export default function RootLayout({
               <div className="relative z-10">
                 {children}
               </div>
-              <OfflineSyncPill />
-              <CookieConsent />
               <InstallPrompt />
             </ToastProvider>
           </AppProvider>

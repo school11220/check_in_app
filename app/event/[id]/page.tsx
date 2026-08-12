@@ -51,12 +51,6 @@ function normalizeEvent(raw: any): Event {
         earlyBirdDeadline: raw.earlyBirdDeadline ?? '',
         sendReminders: Boolean(raw.sendReminders),
         registrationFields: asArray(raw.registrationFields),
-        features: raw.features && typeof raw.features === 'object' && !Array.isArray(raw.features) ? raw.features : {},
-        brandPrimaryColor: raw.brandPrimaryColor ?? undefined,
-        brandAccentColor: raw.brandAccentColor ?? undefined,
-        brandLogoUrl: raw.brandLogoUrl ?? undefined,
-        brandBannerUrl: raw.brandBannerUrl ?? undefined,
-        customDomain: raw.customDomain ?? undefined,
     };
 }
 
@@ -165,7 +159,7 @@ function FloatingParticles() {
 
 
 function SimilarEvents({ currentEvent }: { currentEvent: Event }) {
-    const { events } = useApp();
+    const { events, siteSettings } = useApp();
     const router = useRouter();
 
     const similarEvents = events
@@ -180,8 +174,8 @@ function SimilarEvents({ currentEvent }: { currentEvent: Event }) {
                 <div key={event.id} onClick={() => router.push(`/event/${event.id}`)} className="cursor-pointer group">
                     <div className="glass-card rounded-xl overflow-hidden hover:border-red-500/30 hover:transform hover:scale-[1.02] transition-all duration-300 h-full">
                         <div className="h-40 relative">
-                            {event.imageUrl ? (
-                                <img src={event.imageUrl} alt={event.name} className="w-full h-full object-cover" />
+                            {event.imageUrl || siteSettings.defaultEventBannerUrl ? (
+                                <img src={event.imageUrl || siteSettings.defaultEventBannerUrl} alt={event.name} className="w-full h-full object-cover" />
                             ) : (
                                 <div className="w-full h-full bg-zinc-800 flex items-center justify-center">
                                     <span className="text-zinc-600">No Image</span>
@@ -195,9 +189,9 @@ function SimilarEvents({ currentEvent }: { currentEvent: Event }) {
                             </div>
                         </div>
                         <div className="p-4">
-                            <h3 className="font-bold text-white mb-1 group-hover:text-red-500 transition-colors line-clamp-1">{event.name}</h3>
-                            <p className="text-sm text-zinc-400 mb-2">{new Date(event.date).toLocaleDateString()}</p>
-                            <p className="text-xs text-zinc-500 line-clamp-2">{event.description}</p>
+                            <h3 className="font-bold text-black mb-1 group-hover:underline transition-colors line-clamp-1">{event.name}</h3>
+                            <p className="text-sm text-[#36403b] mb-2">{new Date(event.date).toLocaleDateString()}</p>
+                            <p className="text-xs text-[#4b5651] line-clamp-2">{event.description}</p>
                         </div>
                     </div>
                 </div>
@@ -299,7 +293,7 @@ export default function EventDetailsPage() {
                             This event could not be loaded from the server.
                         </p>
                     )}
-                    <Link href="/" className="inline-flex items-center gap-2 px-6 py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-colors">
+                    <Link href="/" className="interactive-control inline-flex items-center gap-2 px-6 py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-colors">
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                         </svg>
@@ -311,6 +305,7 @@ export default function EventDetailsPage() {
     }
 
     const isSoldOut = event.soldCount >= event.capacity;
+    const eventImage = event.imageUrl || siteSettings.defaultEventBannerUrl;
     const capacityPercent = Math.round((event.soldCount / event.capacity) * 100);
     const avgRating = eventReviews.length > 0
         ? eventReviews.reduce((sum, r) => sum + r.rating, 0) / eventReviews.length
@@ -395,7 +390,7 @@ export default function EventDetailsPage() {
                         address: event.address || undefined,
                     }
                   : undefined,
-              image: event.imageUrl ? [event.imageUrl] : undefined,
+              image: eventImage ? [eventImage] : undefined,
               organizer: event.organizer
                   ? { '@type': 'Organization', name: event.organizer, email: event.contactEmail || undefined }
                   : undefined,
@@ -452,7 +447,7 @@ export default function EventDetailsPage() {
                 {/* Background Image with Parallax */}
                 <div
                     className="absolute inset-0 bg-cover bg-center bg-fixed"
-                    style={{ backgroundImage: `url(${event.imageUrl})` }}
+                    style={{ backgroundImage: eventImage ? `url(${eventImage})` : undefined }}
                 />
 
                 {/* Gradient Overlays */}
@@ -788,7 +783,7 @@ export default function EventDetailsPage() {
                                             })()}&details=${encodeURIComponent(event.description)}&location=${encodeURIComponent(event.venue + ', ' + (event.address || ''))}`}
                                             target="_blank"
                                             rel="noopener noreferrer"
-                                            className="flex items-center gap-2 p-3 bg-zinc-800/50 rounded-xl hover:bg-zinc-700/50 transition-colors group"
+                                            className="interactive-control flex items-center gap-2 p-3 bg-zinc-800/50 rounded-xl hover:bg-zinc-700/50 transition-colors group"
                                         >
                                             <svg className="w-5 h-5 text-blue-500 group-hover:scale-110 transition-transform" viewBox="0 0 24 24" fill="currentColor">
                                                 <path d="M12.545 10.239v3.821h5.445c-.712 2.315-2.647 3.972-5.445 3.972a6.033 6.033 0 110-12.064c1.498 0 2.866.549 3.921 1.453l2.814-2.814A9.969 9.969 0 0012.545 2C7.021 2 2.543 6.477 2.543 12s4.478 10 10.002 10c8.396 0 10.249-7.85 9.426-11.748l-9.426-.013z" />
@@ -827,7 +822,7 @@ END:VCALENDAR`;
                                                 URL.revokeObjectURL(url);
                                                 showToast('Calendar file downloaded!', 'success');
                                             }}
-                                            className="flex items-center gap-2 p-3 bg-zinc-800/50 rounded-xl hover:bg-zinc-700/50 transition-colors group"
+                                            className="interactive-control flex items-center gap-2 p-3 bg-zinc-800/50 rounded-xl hover:bg-zinc-700/50 transition-colors group"
                                         >
                                             <svg className="w-5 h-5 text-zinc-400 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />

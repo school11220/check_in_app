@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import EventFeatureFlags from '@/components/EventFeatureFlags';
 import { Event } from '@/lib/store';
 import RegistrationFormBuilder from '@/components/admin/RegistrationFormBuilder';
 import {X} from '@/components/icons';
@@ -11,7 +10,7 @@ interface EventModalProps {
 }
 
 export default function EventModal({ event, onSave, onClose, isOrganizer = false }: EventModalProps) {
-    const [tab, setTab] = useState<'basic' | 'details' | 'pricing' | 'registration' | 'schedule' | 'sponsors' | 'media' | 'features'>('basic');
+    const [tab, setTab] = useState<'basic' | 'details' | 'pricing' | 'registration' | 'schedule' | 'sponsors' | 'media'>('basic');
     const [formData, setFormData] = useState({
         name: event?.name || '',
         description: event?.description || '',
@@ -86,7 +85,7 @@ export default function EventModal({ event, onSave, onClose, isOrganizer = false
                 </div>
 
                 <div className="flex border-b border-zinc-800 px-3 sm:px-6 overflow-x-auto">
-                    {(['basic', 'details', 'pricing', 'registration', 'schedule', 'sponsors', 'media', 'features'] as const)
+                    {(['basic', 'details', 'pricing', 'registration', 'schedule', 'sponsors', 'media'] as const)
                         .filter(t => !isOrganizer || (t !== 'pricing' && t !== 'sponsors'))
                         .map(t => (
                             <button key={t} onClick={() => setTab(t)} className={`px-4 py-3 text-sm font-medium border-b-2 -mb-px whitespace-nowrap ${tab === t ? 'border-red-500 text-red-500' : 'border-transparent text-zinc-400 hover:text-white'}`}>
@@ -431,7 +430,7 @@ export default function EventModal({ event, onSave, onClose, isOrganizer = false
                             </div>
 
                             <div className="pt-4 border-t border-zinc-800 mt-4">
-                                <h3 className="text-lg font-medium text-white mb-3">Integrations</h3>
+                                <h3 className="text-lg font-medium text-white mb-3">Event Videos</h3>
                                 <div className="space-y-4">
                                     <div>
                                         <label className="block text-sm font-medium text-zinc-300 mb-1">Promo Video URL (YouTube)</label>
@@ -445,16 +444,6 @@ export default function EventModal({ event, onSave, onClose, isOrganizer = false
                             </div>
                         </>
                     )}
-                    {tab === 'features' && event && (
-                        <EventFeatureFlags eventId={event.id} initial={event.features} />
-                    )}
-
-                    {tab === 'features' && !event && (
-                        <div className="text-sm text-zinc-400 bg-zinc-800/40 border border-zinc-700/40 rounded-xl p-4">
-                            Save the event first to configure feature flags. You can come back to this tab afterwards.
-                        </div>
-                    )}
-
                 </form>
 
                 <div className="px-6 py-4 border-t border-zinc-800 flex gap-3">

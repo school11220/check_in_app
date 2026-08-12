@@ -18,6 +18,7 @@ import {
     useEffect,
     useCallback,
     useMemo,
+    useRef,
     ReactNode,
 } from 'react';
 import type {
@@ -27,11 +28,7 @@ import type {
     TeamMember,
     SiteSettings,
     Festival,
-    EmailTemplate,
-    Survey,
-    SurveyResponse,
     PromoCode,
-    WaitlistEntry,
 } from './types';
 import {
     DEFAULT_EVENTS,
@@ -39,11 +36,7 @@ import {
     DEFAULT_REVIEWS,
     DEFAULT_TEAM_MEMBERS,
     DEFAULT_FESTIVALS,
-    DEFAULT_EMAIL_TEMPLATES,
-    DEFAULT_SURVEYS,
-    DEFAULT_SURVEY_RESPONSES,
     DEFAULT_PROMO_CODES,
-    DEFAULT_WAITLIST,
     DEFAULT_SITE_SETTINGS,
 } from './defaults';
 
@@ -135,6 +128,7 @@ export const ROLE_PERMISSIONS: Record<_TeamRole, {
 
 interface EventsContextValue {
     events: Event[];
+    isLoading: boolean;
     setEvents: (e: Event[]) => void;
     addEvent: (e: Event) => Promise<boolean>;
     updateEvent: (id: string, data: Partial<Event>) => Promise<void>;
@@ -205,34 +199,6 @@ export const useFestivalsContext = () => {
     return ctx;
 };
 
-interface EmailsContextValue {
-    emailTemplates: EmailTemplate[];
-    updateEmailTemplate: (id: string, data: Partial<EmailTemplate>) => void;
-}
-
-const EmailsContext = createContext<EmailsContextValue | null>(null);
-export const useEmailsContext = () => {
-    const ctx = useContext(EmailsContext);
-    if (!ctx) throw new Error('useEmailsContext must be used within AppProvider');
-    return ctx;
-};
-
-interface SurveysContextValue {
-    surveys: Survey[];
-    surveyResponses: SurveyResponse[];
-    addSurvey: (s: Survey) => Promise<void>;
-    updateSurvey: (id: string, data: Partial<Survey>) => Promise<void>;
-    deleteSurvey: (id: string) => Promise<void>;
-    addSurveyResponse: (r: SurveyResponse) => void;
-}
-
-const SurveysContext = createContext<SurveysContextValue | null>(null);
-export const useSurveysContext = () => {
-    const ctx = useContext(SurveysContext);
-    if (!ctx) throw new Error('useSurveysContext must be used within AppProvider');
-    return ctx;
-};
-
 interface PromoContextValue {
     promoCodes: PromoCode[];
     addPromoCode: (c: PromoCode) => Promise<void>;
@@ -248,20 +214,6 @@ export const usePromoContext = () => {
     return ctx;
 };
 
-interface WaitlistContextValue {
-    waitlist: WaitlistEntry[];
-    addToWaitlist: (entry: WaitlistEntry) => void;
-    removeFromWaitlist: (id: string) => void;
-    notifyWaitlist: (eventId: string) => void;
-}
-
-const WaitlistContext = createContext<WaitlistContextValue | null>(null);
-export const useWaitlistContext = () => {
-    const ctx = useContext(WaitlistContext);
-    if (!ctx) throw new Error('useWaitlistContext must be used within AppProvider');
-    return ctx;
-};
-
 interface ReviewsContextValue {
     reviews: Review[];
     addReview: (r: Review) => Promise<void>;
@@ -274,20 +226,6 @@ export const useReviewsContext = () => {
     return ctx;
 };
 
-interface AuthContextValue {
-    isAdminLoggedIn: boolean;
-    isLoading: boolean;
-    loginAdmin: (password: string) => boolean;
-    logoutAdmin: () => void;
-}
-
-const AuthContext = createContext<AuthContextValue | null>(null);
-export const useAuthContext = () => {
-    const ctx = useContext(AuthContext);
-    if (!ctx) throw new Error('useAuthContext must be used within AppProvider');
-    return ctx;
-};
-
 // ---------------------------------------------------------------------------
 // AppProvider
 // ---------------------------------------------------------------------------
@@ -296,26 +234,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
     // Independent state slices. Updating one slice will not re-render
     // components that only subscribe to a different slice.
     const [events, setEvents] = useState<Event[]>(DEFAULT_EVENTS);
+    const [isLoading, setIsLoading] = useState(true);
     const [tickets, setTickets] = useState<Ticket[]>(DEFAULT_TICKETS);
     const [reviews, setReviews] = useState<Review[]>(DEFAULT_REVIEWS);
     const [teamMembers, setTeamMembers] = useState<TeamMember[]>(DEFAULT_TEAM_MEMBERS);
     const [siteSettings, setSiteSettings] = useState<SiteSettings>(DEFAULT_SITE_SETTINGS);
     const [festivals, setFestivals] = useState<Festival[]>(DEFAULT_FESTIVALS);
-    const [emailTemplates, setEmailTemplates] = useState<EmailTemplate[]>(DEFAULT_EMAIL_TEMPLATES);
-    const [surveys, setSurveys] = useState<Survey[]>(DEFAULT_SURVEYS);
-    const [surveyResponses, setSurveyResponses] = useState<SurveyResponse[]>(DEFAULT_SURVEY_RESPONSES);
     const [promoCodes, setPromoCodes] = useState<PromoCode[]>(DEFAULT_PROMO_CODES);
-    const [waitlist, setWaitlist] = useState<WaitlistEntry[]>(DEFAULT_WAITLIST);
-    const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
-    const [isLoading, setIsLoading] = useState(true);
+    const settingsSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     // -----------------------------------------------------------------------
     // Bootstrap: load all data from the server in one go.
     // -----------------------------------------------------------------------
     useEffect(() => {
-        const adminSession = typeof localStorage !== 'undefined' ? localStorage.getItem('adminLoggedIn') : null;
-        if (adminSession === 'true') setIsAdminLoggedIn(true);
-
         const loadAll = async () => {
             const tasks: Array<Promise<void>> = [];
 
@@ -354,14 +285,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
                         if (!data) return;
                         if (data.siteSettings) {
                             setSiteSettings({ ...DEFAULT_SITE_SETTINGS, ...data.siteSettings });
-                            if (data.siteSettings.waitlist) setWaitlist(data.siteSettings.waitlist);
                             if (data.siteSettings.festivals) setFestivals(data.siteSettings.festivals);
                             if (data.siteSettings.teamMembers) setTeamMembers(data.siteSettings.teamMembers);
                         } else {
                             setSiteSettings({ ...DEFAULT_SITE_SETTINGS, ...data });
                         }
-                        if (data.emailTemplates) setEmailTemplates(data.emailTemplates);
-                        if (data.surveys) setSurveys(data.surveys);
                     })
                     .catch(err => console.error('Failed to load settings', err))
             );
@@ -435,8 +363,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }, [events, addEvent]);
 
     const eventsValue = useMemo<EventsContextValue>(() => ({
-        events, setEvents, addEvent, updateEvent, deleteEvent, duplicateEvent,
-    }), [events, addEvent, updateEvent, deleteEvent, duplicateEvent]);
+        events, isLoading, setEvents, addEvent, updateEvent, deleteEvent, duplicateEvent,
+    }), [events, isLoading, addEvent, updateEvent, deleteEvent, duplicateEvent]);
 
     // -----------------------------------------------------------------------
     // Tickets
@@ -480,7 +408,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
     // Site
     // -----------------------------------------------------------------------
     const updateSiteSettings = useCallback((data: Partial<SiteSettings>) => {
-        setSiteSettings(prev => ({ ...prev, ...data }));
+        setSiteSettings(prev => {
+            const next = { ...prev, ...data };
+            if (settingsSaveTimer.current) clearTimeout(settingsSaveTimer.current);
+            settingsSaveTimer.current = setTimeout(() => {
+                fetch('/api/settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ siteSettings: next }),
+                }).catch(err => console.error('Failed to persist site settings', err));
+            }, 400);
+            return next;
+        });
     }, []);
 
     const siteValue = useMemo<SiteContextValue>(() => ({ siteSettings, updateSiteSettings }), [siteSettings, updateSiteSettings]);
@@ -501,53 +440,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const festivalsValue = useMemo<FestivalsContextValue>(() => ({
         festivals, addFestival, updateFestival, deleteFestival,
     }), [festivals, addFestival, updateFestival, deleteFestival]);
-
-    // -----------------------------------------------------------------------
-    // Emails
-    // -----------------------------------------------------------------------
-    const updateEmailTemplate = useCallback((id: string, data: Partial<EmailTemplate>) => {
-        setEmailTemplates(prev => prev.map(t => (t.id === id ? { ...t, ...data } : t)));
-    }, []);
-
-    const emailsValue = useMemo<EmailsContextValue>(() => ({ emailTemplates, updateEmailTemplate }), [emailTemplates, updateEmailTemplate]);
-
-    // -----------------------------------------------------------------------
-    // Surveys
-    // -----------------------------------------------------------------------
-    const persistSurveys = useCallback((next: Survey[]) => {
-        // Best-effort: write back through /api/settings under surveys key
-        fetch('/api/settings', {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ surveys: next }),
-        }).catch(err => console.error('Failed to persist surveys', err));
-    }, []);
-
-    const addSurvey = useCallback(async (survey: Survey) => {
-        const next = [survey, ...surveys];
-        setSurveys(next);
-        persistSurveys(next);
-    }, [surveys, persistSurveys]);
-
-    const updateSurvey = useCallback(async (id: string, data: Partial<Survey>) => {
-        const next = surveys.map(s => (s.id === id ? { ...s, ...data } : s));
-        setSurveys(next);
-        persistSurveys(next);
-    }, [surveys, persistSurveys]);
-
-    const deleteSurvey = useCallback(async (id: string) => {
-        const next = surveys.filter(s => s.id !== id);
-        setSurveys(next);
-        persistSurveys(next);
-    }, [surveys, persistSurveys]);
-
-    const addSurveyResponse = useCallback((response: SurveyResponse) => {
-        setSurveyResponses(prev => [response, ...prev]);
-    }, []);
-
-    const surveysValue = useMemo<SurveysContextValue>(() => ({
-        surveys, surveyResponses, addSurvey, updateSurvey, deleteSurvey, addSurveyResponse,
-    }), [surveys, surveyResponses, addSurvey, updateSurvey, deleteSurvey, addSurveyResponse]);
 
     // -----------------------------------------------------------------------
     // Promo codes
@@ -615,45 +507,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }), [promoCodes, addPromoCode, updatePromoCode, deletePromoCode, validatePromoCode]);
 
     // -----------------------------------------------------------------------
-    // Waitlist
-    // -----------------------------------------------------------------------
-    const persistWaitlist = useCallback((next: WaitlistEntry[]) => {
-        fetch('/api/settings', {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ waitlist: next }),
-        }).catch(err => console.error('Failed to persist waitlist', err));
-    }, []);
-
-    const addToWaitlist = useCallback((entry: WaitlistEntry) => {
-        setWaitlist(prev => {
-            const next = [entry, ...prev];
-            persistWaitlist(next);
-            return next;
-        });
-    }, [persistWaitlist]);
-
-    const removeFromWaitlist = useCallback((id: string) => {
-        setWaitlist(prev => {
-            const next = prev.filter(w => w.id !== id);
-            persistWaitlist(next);
-            return next;
-        });
-    }, [persistWaitlist]);
-
-    const notifyWaitlist = useCallback((eventId: string) => {
-        setWaitlist(prev => {
-            const next = prev.map(w => (w.eventId === eventId ? { ...w, notified: true } : w));
-            persistWaitlist(next);
-            return next;
-        });
-    }, [persistWaitlist]);
-
-    const waitlistValue = useMemo<WaitlistContextValue>(() => ({
-        waitlist, addToWaitlist, removeFromWaitlist, notifyWaitlist,
-    }), [waitlist, addToWaitlist, removeFromWaitlist, notifyWaitlist]);
-
-    // -----------------------------------------------------------------------
     // Reviews
     // -----------------------------------------------------------------------
     const addReview = useCallback(async (review: Review) => {
@@ -674,51 +527,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     const reviewsValue = useMemo<ReviewsContextValue>(() => ({ reviews, addReview }), [reviews, addReview]);
 
-    // -----------------------------------------------------------------------
-    // Auth (mock)
-    // -----------------------------------------------------------------------
-    const loginAdmin = useCallback((password: string): boolean => {
-        if (password === 'admin123') {
-            setIsAdminLoggedIn(true);
-            if (typeof localStorage !== 'undefined') localStorage.setItem('adminLoggedIn', 'true');
-            return true;
-        }
-        return false;
-    }, []);
-
-    const logoutAdmin = useCallback(() => {
-        setIsAdminLoggedIn(false);
-        if (typeof localStorage !== 'undefined') localStorage.removeItem('adminLoggedIn');
-    }, []);
-
-    const authValue = useMemo<AuthContextValue>(() => ({
-        isAdminLoggedIn, isLoading, loginAdmin, logoutAdmin,
-    }), [isAdminLoggedIn, isLoading, loginAdmin, logoutAdmin]);
-
     return (
-        <AuthContext.Provider value={authValue}>
-            <EventsContext.Provider value={eventsValue}>
+        <EventsContext.Provider value={eventsValue}>
                 <TicketsContext.Provider value={ticketsValue}>
                     <TeamContext.Provider value={teamValue}>
                         <SiteContext.Provider value={siteValue}>
                             <FestivalsContext.Provider value={festivalsValue}>
-                                <EmailsContext.Provider value={emailsValue}>
-                                    <SurveysContext.Provider value={surveysValue}>
-                                        <PromoContext.Provider value={promoValue}>
-                                            <WaitlistContext.Provider value={waitlistValue}>
+                                <PromoContext.Provider value={promoValue}>
                                                 <ReviewsContext.Provider value={reviewsValue}>
                                                     {children}
                                                 </ReviewsContext.Provider>
-                                            </WaitlistContext.Provider>
-                                        </PromoContext.Provider>
-                                    </SurveysContext.Provider>
-                                </EmailsContext.Provider>
+                                </PromoContext.Provider>
                             </FestivalsContext.Provider>
                         </SiteContext.Provider>
                     </TeamContext.Provider>
                 </TicketsContext.Provider>
             </EventsContext.Provider>
-        </AuthContext.Provider>
     );
 }
 
@@ -735,12 +559,7 @@ export interface AppContextType {
     teamMembers: TeamMember[];
     siteSettings: SiteSettings;
     festivals: Festival[];
-    emailTemplates: EmailTemplate[];
-    surveys: Survey[];
-    surveyResponses: SurveyResponse[];
     promoCodes: PromoCode[];
-    waitlist: WaitlistEntry[];
-    isAdminLoggedIn: boolean;
     isLoading: boolean;
     setEvents: (events: Event[]) => void;
     addEvent: (event: Event) => Promise<boolean>;
@@ -758,34 +577,20 @@ export interface AppContextType {
     addFestival: (festival: Festival) => void;
     updateFestival: (id: string, data: Partial<Festival>) => void;
     deleteFestival: (id: string) => void;
-    updateEmailTemplate: (id: string, data: Partial<EmailTemplate>) => void;
-    addSurvey: (survey: Survey) => Promise<void>;
-    updateSurvey: (id: string, data: Partial<Survey>) => Promise<void>;
-    deleteSurvey: (id: string) => Promise<void>;
-    addSurveyResponse: (response: SurveyResponse) => void;
     addPromoCode: (code: PromoCode) => Promise<void>;
     updatePromoCode: (id: string, data: Partial<PromoCode>) => Promise<void>;
     deletePromoCode: (id: string) => Promise<void>;
     validatePromoCode: (code: string, eventId: string) => PromoCode | null;
-    addToWaitlist: (entry: WaitlistEntry) => void;
-    removeFromWaitlist: (id: string) => void;
-    notifyWaitlist: (eventId: string) => void;
-    loginAdmin: (password: string) => boolean;
-    logoutAdmin: () => void;
     showToast?: (message: string, type: 'success' | 'error') => void;
 }
 
 export function useApp(): AppContextType {
-    const auth = useAuthContext();
     const ev = useEventsContext();
     const tk = useTicketsContext();
     const tm = useTeamContext();
     const st = useSiteContext();
     const fv = useFestivalsContext();
-    const em = useEmailsContext();
-    const sv = useSurveysContext();
     const pr = usePromoContext();
-    const wl = useWaitlistContext();
     const rv = useReviewsContext();
 
     return {
@@ -795,13 +600,8 @@ export function useApp(): AppContextType {
         teamMembers: tm.teamMembers,
         siteSettings: st.siteSettings,
         festivals: fv.festivals,
-        emailTemplates: em.emailTemplates,
-        surveys: sv.surveys,
-        surveyResponses: sv.surveyResponses,
         promoCodes: pr.promoCodes,
-        waitlist: wl.waitlist,
-        isAdminLoggedIn: auth.isAdminLoggedIn,
-        isLoading: auth.isLoading,
+        isLoading: ev.isLoading,
         setEvents: ev.setEvents,
         addEvent: ev.addEvent,
         updateEvent: (id, data) => { void ev.updateEvent(id, data); },
@@ -818,20 +618,10 @@ export function useApp(): AppContextType {
         addFestival: fv.addFestival,
         updateFestival: fv.updateFestival,
         deleteFestival: fv.deleteFestival,
-        updateEmailTemplate: em.updateEmailTemplate,
-        addSurvey: sv.addSurvey,
-        updateSurvey: sv.updateSurvey,
-        deleteSurvey: sv.deleteSurvey,
-        addSurveyResponse: sv.addSurveyResponse,
         addPromoCode: pr.addPromoCode,
         updatePromoCode: pr.updatePromoCode,
         deletePromoCode: pr.deletePromoCode,
         validatePromoCode: pr.validatePromoCode,
-        addToWaitlist: wl.addToWaitlist,
-        removeFromWaitlist: wl.removeFromWaitlist,
-        notifyWaitlist: wl.notifyWaitlist,
-        loginAdmin: auth.loginAdmin,
-        logoutAdmin: auth.logoutAdmin,
         showToast: (msg, type) => console.log(`[Toast ${type}]: ${msg}`),
     };
 }

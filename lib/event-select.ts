@@ -41,7 +41,6 @@ export const EVENT_SELECT = {
   registrationFields: true,
   organizerVideoLink: true,
   videoLink: true,
-  gallery: true,
 } satisfies Prisma.EventSelect;
 
 export const EVENT_WITH_PRICING_SELECT = {

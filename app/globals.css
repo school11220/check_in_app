@@ -56,8 +56,19 @@ button:disabled { cursor: not-allowed; }
   -webkit-backdrop-filter: none !important;
 }
 .glass-card { background: var(--paper) !important; color: var(--ink); }
-.glass-card .text-white, .glass-card [class*="text-zinc-"], .glass-card [class*="text-[#B3B3B3]"] { color: var(--ink) !important; }
 .glass-light { background: #313934 !important; }
+
+/* Light surfaces must not inherit the legacy dashboard's pale text colors.
+   Keep this scoped so dark controls and image overlays can still use white. */
+.light-surface { color: var(--ink); }
+.light-surface :is(
+  [class~="text-[#B3B3B3]"],
+  [class~="text-[#737373]"],
+  [class~="text-zinc-300"],
+  [class~="text-zinc-400"],
+  [class~="text-zinc-500"],
+  [class~="text-zinc-600"]
+) { color: #36403b !important; }
 
 /* Registration is a customer-facing purchase flow: keep it light, calm, and legible. */
 .ticket-form-shell > .glass {
@@ -73,7 +84,7 @@ button:disabled { cursor: not-allowed; }
 .ticket-form-header .text-white, .ticket-form-header [class*="text-red-"] { color: var(--ink) !important; }
 .ticket-form-header > .absolute { display: none; }
 .ticket-form-body { background: var(--paper) !important; }
-.ticket-form-body .text-white, .ticket-form-body [class*="text-[#B3B3B3]"], .ticket-form-body [class*="text-[#737373]"] { color: var(--ink) !important; }
+.ticket-form-body [class*="text-[#B3B3B3]"], .ticket-form-body [class*="text-[#737373]"] { color: var(--ink) !important; }
 .ticket-form-section {
   background: var(--sage) !important;
   border: 2px solid var(--ink) !important;
@@ -108,13 +119,12 @@ button:disabled { cursor: not-allowed; }
 .ambient-glow-red, .ambient-glow-red-center, .bg-radial-dark { background: transparent !important; }
 
 /* Convert common legacy surfaces to the new palette. */
-[class*="bg-[#0B0B0B]"], [class*="bg-[#000000]"], [class*="bg-zinc-950"] { background-color: var(--charcoal) !important; }
-[class*="bg-[#141414]"], [class*="bg-[#111111]"], [class*="bg-[#111]"], [class*="bg-[#1A1A1A]"], [class*="bg-zinc-900"], [class*="bg-zinc-800"] { background-color: var(--panel) !important; }
-[class*="bg-[#0D0D0D]"], [class*="bg-zinc-700"] { background-color: #313934 !important; }
-[class*="text-[#E11D2E]"], [class*="text-red-"] { color: var(--yellow) !important; }
-[class*="bg-red-6"], [class*="bg-red-5"], [class*="bg-[#E11D2E]"], [class*="from-[#E11D2E]"], [class*="to-[#B91C1C]"] { background: var(--yellow) !important; color: var(--ink) !important; }
-[class*="border-[#1F1F1F]"], [class*="border-zinc-8"], [class*="border-zinc-7"] { border-color: var(--ink) !important; }
-[class*="text-[#B3B3B3]"], [class*="text-[#737373]"], [class*="text-zinc-4"], [class*="text-zinc-5"] { color: var(--muted) !important; }
+:is([class~="bg-[#0B0B0B]"], [class~="bg-[#000000]"], [class~="bg-zinc-950"]) { background-color: var(--charcoal) !important; }
+:is([class~="bg-[#141414]"], [class~="bg-[#111111]"], [class~="bg-[#111]"], [class~="bg-[#1A1A1A]"], [class~="bg-zinc-900"], [class~="bg-zinc-800"]) { background-color: var(--panel) !important; }
+:is([class~="bg-[#0D0D0D]"], [class~="bg-zinc-700"]) { background-color: #313934 !important; }
+:is([class~="bg-red-600"], [class~="bg-red-500"], [class~="bg-[#E11D2E]"], [class~="from-[#E11D2E]"], [class~="to-[#B91C1C]"]) { background: var(--yellow) !important; color: var(--ink) !important; }
+:is([class~="border-[#1F1F1F]"], [class~="border-zinc-800"], [class~="border-zinc-700"]) { border-color: var(--ink) !important; }
+:is([class~="text-[#B3B3B3]"], [class~="text-[#737373]"], [class~="text-zinc-400"], [class~="text-zinc-500"]) { color: var(--muted) !important; }
 
 /* Keep registration section overrides after the legacy palette compatibility rules. */
 .ticket-form-section {
@@ -123,7 +133,6 @@ button:disabled { cursor: not-allowed; }
   color: var(--ink) !important;
   box-shadow: 3px 3px 0 var(--ink) !important;
 }
-.ticket-form-section .text-white,
 .ticket-form-section [class*="text-[#B3B3B3]"],
 .ticket-form-section [class*="text-[#737373]"] { color: var(--ink) !important; }
 
@@ -143,18 +152,23 @@ button:disabled { cursor: not-allowed; }
 .error-back { background: var(--sage); color: var(--ink); border: 2px solid var(--ink); border-radius: 10px; box-shadow: 4px 4px 0 var(--ink); transition: transform .16s ease, box-shadow .16s ease; }
 .error-back:hover { transform: translate(4px, 4px); box-shadow: 0 0 0 var(--ink); }
 
-/* Buttons and interactive controls share the physical push interaction. */
-button, .btn-primary, .btn-ghost {
+/* Button-like elements share the same physical interaction whether they are
+   rendered as a native button, an anchor, or a Next.js Link. */
+button, .interactive-control, .btn-primary, .btn-ghost {
   border: 2px solid var(--ink) !important;
   border-radius: 10px !important;
   box-shadow: 4px 4px 0 var(--ink) !important;
   transition: transform .16s ease, box-shadow .16s ease, background-color .16s ease, color .16s ease;
 }
-button:hover:not(:disabled), .btn-primary:hover, .btn-ghost:hover {
+button:hover:not(:disabled), .interactive-control:hover, .btn-primary:hover, .btn-ghost:hover {
   transform: translate(4px, 4px);
   box-shadow: 0 0 0 var(--ink) !important;
 }
-button:active:not(:disabled), .btn-primary:active, .btn-ghost:active { transform: translate(4px, 4px); }
+button:active:not(:disabled), .interactive-control:active, .btn-primary:active, .btn-ghost:active { transform: translate(4px, 4px); }
+:is(button, .interactive-control, .btn-primary, .btn-ghost):focus-visible {
+  outline: 3px solid var(--yellow);
+  outline-offset: 3px;
+}
 .btn-primary { background: var(--yellow) !important; color: var(--ink) !important; }
 .btn-ghost { background: var(--paper) !important; color: var(--ink) !important; }
 
@@ -196,6 +210,10 @@ input:focus, textarea:focus, select:focus, .input-premium:focus {
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+  button:hover:not(:disabled), .interactive-control:hover,
+  button:active:not(:disabled), .interactive-control:active {
+    transform: none;
+  }
 }
 
 @media (max-width: 639px) {

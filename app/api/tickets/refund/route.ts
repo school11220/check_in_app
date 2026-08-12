@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { EVENT_SELECT } from '@/lib/event-select';
 import { sendEmail, isEmailConfigured } from '@/lib/email';
-import { fireWebhook } from '@/lib/webhooks';
 import { getSession, hasEventAccess, hasRole, ORGANIZER_ROLES } from '@/lib/auth';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { isPaidLikeStatus, PAID_LIKE_STATUSES } from '@/lib/ticket-lifecycle';
@@ -190,14 +189,6 @@ ${razorpayRefund ? `<p style="margin:8px 0 0;color:#888;">Refund ID: ${razorpayR
         console.error('Refund email failed:', e);
       }
     }
-
-    // Fire webhook (non-blocking)
-    fireWebhook('ticket.refunded', {
-      ticketId, attendeeName: ticket.name, attendeeEmail: ticket.email,
-      eventId: ticket.eventId, eventName: ticket.Event.name,
-      refundAmount: actualRefund, refundType, razorpayRefundId: razorpayRefund?.id,
-      refundedBy: session.user.id,
-    }).catch(() => {});
 
     return NextResponse.json({
       success: true,

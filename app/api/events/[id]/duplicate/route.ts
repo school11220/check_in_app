@@ -50,12 +50,6 @@ export const POST = respond(
             registrationFields: (source.registrationFields ?? Prisma.JsonNull) as Prisma.InputJsonValue,
             organizerVideoLink: source.organizerVideoLink,
             videoLink: source.videoLink,
-            gallery: (source.gallery ?? Prisma.JsonNull) as Prisma.InputJsonValue,
-            brandPrimaryColor: source.brandPrimaryColor,
-            brandAccentColor: source.brandAccentColor,
-            brandLogoUrl: source.brandLogoUrl,
-            brandBannerUrl: source.brandBannerUrl,
-            customDomain: source.customDomain,
         };
 
         const copy = await prisma.event.create({ data });

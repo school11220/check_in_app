@@ -294,7 +294,7 @@ export default function TicketActions({
                             <button
                                 onClick={handleCancel}
                                 disabled={loading}
-                                className="flex-1 py-3 bg-yellow-600 text-white rounded-xl hover:bg-yellow-700 disabled:opacity-50"
+                                className="flex-1 py-3 bg-yellow-500 text-black rounded-xl hover:bg-yellow-400 disabled:opacity-50"
                             >
                                 {loading ? 'Cancelling...' : 'Cancel Ticket'}
                             </button>

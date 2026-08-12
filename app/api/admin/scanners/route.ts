@@ -1,21 +1,67 @@
 import { NextRequest, NextResponse } from 'next/server';
+import type { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { auth, clerkClient } from '@clerk/nextjs/server';
 import crypto from 'crypto';
 import { getCurrentClerkRole } from '@/lib/clerk-roles';
 
-async function getUserRole(userId: string): Promise<string> {
+interface ScannerDevice {
+  id: string;
+  name: string;
+  deviceId: string;
+  deviceSecret: string;
+  assignedUserId: string | null;
+  assignedUserName: string | null;
+  eventIds: string[];
+  lastActive: string | null;
+  isEnabled: boolean;
+  registeredBy: string;
+  createdAt: string;
+}
+
+function asSettings(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
+}
+
+async function readScannerDevices(): Promise<ScannerDevice[]> {
+  const config = await prisma.siteConfig.findUnique({
+    where: { id: 'default' },
+    select: { settings: true },
+  });
+  const devices = asSettings(config?.settings).scannerDevices;
+  return Array.isArray(devices) ? devices as unknown as ScannerDevice[] : [];
+}
+
+async function writeScannerDevices(devices: ScannerDevice[]) {
+  const config = await prisma.siteConfig.findUnique({
+    where: { id: 'default' },
+    select: { settings: true },
+  });
+  const settings = {
+    ...asSettings(config?.settings),
+    scannerDevices: devices,
+  } as unknown as Prisma.InputJsonObject;
+
+  await prisma.siteConfig.upsert({
+    where: { id: 'default' },
+    create: { id: 'default', settings, updatedAt: new Date() },
+    update: { settings, updatedAt: new Date() },
+  });
+}
+
+async function getUserRole(): Promise<string> {
   return (await getCurrentClerkRole()).role;
 }
 
-// GET: List all registered scanner devices
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
     const { userId } = await auth();
     if (!userId) return NextResponse.json({ error: 'Auth required' }, { status: 401 });
     const client = await clerkClient();
     const user = await client.users.getUser(userId);
-    const role = (await getCurrentClerkRole()).role;
+    const role = await getUserRole();
     const assignedEventIds = Array.isArray(user.publicMetadata?.assignedEventIds)
       ? user.publicMetadata.assignedEventIds as string[]
       : [];
@@ -23,29 +69,10 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
     }
 
-    const scanners = await prisma.integration.findMany({
-      where: { type: 'scanner_device' },
-      orderBy: { createdAt: 'desc' },
-    });
-
-    const devices = scanners.map((s: any) => {
-      const config = s.config as any;
-      return {
-        id: s.id,
-        name: s.name,
-        deviceId: config?.deviceId,
-        assignedUserId: config?.assignedUserId,
-        assignedUserName: config?.assignedUserName,
-        eventIds: config?.eventIds || [],
-        lastActive: config?.lastActive,
-        isEnabled: s.isEnabled,
-        createdAt: s.createdAt,
-      };
-    }).filter((device) => {
-      if (role === 'ADMIN') return true;
-      const eventIds = Array.isArray(device.eventIds) ? device.eventIds : [];
-      return eventIds.length === 0 || assignedEventIds.some((eventId: string) => eventIds.includes(eventId));
-    });
+    const devices = (await readScannerDevices())
+      .filter(device => role === 'ADMIN' || device.eventIds.length === 0 || assignedEventIds.some(id => device.eventIds.includes(id)))
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .map(({ deviceSecret: _deviceSecret, registeredBy: _registeredBy, ...device }) => device);
 
     return NextResponse.json(devices);
   } catch (error) {
@@ -54,49 +81,35 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// POST: Register a new scanner device
 export async function POST(req: NextRequest) {
   try {
     const { userId } = await auth();
     if (!userId) return NextResponse.json({ error: 'Auth required' }, { status: 401 });
-    const role = await getUserRole(userId);
-    if (role !== 'ADMIN') return NextResponse.json({ error: 'Admin only' }, { status: 403 });
+    if (await getUserRole() !== 'ADMIN') return NextResponse.json({ error: 'Admin only' }, { status: 403 });
 
-    const body = await req.json();
-    const { name, assignedUserId, assignedUserName, eventIds } = body;
+    const { name, assignedUserId, assignedUserName, eventIds } = await req.json();
+    if (!name) return NextResponse.json({ error: 'Device name is required' }, { status: 400 });
 
-    if (!name) {
-      return NextResponse.json({ error: 'Device name is required' }, { status: 400 });
-    }
-
-    const deviceId = `scanner-${crypto.randomBytes(8).toString('hex')}`;
-    const deviceSecret = crypto.randomBytes(32).toString('hex');
-
-    const scanner = await prisma.integration.create({
-      data: {
-        id: `device-${crypto.randomUUID()}`,
-        provider: `scanner-${Date.now()}`,
-        name,
-        type: 'scanner_device',
-        isEnabled: true,
-        config: {
-          deviceId,
-          deviceSecret,
-          assignedUserId: assignedUserId || null,
-          assignedUserName: assignedUserName || null,
-          eventIds: eventIds || [],
-          lastActive: null,
-          registeredBy: userId,
-        },
-        updatedAt: new Date(),
-      },
-    });
+    const scanner: ScannerDevice = {
+      id: `device-${crypto.randomUUID()}`,
+      name,
+      deviceId: `scanner-${crypto.randomBytes(8).toString('hex')}`,
+      deviceSecret: crypto.randomBytes(32).toString('hex'),
+      assignedUserId: assignedUserId || null,
+      assignedUserName: assignedUserName || null,
+      eventIds: Array.isArray(eventIds) ? eventIds : [],
+      lastActive: null,
+      isEnabled: true,
+      registeredBy: userId,
+      createdAt: new Date().toISOString(),
+    };
+    await writeScannerDevices([scanner, ...await readScannerDevices()]);
 
     return NextResponse.json({
       id: scanner.id,
-      name,
-      deviceId,
-      deviceSecret, // Show only on creation
+      name: scanner.name,
+      deviceId: scanner.deviceId,
+      deviceSecret: scanner.deviceSecret,
       message: 'Scanner registered. Save the device secret - it won\'t be shown again.',
     }, { status: 201 });
   } catch (error) {
@@ -105,14 +118,13 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// PATCH: Update scanner device (enable/disable, reassign, update events)
 export async function PATCH(req: NextRequest) {
   try {
     const { userId } = await auth();
     if (!userId) return NextResponse.json({ error: 'Auth required' }, { status: 401 });
     const client = await clerkClient();
     const user = await client.users.getUser(userId);
-    const role = (await getCurrentClerkRole()).role;
+    const role = await getUserRole();
     const assignedEventIds = Array.isArray(user.publicMetadata?.assignedEventIds)
       ? user.publicMetadata.assignedEventIds as string[]
       : [];
@@ -120,63 +132,48 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
     }
 
-    const body = await req.json();
-    const { id, name, assignedUserId, assignedUserName, eventIds, isEnabled } = body;
-
+    const { id, name, assignedUserId, assignedUserName, eventIds, isEnabled } = await req.json();
     if (!id) return NextResponse.json({ error: 'Device ID required' }, { status: 400 });
+    const devices = await readScannerDevices();
+    const index = devices.findIndex(device => device.id === id);
+    if (index < 0) return NextResponse.json({ error: 'Scanner not found' }, { status: 404 });
 
-    const existing = await prisma.integration.findUnique({ where: { id } });
-    if (!existing || existing.type !== 'scanner_device') {
-      return NextResponse.json({ error: 'Scanner not found' }, { status: 404 });
+    const existing = devices[index];
+    if (role !== 'ADMIN' && eventIds !== undefined && (
+      !Array.isArray(eventIds) || eventIds.some((eventId: string) => !assignedEventIds.includes(eventId))
+    )) {
+      return NextResponse.json({ error: 'Organizers can only assign scanners to their own events' }, { status: 403 });
     }
 
-    const config = { ...(existing.config as any) };
-    if (role === 'ADMIN') {
-      if (assignedUserId !== undefined) config.assignedUserId = assignedUserId;
-      if (assignedUserName !== undefined) config.assignedUserName = assignedUserName;
-      if (eventIds !== undefined) config.eventIds = eventIds;
-    } else if (eventIds !== undefined) {
-      if (!Array.isArray(eventIds) || eventIds.some((eventId: string) => !assignedEventIds.includes(eventId))) {
-        return NextResponse.json({ error: 'Organizers can only assign scanners to their own events' }, { status: 403 });
-      }
-      config.eventIds = eventIds;
-    }
+    const updated: ScannerDevice = {
+      ...existing,
+      name: role === 'ADMIN' && name ? name : existing.name,
+      assignedUserId: role === 'ADMIN' && assignedUserId !== undefined ? assignedUserId : existing.assignedUserId,
+      assignedUserName: role === 'ADMIN' && assignedUserName !== undefined ? assignedUserName : existing.assignedUserName,
+      eventIds: eventIds !== undefined ? eventIds : existing.eventIds,
+      isEnabled: role === 'ADMIN' && isEnabled !== undefined ? isEnabled : existing.isEnabled,
+    };
+    devices[index] = updated;
+    await writeScannerDevices(devices);
 
-    const updated = await prisma.integration.update({
-      where: { id },
-      data: {
-        name: role === 'ADMIN' ? (name || existing.name) : existing.name,
-        isEnabled: role === 'ADMIN' && isEnabled !== undefined ? isEnabled : existing.isEnabled,
-        config,
-        updatedAt: new Date(),
-      },
-    });
-
-    return NextResponse.json({
-      id: updated.id,
-      name: updated.name,
-      isEnabled: updated.isEnabled,
-      deviceId: config.deviceId,
-    });
+    return NextResponse.json({ id: updated.id, name: updated.name, isEnabled: updated.isEnabled, deviceId: updated.deviceId });
   } catch (error) {
     console.error('Update scanner error:', error);
     return NextResponse.json({ error: 'Failed to update scanner' }, { status: 500 });
   }
 }
 
-// DELETE: Revoke a scanner device
 export async function DELETE(req: NextRequest) {
   try {
     const { userId } = await auth();
     if (!userId) return NextResponse.json({ error: 'Auth required' }, { status: 401 });
-    const role = await getUserRole(userId);
-    if (role !== 'ADMIN') return NextResponse.json({ error: 'Admin only' }, { status: 403 });
+    if (await getUserRole() !== 'ADMIN') return NextResponse.json({ error: 'Admin only' }, { status: 403 });
 
-    const url = new URL(req.url);
-    const id = url.searchParams.get('id');
+    const id = new URL(req.url).searchParams.get('id');
     if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 });
-
-    await prisma.integration.delete({ where: { id } });
+    const devices = await readScannerDevices();
+    if (!devices.some(device => device.id === id)) return NextResponse.json({ error: 'Scanner not found' }, { status: 404 });
+    await writeScannerDevices(devices.filter(device => device.id !== id));
     return NextResponse.json({ success: true, message: 'Scanner device revoked' });
   } catch (error) {
     console.error('Delete scanner error:', error);

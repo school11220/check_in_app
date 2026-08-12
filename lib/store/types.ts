@@ -66,12 +66,6 @@ export interface Event {
     earlyBirdDeadline: string;
     sendReminders: boolean;
     registrationFields: any[];
-    features?: Record<string, boolean>;
-    brandPrimaryColor?: string;
-    brandAccentColor?: string;
-    brandLogoUrl?: string;
-    brandBannerUrl?: string;
-    customDomain?: string;
 }
 
 export interface Ticket {
@@ -95,7 +89,6 @@ export interface Ticket {
     updatedAt?: string;
     createdAt: string;
     token?: string;
-    purchaseGroupId?: string;
     customAnswers?: Record<string, any>;
 }
 
@@ -179,28 +172,11 @@ export interface SiteSettings {
     siteName: string;
     heroTitle: string;
     heroSubtitle: string;
-    showHero: boolean;
+    defaultEventBannerUrl: string;
     accentColor: string;
-    showEventsGrid: boolean;
-    showFeatures?: boolean;
-    showSchedule?: boolean;
-    showSponsors?: boolean;
-    showFaq?: boolean;
-    showCategories: boolean;
-    enabledCategories: string[];
-    eventsGridColumns: 2 | 3 | 4 | number;
-    eventsPerPage: number;
-    navLinks: NavLink[];
-    showAdminLink: boolean;
     footerText: string;
-    footerLinks: NavLink[];
     socialLinks: NavLink[] | { platform: string; url: string }[];
     announcement: Announcement | null;
-    showEventSchedule: boolean;
-    showEventReviews: boolean;
-    showEventShare: boolean;
-    showEventCalendar: boolean;
-    showEventCountdown: boolean;
     ticketLogoUrl: string;
     ticketBgColor: string;
     ticketTextColor: string;
@@ -214,7 +190,6 @@ export interface SiteSettings {
     ticketGradientColor: string;
     ticketShowPattern: boolean;
     ticketPatternType: 'dots' | 'lines' | 'grid' | 'none' | string;
-    ticketLayout: 'classic' | 'modern' | 'minimal' | 'compact' | string;
     ticketHeaderStyle: 'gradient' | 'solid' | 'image' | string;
     ticketHeaderImage: string;
     ticketQrPosition: 'center' | 'right' | 'bottom' | string;
@@ -222,7 +197,6 @@ export interface SiteSettings {
     ticketShowEventImage: boolean;
     ticketShowVenue: boolean;
     ticketShowDate: boolean;
-    ticketShowTime: boolean;
     ticketShowPrice: boolean;
     ticketShowStatus: boolean;
     ticketShowPerforation: boolean;
@@ -232,33 +206,20 @@ export interface SiteSettings {
     ticketFooterText: string;
     ticketWatermark: string;
     customFields: CustomField[];
-    smsReminders: boolean;
-    reminderHoursBefore: number;
-    twilioAccountSid?: string;
-    twilioAuthToken?: string;
-    twilioPhoneNumber?: string;
     globalSalesPaused: boolean;
     maintenanceMessage: string;
     scheduledMaintenance: { start: string; end: string } | null;
     logoUrl: string;
     faviconUrl: string;
-    adminEmails: string[];
     legalPages: {
         privacyPolicy: string;
         termsOfService: string;
         refundPolicy: string;
-        cookiePolicy: string;
     };
-    showCookieBanner: boolean;
     customPages: CustomPage[];
     theme: ThemeSettings;
-    waitlist?: WaitlistEntry[];
     festivals?: Festival[];
     teamMembers?: TeamMember[];
-    // Per-event branding override on the global level (the per-event model is in Prisma)
-    brandPrimaryColor?: string;
-    brandAccentColor?: string;
-    brandLogoUrl?: string;
 }
 
 export interface Festival {
@@ -273,45 +234,6 @@ export interface Festival {
     endDate?: string;
 }
 
-export interface EmailTemplate {
-    id: string;
-    name: string;
-    type: 'confirmation' | 'reminder' | 'thankyou' | 'custom' | string;
-    subject: string;
-    body: string;
-    isActive: boolean;
-}
-
-export interface SurveyQuestion {
-    id: string;
-    type: 'rating' | 'text' | 'longText' | 'multipleChoice' | 'multiple_choice' | 'yes_no';
-    question: string;
-    options?: string[];
-    required: boolean;
-}
-
-export interface Survey {
-    id: string;
-    eventId: string;
-    title?: string;       // legacy: some code uses title, some name
-    name?: string;
-    description: string;
-    questions: SurveyQuestion[];
-    isActive: boolean;
-    createdAt: string;
-}
-
-export interface SurveyResponse {
-    id: string;
-    surveyId: string;
-    eventId: string;
-    respondentEmail: string;
-    userEmail?: string;
-    userName?: string;
-    answers: { questionId: string; answer: string | number }[];
-    submittedAt: string;
-}
-
 export interface PromoCode {
     id: string;
     code: string;
@@ -322,16 +244,5 @@ export interface PromoCode {
     eventIds: string[];
     expiresAt: string;
     isActive: boolean;
-    createdAt: string;
-}
-
-export interface WaitlistEntry {
-    id: string;
-    eventId: string;
-    name: string;
-    email: string;
-    phone?: string;
-    ticketCount: number;
-    notified: boolean;
     createdAt: string;
 }

@@ -6,31 +6,12 @@ const DEFAULT_SITE_SETTINGS = {
     siteName: 'EventHub',
     heroTitle: 'Discover Events',
     heroSubtitle: 'Book tickets for concerts, conferences, exhibitions and more. Secure QR code entry.',
-    showHero: true,
+    defaultEventBannerUrl: '',
     accentColor: '#dc2626',
-    showEventsGrid: true,
-    showFeatures: false,
-    showSchedule: false,
-    showSponsors: false,
-    showFaq: false,
-    showCategories: true,
-    enabledCategories: ['all', 'music', 'tech', 'art', 'sports', 'food', 'gaming', 'business'],
-    eventsGridColumns: 3,
-    eventsPerPage: 12,
-    navLinks: [],
-    showAdminLink: true,
     footerText: `© ${new Date().getFullYear()} EventHub. All rights reserved.`,
-    footerLinks: [],
     socialLinks: [],
-    showEventSchedule: true,
-    showEventReviews: true,
-    showEventShare: true,
-    showEventCalendar: true,
-    showEventCountdown: true,
     globalSalesPaused: false,
     maintenanceMessage: 'Sales are temporarily paused. Please check back soon!',
-    smsReminders: false,
-    reminderHoursBefore: 24,
 };
 
 async function main() {
@@ -45,8 +26,6 @@ async function main() {
             data: {
                 id: 'default',
                 settings: DEFAULT_SITE_SETTINGS,
-                templates: [],
-                surveys: [],
             },
         });
         console.log('Seeded default SiteConfig.');

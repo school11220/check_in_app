@@ -5,11 +5,7 @@ import type {
     TeamMember,
     SiteSettings,
     Festival,
-    EmailTemplate,
-    Survey,
-    SurveyResponse,
     PromoCode,
-    WaitlistEntry,
     Announcement,
 } from './types';
 
@@ -18,36 +14,7 @@ export const DEFAULT_TICKETS: Ticket[] = [];
 export const DEFAULT_REVIEWS: Review[] = [];
 export const DEFAULT_TEAM_MEMBERS: TeamMember[] = [];
 export const DEFAULT_FESTIVALS: Festival[] = [];
-export const DEFAULT_EMAIL_TEMPLATES: EmailTemplate[] = [
-    {
-        id: 'template-confirmation',
-        name: 'Ticket Confirmation',
-        type: 'confirmation',
-        subject: 'Your ticket for {{eventName}} is confirmed!',
-        body: 'Hi {{name}},\n\nThank you for purchasing a ticket for {{eventName}}!\n\nEvent Details:\nDate: {{eventDate}}\nTime: {{eventTime}}\nVenue: {{eventVenue}}\n\nYour Ticket ID: {{ticketId}}\n\nPlease bring this email or show your QR code at the venue for entry.\n\nSee you there!\nThe {{siteName}} Team',
-        isActive: true,
-    },
-    {
-        id: 'template-reminder',
-        name: 'Event Reminder',
-        type: 'reminder',
-        subject: 'Reminder: {{eventName}} is coming up!',
-        body: 'Hi {{name}},\n\nJust a friendly reminder that {{eventName}} is happening soon!\n\nDate: {{eventDate}}\nTime: {{eventTime}}\nVenue: {{eventVenue}}\n\nDon\'t forget to bring your ticket or QR code.\n\nSee you there!\nThe {{siteName}} Team',
-        isActive: true,
-    },
-    {
-        id: 'template-thankyou',
-        name: 'Post-Event Thank You',
-        type: 'thankyou',
-        subject: 'Thank you for attending {{eventName}}!',
-        body: 'Hi {{name}},\n\nThank you for attending {{eventName}}! We hope you had a great time.\n\nWe\'d love to hear your feedback. Please take a moment to share your experience:\n{{surveyLink}}\n\nStay tuned for more exciting events!\n\nBest regards,\nThe {{siteName}} Team',
-        isActive: true,
-    },
-];
-export const DEFAULT_SURVEYS: Survey[] = [];
-export const DEFAULT_SURVEY_RESPONSES: SurveyResponse[] = [];
 export const DEFAULT_PROMO_CODES: PromoCode[] = [];
-export const DEFAULT_WAITLIST: WaitlistEntry[] = [];
 
 export const DEFAULT_ANNOUNCEMENT: Announcement = {
     id: 'ann-default',
@@ -61,28 +28,11 @@ export const DEFAULT_SITE_SETTINGS: SiteSettings = {
     siteName: 'EventHub',
     heroTitle: 'Discover Events',
     heroSubtitle: 'Book tickets for concerts, conferences, exhibitions and more. Secure QR code entry.',
-    showHero: true,
+    defaultEventBannerUrl: '',
     accentColor: '#dc2626',
-    showEventsGrid: true,
-    showFeatures: true,
-    showSchedule: true,
-    showSponsors: true,
-    showFaq: true,
-    showCategories: true,
-    enabledCategories: ['all', 'music', 'tech', 'art', 'sports', 'food', 'gaming', 'business'],
-    eventsGridColumns: 3,
-    eventsPerPage: 12,
-    navLinks: [],
-    showAdminLink: true,
     footerText: '© 2024 EventHub. All rights reserved.',
-    footerLinks: [],
     socialLinks: [],
     announcement: { ...DEFAULT_ANNOUNCEMENT },
-    showEventSchedule: true,
-    showEventReviews: true,
-    showEventShare: true,
-    showEventCalendar: true,
-    showEventCountdown: true,
     ticketLogoUrl: '',
     ticketBgColor: '#111111',
     ticketTextColor: '#ffffff',
@@ -96,7 +46,6 @@ export const DEFAULT_SITE_SETTINGS: SiteSettings = {
     ticketGradientColor: '#991b1b',
     ticketShowPattern: true,
     ticketPatternType: 'dots',
-    ticketLayout: 'classic',
     ticketHeaderStyle: 'gradient',
     ticketHeaderImage: '',
     ticketQrPosition: 'center',
@@ -104,7 +53,6 @@ export const DEFAULT_SITE_SETTINGS: SiteSettings = {
     ticketShowEventImage: false,
     ticketShowVenue: true,
     ticketShowDate: true,
-    ticketShowTime: true,
     ticketShowPrice: true,
     ticketShowStatus: true,
     ticketShowPerforation: true,
@@ -114,21 +62,16 @@ export const DEFAULT_SITE_SETTINGS: SiteSettings = {
     ticketFooterText: '',
     ticketWatermark: '',
     customFields: [],
-    smsReminders: false,
-    reminderHoursBefore: 24,
     globalSalesPaused: false,
     maintenanceMessage: 'Sales are temporarily paused. Please check back soon!',
     scheduledMaintenance: null,
     logoUrl: '',
     faviconUrl: '',
-    adminEmails: [],
     legalPages: {
         privacyPolicy: '',
         termsOfService: '',
         refundPolicy: '',
-        cookiePolicy: '',
     },
-    showCookieBanner: false,
     customPages: [],
     theme: {
         primaryColor: '#E11D2E',

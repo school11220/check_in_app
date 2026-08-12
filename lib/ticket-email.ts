@@ -54,11 +54,7 @@ export async function sendTicketEmail(data: TicketEmailData) {
   // Check if Email is configured
   if (!isEmailConfigured()) {
     console.warn('Email service not configured - email will not be sent');
-    return {
-      success: true,
-      message: 'Email skipped (Email service not configured)',
-      demo: true,
-    };
+    return { success: false, message: 'Email service is not configured' };
   }
 
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
@@ -78,8 +74,6 @@ export async function sendTicketEmail(data: TicketEmailData) {
 
   // Load settings from Database (Prisma)
   let settings: any = {};
-  let template: any = null;
-
   try {
     const { prisma } = await import('@/lib/prisma');
     const config = await prisma.siteConfig.findUnique({
@@ -87,16 +81,7 @@ export async function sendTicketEmail(data: TicketEmailData) {
     });
 
     if (config) {
-      settings = {
-        siteSettings: config.settings,
-        emailTemplates: config.templates
-      };
-
-      // Find confirmation template
-      if (config.templates) {
-        const templates = config.templates as any[];
-        template = templates.find((t: any) => t.type === 'confirmation' && t.isActive);
-      }
+      settings = { siteSettings: config.settings };
     }
   } catch (err) {
     console.error('Failed to load settings from DB:', err);
@@ -132,21 +117,12 @@ export async function sendTicketEmail(data: TicketEmailData) {
     '{{ticketLink}}': `<a href="${ticketUrl}" style="color: ${s.accentColor}">View Ticket</a>`,
   };
 
-  let subjectLine = subject || (template ? template.subject : `Your ticket for ${eventName} - Confirmed!`);
-  let bodyContent = template ? template.body : '';
+  let subjectLine = subject || `Your ticket for ${eventName} - Confirmed!`;
 
   // Replace variables in subject
   Object.keys(variables).forEach(key => {
     subjectLine = subjectLine.replace(new RegExp(key, 'g'), variables[key]);
   });
-
-  // Variable replacement for body
-  if (template) {
-    Object.keys(variables).forEach(key => {
-      bodyContent = bodyContent.replace(new RegExp(key, 'g'), variables[key]);
-    });
-    bodyContent = bodyContent.replace(/\n/g, '<br>');
-  }
 
   const emailHtml = `
     <!DOCTYPE html>
@@ -165,22 +141,16 @@ export async function sendTicketEmail(data: TicketEmailData) {
                 <tr>
                   <td style="background: ${s.accentColor}; background: linear-gradient(135deg, ${s.accentColor}, ${s.gradientColor}); padding: 30px; text-align: center;">
                      ${emailStyles?.logoUrl || siteSettings.ticketLogoUrl ? `<img src="${emailStyles?.logoUrl || siteSettings.ticketLogoUrl}" alt="Logo" style="height: 40px; margin-bottom: 10px; opacity: 0.9;">` : ''}
-                    <h1 style="color: #ffffff; margin: 0; font-size: 24px;">${template ? 'Ticket Confirmed' : 'Your Ticket is Confirmed!'}</h1>
+                    <h1 style="color: #ffffff; margin: 0; font-size: 24px;">Your Ticket is Confirmed!</h1>
                   </td>
                 </tr>
                 
                 <!-- Content -->
                 <tr>
                   <td style="padding: 30px; color: ${s.textColor}; font-size: 16px; line-height: 1.6;">
-                    ${template
-      ? bodyContent
-      : `
-                      <h2 style="margin-top:0;">Hi ${attendeeName},</h2>
-                      <p>Thank you for your purchase. Here is your ticket for <strong>${eventName}</strong>.</p>
-                      `
-    }
-                    
-                    ${!template ? `
+                    <h2 style="margin-top:0;">Hi ${attendeeName},</h2>
+                    <p>Thank you for your purchase. Here is your ticket for <strong>${eventName}</strong>.</p>
+
                     <div style="background-color: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; margin: 20px 0;">
                       <p style="margin:5px 0; font-size:14px; color:#888;">DATE & TIME</p>
                       <p style="margin:0 0 15px 0; font-weight:bold;">${formattedEventDate}</p>
@@ -188,7 +158,6 @@ export async function sendTicketEmail(data: TicketEmailData) {
                       <p style="margin:5px 0; font-size:14px; color:#888;">VENUE</p>
                       <p style="margin:0; font-weight:bold;">${venue || 'TBA'}</p>
                     </div>
-                    ` : ''}
 
                      <div style="text-align: center; margin: 30px 0; padding: 20px; background-color: #ffffff; border-radius: 12px; color: #000;">
                       <img src="cid:qrcode" alt="Ticket QR Code" style="width: 150px; height: 150px;">
@@ -299,7 +268,7 @@ export async function sendCertificateEmail(data: TicketEmailData & { certificate
   // Check Email Config
   if (!isEmailConfigured()) {
     console.warn('Email service not configured - certificate email skipped');
-    return { success: true, message: 'Email skipped (Service not configured)', demo: true, messageId: undefined };
+    return { success: false, message: 'Email service is not configured', messageId: undefined };
   }
 
   // Generate Certificate PDF

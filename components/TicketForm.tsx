@@ -512,7 +512,7 @@ export default function TicketForm() {
                         </p>
                       </div>
                     </div>
-                    <span className="px-3 py-1.5 bg-[#22C55E] text-white rounded-lg text-xs font-bold">
+                    <span className="px-3 py-1.5 bg-[#22C55E] text-black border border-black rounded-lg text-xs font-bold">
                       Save {Math.round(((selectedEventData.price - (selectedEventData.earlyBirdPrice || 0)) / selectedEventData.price) * 100)}%
                     </span>
                   </div>
@@ -520,7 +520,7 @@ export default function TicketForm() {
 
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1">
-                    <h3 className="font-heading font-semibold text-white text-lg">{selectedEventData.name}</h3>
+                    <h3 className="font-heading font-semibold text-black text-lg">{selectedEventData.name}</h3>
                     {selectedEventData.description && (
                       <p className="text-sm text-[#B3B3B3] mt-2 line-clamp-2">{selectedEventData.description}</p>
                     )}
@@ -555,7 +555,7 @@ export default function TicketForm() {
                         <p className="font-mono text-sm text-[#737373] line-through">₹{(selectedEventData.price / 100).toFixed(0)}</p>
                       </>
                     ) : (
-                      <p className="font-mono text-2xl font-bold text-white">₹{(getUnitPrice(selectedEventData) / 100).toFixed(0)}</p>
+                      <p className="font-mono text-2xl font-bold text-black">₹{(getUnitPrice(selectedEventData) / 100).toFixed(0)}</p>
                     )}
                   </div>
                 </div>
@@ -583,7 +583,7 @@ export default function TicketForm() {
                     >
                       −
                     </button>
-                    <span className="w-14 text-center font-mono text-3xl font-bold text-white">{quantity}</span>
+                    <span className="w-14 text-center font-mono text-3xl font-bold text-black">{quantity}</span>
                     <button
                       type="button"
                       onClick={() => handleQuantityChange(quantity + 1)}
@@ -598,7 +598,7 @@ export default function TicketForm() {
                 {/* Total Price Display */}
                 <div className="mt-5 pt-5 border-t border-[#1F1F1F] flex items-center justify-between">
                   <span className="text-[#B3B3B3] font-medium">Total Amount:</span>
-                  <span className="font-mono text-3xl font-bold text-white">₹{(calculateTotalPrice() / 100).toLocaleString()}</span>
+                  <span className="font-mono text-3xl font-bold text-black">₹{(calculateTotalPrice() / 100).toLocaleString()}</span>
                 </div>
               </div>
             )}

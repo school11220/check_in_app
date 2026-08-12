@@ -23,10 +23,10 @@
     ],
     "shortcuts": [
         {
-            "name": "Kiosk Check-in",
-            "short_name": "Kiosk",
-            "description": "Open the offline-friendly kiosk scanner",
-            "url": "/kiosk",
+            "name": "Event Check-in",
+            "short_name": "Check-in",
+            "description": "Open the event check-in workspace",
+            "url": "/checkin",
             "icons": [
                 {
                     "src": "/favicon.png",

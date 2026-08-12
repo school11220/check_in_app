@@ -339,7 +339,7 @@ export default function TicketPage() {
           </div>
           <h1 className="text-2xl font-bold text-white mb-2">Error</h1>
           <p className="text-gray-400 mb-6">{error || 'Ticket not found'}</p>
-          <Link href="/" className="inline-flex items-center gap-2 bg-red-600 text-white px-6 py-3 rounded-xl hover:bg-red-700 font-medium">
+          <Link href="/" className="interactive-control inline-flex items-center gap-2 bg-red-600 text-white px-6 py-3 rounded-xl hover:bg-red-700 font-medium">
             Back to Home
           </Link>
         </div>
@@ -412,7 +412,7 @@ export default function TicketPage() {
           {siteSettings.ticketShowEventImage && (
             <div className="relative h-32 overflow-hidden">
               <img
-                src={ticket.event?.imageUrl || siteSettings.ticketHeaderImage || 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=600&q=80'}
+                src={siteSettings.ticketHeaderImage || ticket.event?.imageUrl || 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=600&q=80'}
                 alt="Event"
                 className="w-full h-full object-cover"
               />
@@ -616,7 +616,7 @@ export default function TicketPage() {
                   href={getGoogleCalendarLink()}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-full px-4 py-3 text-left text-white hover:bg-zinc-800 rounded-b-xl flex items-center gap-3 text-sm border-t border-zinc-800"
+                  className="interactive-control w-full px-4 py-3 text-left text-white hover:bg-zinc-800 rounded-b-xl flex items-center gap-3 text-sm border-t border-zinc-800"
                 >
                   <svg className="w-5 h-5 text-red-400" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" />
@@ -629,7 +629,7 @@ export default function TicketPage() {
                   href={getOutlookCalendarLink()}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-full px-4 py-3 text-left text-white hover:bg-zinc-800 flex items-center gap-3 text-sm border-t border-zinc-800"
+                  className="interactive-control w-full px-4 py-3 text-left text-white hover:bg-zinc-800 flex items-center gap-3 text-sm border-t border-zinc-800"
                 >
                   <svg className="w-5 h-5 text-blue-500" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M7 5h10a3 3 0 013 3v8a3 3 0 01-3 3H7a3 3 0 01-3-3V8a3 3 0 013-3zm0 2a1 1 0 00-1 1v8a1 1 0 001 1h10a1 1 0 001-1V8a1 1 0 00-1-1H7z" />
@@ -640,7 +640,7 @@ export default function TicketPage() {
                   href={getYahooCalendarLink()}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-full px-4 py-3 text-left text-white hover:bg-zinc-800 rounded-b-xl flex items-center gap-3 text-sm border-t border-zinc-800"
+                  className="interactive-control w-full px-4 py-3 text-left text-white hover:bg-zinc-800 rounded-b-xl flex items-center gap-3 text-sm border-t border-zinc-800"
                 >
                   <svg className="w-5 h-5 text-purple-400" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm1 14h-2v-2h2v2zm0-4h-2V7h2v5z" />
@@ -693,7 +693,7 @@ export default function TicketPage() {
               Share Ticket
             </button>
 
-            <Link href="/" className="flex-1 py-3 border border-gray-700 text-white rounded-xl hover:bg-gray-900 font-medium text-center flex items-center justify-center gap-2">
+            <Link href="/" className="interactive-control flex-1 py-3 border border-gray-700 text-white rounded-xl hover:bg-gray-900 font-medium text-center flex items-center justify-center gap-2">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
               </svg>

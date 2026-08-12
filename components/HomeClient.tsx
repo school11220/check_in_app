@@ -64,15 +64,15 @@ export default function HomeClient({ initialSettings, initialEvents }: HomeClien
                 <div className={`absolute bottom-16 right-0 glass rounded-xl overflow-hidden shadow-2xl transition-all duration-300 ${showMenu ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}>
                     {isLoaded && isSignedIn && (
                         <>
-                            <a href="/me/tickets" className="flex items-center gap-3 px-5 py-3.5 text-zinc-300 hover:bg-white/5 hover:text-white whitespace-nowrap transition-colors">
+                            <a href="/me/tickets" className="interactive-control flex items-center gap-3 px-5 py-3.5 text-zinc-300 hover:bg-white/5 hover:text-white whitespace-nowrap transition-colors">
                                 <Ticket className="w-5 h-5" />
                                 My Tickets
                             </a>
-                            <a href="/checkin" target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 px-5 py-3.5 text-zinc-300 hover:bg-white/5 hover:text-white whitespace-nowrap border-t border-white/5 transition-colors">
+                            <a href="/checkin" target="_blank" rel="noopener noreferrer" className="interactive-control flex items-center gap-3 px-5 py-3.5 text-zinc-300 hover:bg-white/5 hover:text-white whitespace-nowrap border-t border-white/5 transition-colors">
                                 <ScanLine className="w-5 h-5" />
                                 Staff Check-In
                             </a>
-                            <a href="/admin" target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 px-5 py-3.5 text-zinc-300 hover:bg-white/5 hover:text-white whitespace-nowrap border-t border-white/5 transition-colors">
+                            <a href="/admin" target="_blank" rel="noopener noreferrer" className="interactive-control flex items-center gap-3 px-5 py-3.5 text-zinc-300 hover:bg-white/5 hover:text-white whitespace-nowrap border-t border-white/5 transition-colors">
                                 <LayoutDashboard className="w-5 h-5" />
                                 Dashboard
                             </a>
@@ -86,7 +86,7 @@ export default function HomeClient({ initialSettings, initialEvents }: HomeClien
                         </>
                     )}
                     {isLoaded && !isSignedIn && (
-                        <a href="/login" className="flex items-center gap-3 px-5 py-3.5 text-zinc-300 hover:bg-white/5 hover:text-white whitespace-nowrap transition-colors">
+                        <a href="/login" className="interactive-control flex items-center gap-3 px-5 py-3.5 text-zinc-300 hover:bg-white/5 hover:text-white whitespace-nowrap transition-colors">
                             <LogIn className="w-5 h-5" />
                             Login
                         </a>
@@ -137,11 +137,11 @@ export default function HomeClient({ initialSettings, initialEvents }: HomeClien
                         <div className="space-y-2">
                             {isLoaded && isSignedIn ? (
                                 <>
-                                    <a href="/admin" target="_blank" rel="noopener noreferrer" className="flex items-center gap-4 p-4 bg-zinc-900 rounded-xl text-white">
+                                    <a href="/admin" target="_blank" rel="noopener noreferrer" className="interactive-control flex items-center gap-4 p-4 bg-zinc-900 rounded-xl text-white">
                                         <LayoutDashboard className="w-5 h-5 text-[#E11D2E]" />
                                         <span className="font-medium">Admin Dashboard</span>
                                     </a>
-                                    <a href="/checkin" target="_blank" rel="noopener noreferrer" className="flex items-center gap-4 p-4 bg-zinc-900 rounded-xl text-white">
+                                    <a href="/checkin" target="_blank" rel="noopener noreferrer" className="interactive-control flex items-center gap-4 p-4 bg-zinc-900 rounded-xl text-white">
                                         <ScanLine className="w-5 h-5 text-[#E11D2E]" />
                                         <span className="font-medium">Staff Check-In</span>
                                     </a>
@@ -154,7 +154,7 @@ export default function HomeClient({ initialSettings, initialEvents }: HomeClien
                                     </button>
                                 </>
                             ) : isLoaded ? (
-                                <a href="/login" className="flex items-center gap-4 p-4 bg-zinc-900 rounded-xl text-white">
+                                <a href="/login" className="interactive-control flex items-center gap-4 p-4 bg-zinc-900 rounded-xl text-white">
                                     <LogIn className="w-5 h-5 text-[#E11D2E]" />
                                     <span className="font-medium">Login</span>
                                 </a>
@@ -171,7 +171,7 @@ export default function HomeClient({ initialSettings, initialEvents }: HomeClien
                         <Image src="/logo.png" alt="EventHub" width={40} height={40} className="h-10 w-10 object-contain border-2 border-black bg-black" priority />
                         <span className="font-heading text-lg font-black hidden sm:block">EventHub</span>
                     </div>
-                    <a href="/register" target="_blank" rel="noopener noreferrer" className="px-4 py-2 bg-black text-white text-sm font-bold rounded-lg border-2 border-black shadow-[4px_4px_0_#000] flex items-center gap-2">
+                    <a href="/register" target="_blank" rel="noopener noreferrer" className="interactive-control px-4 py-2 bg-black text-white text-sm font-bold rounded-lg border-2 border-black shadow-[4px_4px_0_#000] flex items-center gap-2">
                         <Ticket className="w-4 h-4" />
                         Get Tickets
                     </a>
@@ -193,7 +193,7 @@ export default function HomeClient({ initialSettings, initialEvents }: HomeClien
                         href="/register"
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-3 px-8 py-4 bg-black text-white font-bold rounded-lg border-2 border-black shadow-[8px_8px_0_#000]"
+                        className="interactive-control inline-flex items-center gap-3 px-8 py-4 bg-black text-white font-bold rounded-lg border-2 border-black shadow-[8px_8px_0_#000]"
                     >
                         <Ticket className="w-5 h-5" />
                         Register Now
@@ -217,29 +217,30 @@ export default function HomeClient({ initialSettings, initialEvents }: HomeClien
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
                             {events.map((event) => {
                                 const eventDate = new Date(event.date);
+                                const eventImage = event.imageUrl || siteSettings.defaultEventBannerUrl;
                                 const soldOut = event.soldCount >= event.capacity;
                                 const isUnavailable = soldOut || !event.isActive;
 
                                 return (
-                                    <article key={event.id} onClick={() => router.push(`/event/${event.id}`)} className="bg-white text-black border-2 border-black shadow-[4px_4px_0_#000] rounded-lg overflow-hidden cursor-pointer hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all">
+                                    <article key={event.id} onClick={() => router.push(`/event/${event.id}`)} className="light-surface bg-white text-black border-2 border-black shadow-[4px_4px_0_#000] rounded-lg overflow-hidden cursor-pointer hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all">
                                         <div className="h-36 bg-[#171e19]">
-                                            {event.imageUrl ? (
-                                                <img src={event.imageUrl} alt={event.name} className="w-full h-full object-cover" />
+                                            {eventImage ? (
+                                                <img src={eventImage} alt={event.name} className="w-full h-full object-cover" />
                                             ) : (
                                                 <div className="w-full h-full flex items-center justify-center text-[#b7c6c2] text-sm">No image</div>
                                             )}
                                         </div>
                                         <div className="p-5 space-y-2">
                                             <div className="flex items-start justify-between gap-3">
-                                                <h3 className="text-white font-semibold line-clamp-2">{event.name}</h3>
+                                                <h3 className="text-black font-bold line-clamp-2">{event.name}</h3>
                                                 {!event.isActive && (
-                                                    <span className="shrink-0 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber-300">
+                                                    <span className="shrink-0 rounded-full border-2 border-black bg-[#ffe17c] px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-black">
                                                         Paused
                                                     </span>
                                                 )}
                                             </div>
-                                            <p className="text-[#B3B3B3] text-sm">{eventDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
-                                            <p className="text-[#737373] text-sm line-clamp-1">{event.venue || 'Venue to be announced'}</p>
+                                            <p className="text-[#36403b] text-sm font-medium">{eventDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                                            <p className="text-[#4b5651] text-sm line-clamp-1">{event.venue || 'Venue to be announced'}</p>
                                             <div className="flex items-center justify-between pt-2">
                                                 <span className="bg-[#ffe17c] border-2 border-black px-2 py-1 font-black">
                                                     {event.price === 0 ? 'Free' : `₹${Math.round(event.price / 100)}`}
@@ -278,7 +279,6 @@ export default function HomeClient({ initialSettings, initialEvents }: HomeClien
                             { key: 'privacyPolicy', label: 'Privacy Policy' },
                             { key: 'termsOfService', label: 'Terms of Service' },
                             { key: 'refundPolicy', label: 'Refund Policy' },
-                            { key: 'cookiePolicy', label: 'Cookie Policy' },
                         ].map(({ key, label }) => {
                             const pageId = siteSettings.legalPages?.[key as keyof typeof siteSettings.legalPages];
                             const page = siteSettings.customPages?.find(p => p.id === pageId);
