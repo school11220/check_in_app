@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getSession } from '@/lib/auth';
+import { getSession, hasEventAccess } from '@/lib/auth';
 
 interface FunnelStage {
     stage: string;
@@ -12,8 +12,19 @@ interface FunnelStage {
 export async function GET(request: NextRequest) {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!['ADMIN', 'ORGANIZER', 'ORGANISER'].includes(session.user.role)) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
 
-    const eventIds = request.nextUrl.searchParams.getAll('eventId');
+    const requestedEventIds = request.nextUrl.searchParams.getAll('eventId');
+    const eventIds = session.user.role === 'ADMIN'
+        ? requestedEventIds
+        : requestedEventIds.length
+            ? requestedEventIds.filter(id => hasEventAccess(session, id))
+            : session.user.assignedEventIds || [];
+    if (requestedEventIds.some(id => !hasEventAccess(session, id))) {
+        return NextResponse.json({ error: 'You do not have access to one or more events' }, { status: 403 });
+    }
     const baseWhere: any = {};
     if (eventIds.length > 0) baseWhere.eventId = { in: eventIds };
 

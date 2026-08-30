@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sendTransactionalEmail, isEmailConfigured } from '@/lib/email';
+import { getSession, hasRole, ADMIN_ROLES } from '@/lib/auth';
+import { enforceRateLimit } from '@/lib/rate-limit';
+import { escapeHtml } from '@/lib/sanitize-html';
 
 export interface CertificateEmailRequestBody {
   to: string;
@@ -11,11 +14,31 @@ export interface CertificateEmailRequestBody {
 
 export async function POST(request: NextRequest) {
   try {
+    const session = await getSession();
+    if (!session) return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+
     const body: CertificateEmailRequestBody = await request.json();
     const { to, recipientName, eventName, pdfBase64, customMessage } = body;
 
     if (!to || !recipientName || !pdfBase64) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    }
+
+    if (to.length > 320 || recipientName.length > 200 || eventName.length > 300 || customMessage && customMessage.length > 5000) {
+      return NextResponse.json({ error: 'Email payload is too large' }, { status: 400 });
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) {
+      return NextResponse.json({ error: 'Invalid recipient email' }, { status: 400 });
+    }
+    if (!hasRole(session.user.role, ADMIN_ROLES)) {
+      return NextResponse.json({ error: 'Admin permission required' }, { status: 403 });
+    }
+    const rateLimited = await enforceRateLimit(request, 'certificate-email', { requests: 20, window: '1 m' }, session.user.id);
+    if (rateLimited) return rateLimited;
+
+    const pdfBytes = Buffer.from(pdfBase64, 'base64');
+    if (!pdfBytes.length || pdfBytes.length > 10 * 1024 * 1024 || pdfBytes.subarray(0, 5).toString() !== '%PDF-') {
+      return NextResponse.json({ error: 'Invalid certificate PDF' }, { status: 400 });
     }
 
     // Check if Email is configured
@@ -29,7 +52,9 @@ export async function POST(request: NextRequest) {
     const subject = `Your Certificate for ${eventName}`;
 
     // Default message if not provided
-    const messageBody = customMessage || `Thank you for your participation in <strong>${eventName}</strong>. We are proud to present you with this certificate of achievement.`;
+    const messageBody = customMessage
+      ? escapeHtml(customMessage).replace(/\n/g, '<br>')
+      : `Thank you for your participation in <strong>${escapeHtml(eventName)}</strong>. We are proud to present you with this certificate of achievement.`;
 
     // Simple HTML email for certificate
     const emailHtml = `
@@ -47,9 +72,9 @@ export async function POST(request: NextRequest) {
                   </tr>
                   <tr>
                     <td style="padding: 30px;">
-                      <p style="font-size: 16px; color: #333333; margin-bottom: 20px;">Dear <strong>${recipientName}</strong>,</p>
+                        <p style="font-size: 16px; color: #333333; margin-bottom: 20px;">Dear <strong>${escapeHtml(recipientName)}</strong>,</p>
                       <div style="font-size: 16px; color: #333333; line-height: 1.5; margin-bottom: 20px;">
-                        ${messageBody.replace(/\n/g, '<br>')}
+                        ${messageBody}
                       </div>
                       <p style="font-size: 16px; color: #333333; margin-bottom: 30px;">
                         Your certificate is attached to this email as a PDF.
@@ -84,7 +109,7 @@ export async function POST(request: NextRequest) {
 
     // Log payload size for debugging
     const payloadSize = JSON.stringify(body).length;
-    console.log(`Processing certificate email for ${to}. Payload size: ${(payloadSize / 1024).toFixed(2)} KB`);
+    console.log(`Processing certificate email. Payload size: ${(payloadSize / 1024).toFixed(2)} KB`);
 
     if (result.success) {
       return NextResponse.json({
@@ -96,19 +121,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: result.error || 'Failed to send email',
-          details: result.error
+          error: 'Failed to send email'
         },
         { status: 500 }
       );
     }
-  } catch (error: any) {
+  } catch (error) {
     console.error('Certificate email error:', error);
     return NextResponse.json(
       {
         success: false,
-        error: error.message || 'Failed to send email',
-        details: error.toString()
+        error: 'Failed to send email'
       },
       { status: 500 }
     );

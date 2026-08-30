@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession, hasRole, ADMIN_ROLES } from '@/lib/auth';
 import { logAudit } from '@/lib/logger';
+import { sanitizeRichText, safeExternalUrl } from '@/lib/sanitize-html';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,6 +30,28 @@ export async function POST(request: Request) {
 
         const body = await request.json();
         const { siteSettings } = body;
+        if (!siteSettings || typeof siteSettings !== 'object' || Array.isArray(siteSettings)) {
+            return NextResponse.json({ success: false, error: 'Invalid site settings' }, { status: 400 });
+        }
+
+        const input = siteSettings as Record<string, any>;
+        const sanitizedSettings = {
+            ...input,
+            announcement: input.announcement
+                ? {
+                    ...input.announcement,
+                    message: sanitizeRichText(input.announcement.message),
+                    linkUrl: safeExternalUrl(input.announcement.linkUrl) || '',
+                }
+                : input.announcement,
+            customPages: Array.isArray(input.customPages)
+                ? input.customPages.map((page: Record<string, any>) => ({
+                    ...page,
+                    content: sanitizeRichText(page.content),
+                    slug: typeof page.slug === 'string' ? page.slug.trim().toLowerCase().replace(/[^a-z0-9-]/g, '-').slice(0, 80) : '',
+                }))
+                : [],
+        };
 
         // Need to fetch existing config first to merge if only partial data sent,
         // although currently the frontend sends everything.
@@ -38,11 +61,11 @@ export async function POST(request: Request) {
             where: { id: 'default' },
             create: {
                 id: 'default',
-                settings: siteSettings || {},
+                settings: sanitizedSettings,
                 updatedAt: new Date()
             },
             update: {
-                settings: siteSettings || undefined
+                settings: sanitizedSettings
             }
         });
 

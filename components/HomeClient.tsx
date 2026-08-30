@@ -7,6 +7,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { SiteSettings } from '@/lib/store';
+import { sanitizeRichText, safeExternalUrl } from '@/lib/sanitize-html';
 
 interface HomeClientProps {
     initialSettings: SiteSettings;
@@ -51,9 +52,9 @@ export default function HomeClient({ initialSettings, initialEvents }: HomeClien
                     className="w-full py-2.5 px-4 text-center text-sm font-bold border-b-2 border-black"
                     style={{ backgroundColor: siteSettings.announcement.bgColor, color: siteSettings.announcement.textColor }}
                     dangerouslySetInnerHTML={{
-                        __html: siteSettings.announcement.message +
-                            (siteSettings.announcement.linkText && siteSettings.announcement.linkUrl
-                                ? ` <a href="${siteSettings.announcement.linkUrl}" class="ml-2 underline hover:no-underline">${siteSettings.announcement.linkText}</a>`
+                        __html: sanitizeRichText(siteSettings.announcement.message) +
+                            (siteSettings.announcement.linkText && safeExternalUrl(siteSettings.announcement.linkUrl)
+                                ? ` <a href="${safeExternalUrl(siteSettings.announcement.linkUrl)}" class="ml-2 underline hover:no-underline">${sanitizeRichText(siteSettings.announcement.linkText)}</a>`
                                 : '')
                     }}
                 />

@@ -15,7 +15,7 @@ export function generateTimedQRToken(ticketId: string, token: string): string {
   const timestamp = Date.now().toString(36);
   const nonce = crypto.randomBytes(4).toString('hex');
   const payload = `${ticketId}:${token}:${timestamp}:${nonce}`;
-  const hmac = sign(payload).slice(0, 16);
+  const hmac = sign(payload);
   return `${payload}:${hmac}`;
 }
 
@@ -35,9 +35,14 @@ export function verifyTimedQRToken(
     
     // Verify HMAC
     const payload = `${ticketId}:${token}:${timestamp}:${nonce}`;
-    const expectedHmac = sign(payload).slice(0, 16);
-    
-    if (!crypto.timingSafeEqual(Buffer.from(hmac, 'hex'), Buffer.from(expectedHmac, 'hex'))) {
+    const expectedHmac = sign(payload);
+    const suppliedHmac = Buffer.from(hmac, 'hex');
+    const expectedHmacBytes = Buffer.from(expectedHmac, 'hex');
+
+    const validHmac = suppliedHmac.length === expectedHmacBytes.length && crypto.timingSafeEqual(suppliedHmac, expectedHmacBytes);
+    const legacyHmac = Buffer.from(sign(payload).slice(0, 16), 'hex');
+    const validLegacyHmac = suppliedHmac.length === legacyHmac.length && crypto.timingSafeEqual(suppliedHmac, legacyHmac);
+    if (!validHmac && !validLegacyHmac) {
       return { valid: false, ticketId, reason: 'Tampered QR code' };
     }
 
@@ -48,7 +53,8 @@ export function verifyTimedQRToken(
 
     // Check expiration
     const ts = parseInt(timestamp, 36);
-    if (Date.now() - ts > QR_TOKEN_TTL_MS) {
+    const age = Date.now() - ts;
+    if (age < -30_000 || age > QR_TOKEN_TTL_MS) {
       return { valid: false, ticketId, reason: 'QR code expired - refresh and try again' };
     }
 

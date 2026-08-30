@@ -232,8 +232,8 @@ export async function POST(req: NextRequest) {
       message: 'Ticket delivery initiated',
       results,
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Ticket delivery error:', error);
-    return NextResponse.json({ error: error.message || 'Delivery failed' }, { status: 500 });
+    return NextResponse.json({ error: 'Delivery failed' }, { status: 500 });
   }
 }

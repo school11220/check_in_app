@@ -7,9 +7,9 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { code, eventId, quantity, userEmail } = body;
     const normalizedCode = typeof code === 'string' ? code.trim().toUpperCase() : '';
-    const ticketQuantity = Number(quantity || 1);
+    const ticketQuantity = Number(quantity ?? 1);
 
-    if (!normalizedCode || !eventId) {
+    if (!normalizedCode || typeof eventId !== 'string' || !Number.isInteger(ticketQuantity) || ticketQuantity < 1 || ticketQuantity > 50) {
       return NextResponse.json({ error: 'Code and eventId required' }, { status: 400 });
     }
 
@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
     // Check per-user limit
     if (userEmail && promo.maxUsesPerUser > 0) {
       const userUsages = await prisma.promoUsage.count({
-        where: { promoCode: promo.code, userId: userEmail },
+        where: { promoCode: promo.code, userId: userEmail.trim().toLowerCase() },
       });
       if (userUsages >= promo.maxUsesPerUser) {
         return NextResponse.json({ valid: false, error: 'You have already used this promo code the maximum number of times' });

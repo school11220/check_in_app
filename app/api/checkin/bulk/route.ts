@@ -90,10 +90,10 @@ export async function POST(request: NextRequest) {
             failed,
             results,
         });
-    } catch (error: any) {
+    } catch (error) {
         console.error('Bulk check-in error:', error);
         return NextResponse.json(
-            { error: error.message || 'Failed to process bulk check-in' },
+            { error: 'Failed to process bulk check-in' },
             { status: 500 }
         );
     }

@@ -193,10 +193,18 @@ export async function POST(request: NextRequest) {
                 }, {});
 
                 for (const [promoCode, tickets] of Object.entries(promoGroups)) {
-                    await tx.promoCodeRecord.updateMany({
-                        where: { code: promoCode },
+                    const promoRecord = await tx.promoCodeRecord.findUnique({ where: { code: promoCode } });
+                    const now = new Date();
+                    if (!promoRecord || !promoRecord.isActive || promoRecord.startsAt > now || promoRecord.expiresAt < now) {
+                        throw createRequestError('This promo code is no longer available', 409);
+                    }
+                    const promoUpdate = await tx.promoCodeRecord.updateMany({
+                        where: { code: promoCode, usedCount: { lte: promoRecord.maxUses - tickets.length } },
                         data: { usedCount: { increment: tickets.length } },
                     });
+                    if (promoUpdate.count !== 1) {
+                        throw createRequestError('This promo code usage limit was reached', 409);
+                    }
 
                     await tx.promoUsage.createMany({
                         data: tickets.map((ticket, index) => ({

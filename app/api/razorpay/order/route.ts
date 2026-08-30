@@ -196,10 +196,19 @@ export async function POST(request: NextRequest) {
                     }
 
                     if (promo) {
-                        await tx.promoCodeRecord.updateMany({
-                            where: { code: promo.code },
+                        const promoUpdate = await tx.promoCodeRecord.updateMany({
+                            where: {
+                                code: promo.code,
+                                isActive: true,
+                                startsAt: { lte: new Date() },
+                                expiresAt: { gte: new Date() },
+                                usedCount: { lte: promo.maxUses - paidNow.length },
+                            },
                             data: { usedCount: { increment: paidNow.length } },
                         });
+                        if (promoUpdate.count !== 1) {
+                            throw createRequestError('This promo code is no longer available', 409);
+                        }
 
                         await tx.promoUsage.createMany({
                             data: paidNow.map((ticket, index) => ({

@@ -127,10 +127,10 @@ export async function POST(req: NextRequest) {
       price: eventPrice,
       totalPrice: eventPrice * ticketIds.length,
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error creating ticket(s):', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to create ticket(s)' },
+      { error: 'Failed to create ticket(s)' },
       { status: 500 }
     );
   }

@@ -6,6 +6,7 @@ import {
   ticketTokenMatches,
 } from '../lib/ticket-security';
 import { generateTimedQRToken, verifyTimedQRToken } from '../lib/qr-security';
+import { sanitizeRichText, safeExternalUrl } from '../lib/sanitize-html';
 import { isValidTimeSlot, mergeTimeSlots } from '../lib/time-slots';
 import {
   allocatePaidAmount,
@@ -271,8 +272,17 @@ function testPaidLikeStatuses() {
   assert.equal(isPaidLikeStatus('PENDING'), false);
 }
 
+function testContentSanitization() {
+  const clean = sanitizeRichText('<p>Hello <strong>EventHub</strong></p><script>alert(1)</script><a href="javascript:alert(1)">bad</a>');
+  assert.match(clean, /Hello/);
+  assert.doesNotMatch(clean, /script|javascript:/i);
+  assert.equal(safeExternalUrl('https://example.com/path'), 'https://example.com/path');
+  assert.equal(safeExternalUrl('javascript:alert(1)'), null);
+}
+
 testTicketLifecycleStatus();
 testTicketFinancials();
 testTimedQRToken();
 testScanPayloadEdgeCases();
 testPaidLikeStatuses();
+testContentSanitization();

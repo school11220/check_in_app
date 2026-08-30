@@ -13,6 +13,8 @@ const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN;
 let warnLogged = false;
 
 const ratelimitCache = new Map<string, Ratelimit>();
+const fallbackNonces = new Map<string, number>();
+const redis = redisUrl && redisToken ? new Redis({ url: redisUrl, token: redisToken }) : null;
 
 function getRatelimit(config: LimitConfig) {
   if (!redisUrl || !redisToken) {
@@ -83,4 +85,20 @@ export async function enforceRateLimit(
   }
 
   return null;
+}
+
+/** Atomically consume a QR nonce when shared Redis is configured. */
+export async function consumeReplayNonce(nonce: string, ttlSeconds = 600): Promise<boolean> {
+  if (redis) {
+    const result = await redis.set(`eventhub:qr:nonce:${nonce}`, '1', { nx: true, ex: ttlSeconds });
+    return result === 'OK';
+  }
+
+  const now = Date.now();
+  for (const [value, expiresAt] of fallbackNonces) {
+    if (expiresAt <= now) fallbackNonces.delete(value);
+  }
+  if (fallbackNonces.has(nonce)) return false;
+  fallbackNonces.set(nonce, now + ttlSeconds * 1000);
+  return true;
 }

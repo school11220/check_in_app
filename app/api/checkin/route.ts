@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { generateAuditChecksum, verifyTimedQRToken } from '@/lib/qr-security';
 import { CheckInResponse } from '@/types';
-import { enforceRateLimit } from '@/lib/rate-limit';
+import { consumeReplayNonce, enforceRateLimit } from '@/lib/rate-limit';
 import { getSession, hasEventAccess } from '@/lib/auth';
 import { ticketTokenMatches } from '@/lib/ticket-security';
 import { isPaidLikeStatus, PAID_LIKE_STATUSES } from '@/lib/ticket-lifecycle';
@@ -12,10 +12,6 @@ const ALLOWED_ROLES = ['ADMIN', 'ORGANIZER', 'ORGANISER', 'SCANNER'];
 
 // Simple in-memory nonce set to prevent replay within server lifetime
 // In production use Redis or a DB table
-const usedNonces = new Set<string>();
-const NONCE_CLEANUP_INTERVAL = 10 * 60 * 1000; // cleanup every 10 min
-setInterval(() => usedNonces.clear(), NONCE_CLEANUP_INTERVAL);
-
 async function logDuplicateAttempt(params: {
   ticketId: string;
   eventId: string;
@@ -142,14 +138,13 @@ export async function POST(req: NextRequest) {
       // Replay protection: extract nonce and check
       const parts = timedToken.split(':');
       const nonce = parts[3];
-      if (nonce && usedNonces.has(nonce)) {
+      if (nonce && !(await consumeReplayNonce(nonce))) {
         await logDuplicateAttempt({ ticketId, eventId: ticket.eventId, action: 'replay_detected', userId, role, req });
         return NextResponse.json<CheckInResponse>(
           { success: false, message: 'QR code already used (replay detected)' },
           { status: 403 }
         );
       }
-      if (nonce) usedNonces.add(nonce);
       tokenValid = true;
     } else if (token) {
       // Plain token stored on the ticket (backwards compatible with generated HMAC tokens).

@@ -200,8 +200,8 @@ ${razorpayRefund ? `<p style="margin:8px 0 0;color:#888;">Refund ID: ${razorpayR
       razorpayRefund,
       message: 'Ticket refunded successfully',
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Refund error:', error);
-    return NextResponse.json({ error: error.message || 'Failed to process refund' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to process refund' }, { status: 500 });
   }
 }
