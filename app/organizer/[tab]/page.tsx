@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import OrganizerDashboard from '@/app/organizer/page';
 
-const VALID_TABS = ['overview', 'events', 'schedule', 'attendees', 'sales', 'reviews'] as const;
+const VALID_TABS = ['overview', 'events', 'schedule', 'attendees', 'segments', 'reminders', 'templates', 'sales', 'reviews'] as const;
 type OrganizerTab = typeof VALID_TABS[number];
 
 interface OrganizerTabRouteProps {

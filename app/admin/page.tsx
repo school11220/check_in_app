@@ -31,11 +31,14 @@ import { useDraggable } from '@/hooks/useDraggable';
 import MultiEventAnalytics from '@/components/admin/MultiEventAnalytics';
 import CohortFunnelAnalytics from '@/components/admin/CohortFunnelAnalytics';
 import DashboardInsights from '@/components/DashboardInsights';
+import AttendeeSegments from '@/components/admin/AttendeeSegments';
+import ReminderManager from '@/components/admin/ReminderManager';
+import EventTemplateManager from '@/components/admin/EventTemplateManager';
 
 const PAID_LIKE_STATUSES = new Set(['paid', 'partially_refunded']);
 const isPaidLikeTicket = (ticket: { status?: string }) => PAID_LIKE_STATUSES.has(ticket.status || '');
 
-type AdminTabKey = 'events' | 'attendees' | 'team' | 'festivals' | 'settings' | 'layout' | 'growth' | 'analytics' | 'history' | 'certificates' | 'sessions' | 'tickets' | 'audit' | 'sales' | 'pages' | 'theme' | 'reviews';
+type AdminTabKey = 'events' | 'attendees' | 'segments' | 'reminders' | 'templates' | 'team' | 'festivals' | 'settings' | 'layout' | 'growth' | 'analytics' | 'history' | 'certificates' | 'sessions' | 'tickets' | 'audit' | 'sales' | 'pages' | 'theme' | 'reviews';
 
 export default function AdminPage({ defaultTab }: { defaultTab?: AdminTabKey } = {}) {
     const router = useRouter();
@@ -57,6 +60,9 @@ export default function AdminPage({ defaultTab }: { defaultTab?: AdminTabKey } =
     const tabConfig = useMemo(() => ([
         { id: 'events', label: 'Events', icon: Calendar, roles: ['ADMIN', 'ORGANIZER'] },
         { id: 'attendees', label: 'Attendees', icon: Users, roles: ['ADMIN', 'ORGANIZER'] },
+        { id: 'segments', label: 'Segments', icon: Users, roles: ['ADMIN', 'ORGANIZER'] },
+        { id: 'reminders', label: 'Reminders', icon: Bell, roles: ['ADMIN', 'ORGANIZER'] },
+        { id: 'templates', label: 'Templates', icon: Copy, roles: ['ADMIN', 'ORGANIZER'] },
         { id: 'analytics', label: 'Analytics', icon: BarChart3, roles: ['ADMIN', 'ORGANIZER'] },
         { id: 'reviews', label: 'Reviews', icon: MessageSquare, roles: ['ADMIN', 'ORGANIZER'] },
         { id: 'sessions', label: 'Sessions', icon: Clock, roles: ['ADMIN', 'ORGANIZER'] },
@@ -537,6 +543,10 @@ export default function AdminPage({ defaultTab }: { defaultTab?: AdminTabKey } =
                         />
                     </div>
                 )}
+
+                {activeTab === 'segments' && <AttendeeSegments events={events} />}
+                {activeTab === 'reminders' && <ReminderManager events={events} isAdmin={role === 'ADMIN'} />}
+                {activeTab === 'templates' && <EventTemplateManager events={events} isAdmin={role === 'ADMIN'} />}
 
                 {/* Layout Tab */}
 

@@ -17,5 +17,8 @@
 | Email/SMS | ticket/certificate flows | Nodemailer, `sms.ts` | delivery logs where used |
 | Audit/security | admin/check-in | audit viewers/routes/helpers | `AuditLog`, `SecurityEvent` |
 | PWA/offline | browser install/check-in | next-pwa, manifest, offline hook | client queue |
+| Attendee segments | admin/organizer segments tabs | live filter builder and preview API | `AttendeeSegment` plus derived `Ticket` queries |
+| Reliable reminders | admin/organizer reminders tabs, protected cron | reminder processor, SMTP/SMS helpers | `ReminderSchedule`, `ReminderDelivery`, `TicketDeliveryLog` |
+| Event templates | admin/organizer templates tabs | snapshot and draft-event APIs | `EventTemplate` |
 
 No payments refund lifecycle, storage durability, or email receipt should be claimed beyond the actual route behavior.

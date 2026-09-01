@@ -14,6 +14,9 @@ import ScannerAssignmentManager from '@/components/ScannerAssignmentManager';
 import OnboardingWizard from '@/components/OnboardingWizard';
 import { useClerk } from '@clerk/nextjs';
 import { Event } from '@/lib/store';
+import AttendeeSegments from '@/components/admin/AttendeeSegments';
+import ReminderManager from '@/components/admin/ReminderManager';
+import EventTemplateManager from '@/components/admin/EventTemplateManager';
 
 
 
@@ -23,7 +26,7 @@ interface User {
     assignedEventIds: string[];
 }
 
-type TabId = 'overview' | 'events' | 'schedule' | 'attendees' | 'sales' | 'reviews';
+type TabId = 'overview' | 'events' | 'schedule' | 'attendees' | 'segments' | 'reminders' | 'templates' | 'sales' | 'reviews';
 
 export default function OrganizerDashboard({ defaultTab }: { defaultTab?: TabId } = {}) {
     const router = useRouter();
@@ -132,6 +135,9 @@ export default function OrganizerDashboard({ defaultTab }: { defaultTab?: TabId 
         { id: 'schedule' as TabId, label: 'Schedule', icon: Calendar },
         { id: 'sales' as TabId, label: 'Sales', icon: Power },
         { id: 'attendees' as TabId, label: 'Attendees', icon: Users },
+        { id: 'segments' as TabId, label: 'Segments', icon: Users },
+        { id: 'reminders' as TabId, label: 'Reminders', icon: Calendar },
+        { id: 'templates' as TabId, label: 'Templates', icon: Save },
         { id: 'reviews' as TabId, label: 'Reviews', icon: MessageSquare },
     ];
 
@@ -452,6 +458,10 @@ export default function OrganizerDashboard({ defaultTab }: { defaultTab?: TabId 
                         <EventReviews eventId={selectedEvent.id} />
                     </div>
                 )}
+
+                {activeTab === 'segments' && <AttendeeSegments events={events} />}
+                {activeTab === 'reminders' && <ReminderManager events={events} />}
+                {activeTab === 'templates' && <EventTemplateManager events={events} />}
             </main>
 
             {showEventModal && (

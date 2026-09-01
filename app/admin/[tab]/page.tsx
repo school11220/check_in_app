@@ -3,11 +3,13 @@ import AdminPage from '@/app/admin/page';
 
 type AdminTabId =
     | 'events' | 'attendees' | 'analytics' | 'reviews' | 'sessions'
+    | 'segments' | 'reminders' | 'templates'
     | 'team' | 'festivals' | 'tickets' | 'layout' | 'growth'
     | 'certificates' | 'audit' | 'history' | 'sales' | 'pages';
 
 const VALID_TABS: AdminTabId[] = [
     'events', 'attendees', 'analytics', 'reviews', 'sessions',
+    'segments', 'reminders', 'templates',
     'team', 'festivals', 'tickets',
     'layout', 'growth', 'certificates', 'audit', 'history',
     'sales', 'pages',

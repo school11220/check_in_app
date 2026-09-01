@@ -1,3 +1,5 @@
 # Background jobs and async systems
 
-No queue, worker process, cron handler, pub/sub consumer, or dead-letter flow was identified. Email, certificate, PDF, and analytics work appears request-triggered. `CRON_SECRET` is listed as recommended configuration, but a cron implementation is not established by the current route inventory. Do not describe delivery as durable asynchronous processing.
+Event reminders use the authenticated `GET /api/cron/reminders` route every 15 minutes. `CRON_SECRET` is required. Schedules and each per-ticket/channel attempt are persisted in `ReminderSchedule` and `ReminderDelivery`; a compound unique key prevents duplicate reminder records, processing uses a compare-and-set claim, abandoned claims are recovered after ten minutes, and failed deliveries retry up to three times.
+
+The cron processor currently handles at most 100 due deliveries per invocation. Email, certificate, PDF, and non-reminder delivery remain request-triggered. There is no general-purpose queue, worker process, pub/sub consumer, or dead-letter queue.

@@ -88,6 +88,8 @@ model Event {
   Session              Session[]
   Ticket               Ticket[]
   CertificateTemplate  CertificateTemplate?
+  AttendeeSegment      AttendeeSegment[]
+  ReminderSchedule     ReminderSchedule?
   OrganizerUser        User?                @relation("OrganizerEvents", fields: [organizerId], references: [id], onDelete: SetNull)
 
   @@index([category])
@@ -96,6 +98,76 @@ model Event {
   @@index([isActive, date])
   @@index([isFeatured, isActive])
   @@index([date])
+}
+
+model AttendeeSegment {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  eventId     String?
+  filters     Json     @default("{}")
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  Event       Event?   @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([eventId])
+  @@index([createdBy])
+  @@index([updatedAt])
+}
+
+model EventTemplate {
+  id            String   @id @default(uuid())
+  name          String
+  description   String?
+  sourceEventId String?
+  data          Json
+  createdBy     String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([createdBy])
+  @@index([updatedAt])
+}
+
+model ReminderSchedule {
+  id              String             @id @default(uuid())
+  eventId         String             @unique
+  enabled         Boolean            @default(false)
+  offsetsMinutes  Int[]              @default([10080, 1440, 120])
+  channels        String[]           @default(["email"])
+  createdBy       String
+  lastProcessedAt DateTime?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  Event           Event              @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  Deliveries      ReminderDelivery[]
+
+  @@index([enabled])
+  @@index([updatedAt])
+}
+
+model ReminderDelivery {
+  id            String           @id @default(uuid())
+  scheduleId    String
+  ticketId      String
+  channel       String
+  offsetMinutes Int
+  scheduledFor  DateTime
+  status        String           @default("pending")
+  attempts      Int              @default(0)
+  lastAttemptAt DateTime?
+  sentAt        DateTime?
+  error         String?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  Schedule      ReminderSchedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  Ticket        Ticket           @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@unique([scheduleId, ticketId, channel, offsetMinutes, scheduledFor])
+  @@index([status, scheduledFor])
+  @@index([ticketId])
+  @@index([scheduleId, createdAt])
 }
 
 model PricingRule {
@@ -158,36 +230,37 @@ model SiteConfig {
 }
 
 model Ticket {
-  id                String              @id
-  name              String
-  email             String?
-  phone             String?
-  eventId           String
-  status            String              @default("pending")
-  token             String?
-  razorpayOrderId   String?
-  razorpayPaymentId String?
-  amountPaid        Int                 @default(0)
-  grossAmount       Int                 @default(0)
-  discountAmount    Int                 @default(0)
-  refundedAmount    Int                 @default(0)
-  paymentMethod     String?
-  checkedIn         Boolean             @default(false)
-  checkedInAt       DateTime?
-  checkedInBy       String?
-  certificateSent   Boolean             @default(false)
-  cancelledAt       DateTime?
-  lastDeliveredAt   DateTime?
-  deliveryCount     Int                 @default(0)
-  createdAt         DateTime            @default(now())
-  updatedAt         DateTime            @updatedAt
-  customAnswers     Json                @default("{}")
-  promoCodeId       String?
-  userId            String?
-  Event             Event               @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  User              User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
-  CheckInLogs       CheckInLog[]
-  DeliveryLogs      TicketDeliveryLog[]
+  id                 String              @id
+  name               String
+  email              String?
+  phone              String?
+  eventId            String
+  status             String              @default("pending")
+  token              String?
+  razorpayOrderId    String?
+  razorpayPaymentId  String?
+  amountPaid         Int                 @default(0)
+  grossAmount        Int                 @default(0)
+  discountAmount     Int                 @default(0)
+  refundedAmount     Int                 @default(0)
+  paymentMethod      String?
+  checkedIn          Boolean             @default(false)
+  checkedInAt        DateTime?
+  checkedInBy        String?
+  certificateSent    Boolean             @default(false)
+  cancelledAt        DateTime?
+  lastDeliveredAt    DateTime?
+  deliveryCount      Int                 @default(0)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  customAnswers      Json                @default("{}")
+  promoCodeId        String?
+  userId             String?
+  Event              Event               @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  User               User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
+  CheckInLogs        CheckInLog[]
+  DeliveryLogs       TicketDeliveryLog[]
+  ReminderDeliveries ReminderDelivery[]
 
   @@index([email])
   @@index([eventId])

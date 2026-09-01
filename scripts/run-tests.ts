@@ -14,6 +14,9 @@ import {
   calculatePromoDiscount,
   calculateTicketUnitPrice,
 } from '../lib/pricing';
+import { attendeeSegmentFiltersSchema, buildAttendeeWhere } from '../lib/attendee-segments';
+import { snapshotEventTemplate, templateChildren, templateEventCreateData } from '../lib/event-templates';
+import { getEventStart, reminderOffsetLabel, reminderScheduledFor } from '../lib/reminders';
 
 process.env.TICKET_SECRET_KEY = process.env.TICKET_SECRET_KEY || 'test-ticket-secret';
 
@@ -111,10 +114,49 @@ function testPricing() {
   assert.deepEqual([0, 1, 2].map(index => allocatePaidAmount(100, 3, index)), [34, 33, 33]);
 }
 
+function testAttendeeSegments() {
+  const filters = attendeeSegmentFiltersSchema.parse({
+    statuses: ['paid'], checkedIn: false, hasEmail: true, search: 'shivam',
+  });
+  const where = buildAttendeeWhere(filters, ['event-1', 'event-2']);
+  assert.deepEqual(where.eventId, { in: ['event-1', 'event-2'] });
+  assert.deepEqual(where.status, { in: ['paid'] });
+  assert.equal(where.checkedIn, false);
+  assert.deepEqual(where.email, { not: null });
+  assert.equal(Array.isArray(where.OR), true);
+}
+
+function testEventTemplates() {
+  const snapshot = snapshotEventTemplate({ name: 'Ignored name', venue: 'Hall A', capacity: 250, soldCount: 99, isActive: true });
+  assert.equal(snapshot.venue, 'Hall A');
+  assert.equal(snapshot.capacity, 250);
+  assert.equal('name' in snapshot, false);
+  assert.equal('soldCount' in snapshot, false);
+  const event = templateEventCreateData(snapshot, { name: 'Fresh Event', date: new Date('2026-12-01T00:00:00.000Z') });
+  assert.equal(event.name, 'Fresh Event');
+  assert.equal(event.soldCount, 0);
+  assert.equal(event.isActive, false);
+  assert.equal(event.sendReminders, false);
+  assert.deepEqual(templateChildren({ _pricingRules: [{ triggerType: 'TIME_BASED' }], _sessions: [{ title: 'Opening' }] }), {
+    pricingRules: [{ triggerType: 'TIME_BASED' }], sessions: [{ title: 'Opening' }],
+  });
+}
+
+function testReminderScheduleMath() {
+  const start = getEventStart(new Date('2026-09-20T00:00:00.000Z'), '09:30', 330);
+  assert.equal(start.toISOString(), '2026-09-20T04:00:00.000Z');
+  assert.equal(reminderScheduledFor(start, 1440).toISOString(), '2026-09-19T04:00:00.000Z');
+  assert.equal(reminderOffsetLabel(1440), '1 day');
+  assert.equal(reminderOffsetLabel(120), '2 hours');
+}
+
 testScanPayloadParser();
 testTicketSecurity();
 testTimeSlots();
 testPricing();
+testAttendeeSegments();
+testEventTemplates();
+testReminderScheduleMath();
 console.log('All tests passed');
 
 // ---------------------------------------------------------------------------
