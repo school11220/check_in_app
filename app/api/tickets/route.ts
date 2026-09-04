@@ -5,6 +5,8 @@ import { getSession, hasEventAccess } from '@/lib/auth';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { getTicketFinancials, getTicketLifecycleStatus } from '@/lib/ticket-lifecycle';
 import { EVENT_SELECT } from '@/lib/event-select';
+import { paginationMeta, parseCursorPagination, parsePagination } from '@/lib/pagination';
+import { apiErrorResponse } from '@/lib/api-helpers';
 
 function serializeTicket(ticket: any) {
   const { Event, ...ticketData } = ticket;
@@ -83,6 +85,9 @@ export async function POST(req: NextRequest) {
     // Since we don't have easy access to store settings here, we rely on event.isActive for now.
     // Ideally, global settings should be in DB. 
     // For now, we'll check event.isActive if event exists.
+    if (event.publicationStatus !== 'published') {
+      return NextResponse.json({ error: 'Event is not publicly available yet' }, { status: 404 });
+    }
     if (!event.isActive) {
       return NextResponse.json(
         { error: 'Ticket sales are currently paused for this event' },
@@ -141,22 +146,38 @@ export async function GET(req: NextRequest) {
   try {
     const url = new URL(req.url);
     const eventId = url.searchParams.get('eventId');
+    const paginated = url.searchParams.has('page') || url.searchParams.has('pageSize');
+    const cursorMode = url.searchParams.has('cursor');
+    const cursorParams = parseCursorPagination(url.searchParams);
+    const { page, pageSize, skip } = parsePagination(url.searchParams);
+    const q = (url.searchParams.get('q') || '').trim();
+    const status = (url.searchParams.get('status') || '').trim();
     const session = await getSession();
 
     if (!session) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+      return apiErrorResponse('Authentication required', 401);
     }
 
     if (eventId) {
       if (!hasEventAccess(session, eventId)) {
-        return NextResponse.json({ error: 'You do not have access to this event' }, { status: 403 });
+        return apiErrorResponse('You do not have access to this event', 403);
       }
     } else if (session.user.role !== 'ADMIN') {
-      return NextResponse.json({ error: 'Event ID is required' }, { status: 400 });
+      return apiErrorResponse('Event ID is required', 400);
     }
 
-    const tickets = await prisma.ticket.findMany({
-      where: eventId ? { eventId } : {},
+    const where: any = {
+      ...(eventId ? { eventId } : {}),
+      ...(q ? { OR: [
+        { name: { contains: q, mode: 'insensitive' } },
+        { email: { contains: q, mode: 'insensitive' } },
+        { phone: { contains: q } },
+        { id: { contains: q, mode: 'insensitive' } },
+      ] } : {}),
+      ...(status === 'checked_in' ? { checkedIn: true } : status && status !== 'all' ? { status } : {}),
+    };
+    const [tickets, total] = await Promise.all([prisma.ticket.findMany({
+      where,
       include: {
         Event: { select: EVENT_SELECT },
         DeliveryLogs: {
@@ -164,15 +185,16 @@ export async function GET(req: NextRequest) {
           take: 3,
         },
       },
-      orderBy: { createdAt: 'desc' },
-    });
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      ...(cursorMode ? { take: cursorParams.pageSize + 1, ...(cursorParams.cursor ? { cursor: { id: cursorParams.cursor }, skip: 1 } : {}) } : paginated ? { skip, take: pageSize } : {}),
+    }), cursorMode ? Promise.resolve(0) : paginated ? prisma.ticket.count({ where }) : Promise.resolve(0)]);
 
-    return NextResponse.json(tickets.map(serializeTicket));
+    const cursorItems = cursorMode ? tickets.slice(0, cursorParams.pageSize) : tickets;
+    const nextCursor = cursorMode && tickets.length > cursorParams.pageSize ? tickets[cursorParams.pageSize].id : null;
+    const items = cursorItems.map(serializeTicket);
+    return NextResponse.json(cursorMode ? { items, pagination: { pageSize: cursorParams.pageSize, nextCursor } } : paginated ? { items, pagination: paginationMeta(page, pageSize, total) } : items);
   } catch (error) {
     console.error('Error fetching tickets:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch tickets' },
-      { status: 500 }
-    );
+    return apiErrorResponse('Failed to fetch tickets', 500);
   }
 }

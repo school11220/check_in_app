@@ -18,6 +18,10 @@ export async function GET(req: NextRequest) {
     const format = url.searchParams.get('format') || 'csv'; // csv | xlsx | json
     const type = url.searchParams.get('type') || 'tickets'; // tickets | analytics | checkins
 
+    if (type === 'analytics' && session.user.role !== 'ADMIN') {
+      return NextResponse.json({ error: 'Admin access required for sales exports' }, { status: 403 });
+    }
+
     if (!eventId) {
       return NextResponse.json({ error: 'Event ID is required' }, { status: 400 });
     }

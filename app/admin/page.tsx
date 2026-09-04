@@ -13,7 +13,7 @@ import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
     PieChart, Pie, Cell, AreaChart, Area,
 } from 'recharts';
-import {LogOut, Home, CheckCircle, Search, Trash2, Edit, Copy, Plus, Users, Calendar, BarChart as BarChartIcon, TrendingUp, LayoutDashboard, Shield, MessageSquare, Tent, Mail, Layout, Tag, BarChart3, History, Ticket, Settings, Award, Clock, Bell, Receipt, Power, AlertTriangle, Play, Pause, FileText, Palette, Eye, EyeOff, GripVertical, Loader2} from '@/components/icons';
+import {LogOut, Home, CheckCircle, Search, Trash2, Edit, Copy, Plus, Users, Calendar, BarChart as BarChartIcon, TrendingUp, LayoutDashboard, Shield, MessageSquare, Tent, Mail, Layout, Tag, BarChart3, History, Ticket, Settings, Award, Clock, Bell, Receipt, Power, AlertTriangle, Play, Pause, FileText, Palette, Eye, EyeOff, GripVertical, Loader2, Activity} from '@/components/icons';
 import AuditLogViewer from '@/components/admin/AuditLogViewer';
 import { ExportButton } from '@/lib/export';
 import AttendeeImportButton from '@/components/AttendeeImportButton';
@@ -34,11 +34,15 @@ import DashboardInsights from '@/components/DashboardInsights';
 import AttendeeSegments from '@/components/admin/AttendeeSegments';
 import ReminderManager from '@/components/admin/ReminderManager';
 import EventTemplateManager from '@/components/admin/EventTemplateManager';
+import CheckInPolicyManager from '@/components/CheckInPolicyManager';
+import CheckInOperationsDashboard from '@/components/CheckInOperationsDashboard';
+import EventSettingsManager from '@/components/EventSettingsManager';
+import PaymentRecoveryQueue from '@/components/admin/PaymentRecoveryQueue';
 
 const PAID_LIKE_STATUSES = new Set(['paid', 'partially_refunded']);
 const isPaidLikeTicket = (ticket: { status?: string }) => PAID_LIKE_STATUSES.has(ticket.status || '');
 
-type AdminTabKey = 'events' | 'attendees' | 'segments' | 'reminders' | 'templates' | 'team' | 'festivals' | 'settings' | 'layout' | 'growth' | 'analytics' | 'history' | 'certificates' | 'sessions' | 'tickets' | 'audit' | 'sales' | 'pages' | 'theme' | 'reviews';
+type AdminTabKey = 'events' | 'attendees' | 'segments' | 'reminders' | 'templates' | 'team' | 'festivals' | 'settings' | 'layout' | 'growth' | 'analytics' | 'history' | 'certificates' | 'sessions' | 'tickets' | 'audit' | 'sales' | 'pages' | 'theme' | 'reviews' | 'operations';
 
 export default function AdminPage({ defaultTab }: { defaultTab?: AdminTabKey } = {}) {
     const router = useRouter();
@@ -63,7 +67,7 @@ export default function AdminPage({ defaultTab }: { defaultTab?: AdminTabKey } =
         { id: 'segments', label: 'Segments', icon: Users, roles: ['ADMIN', 'ORGANIZER'] },
         { id: 'reminders', label: 'Reminders', icon: Bell, roles: ['ADMIN', 'ORGANIZER'] },
         { id: 'templates', label: 'Templates', icon: Copy, roles: ['ADMIN', 'ORGANIZER'] },
-        { id: 'analytics', label: 'Analytics', icon: BarChart3, roles: ['ADMIN', 'ORGANIZER'] },
+        { id: 'analytics', label: 'Analytics', icon: BarChart3, roles: ['ADMIN'] },
         { id: 'reviews', label: 'Reviews', icon: MessageSquare, roles: ['ADMIN', 'ORGANIZER'] },
         { id: 'sessions', label: 'Sessions', icon: Clock, roles: ['ADMIN', 'ORGANIZER'] },
         { id: 'team', label: 'Team', icon: Shield, roles: ['ADMIN'] },
@@ -74,6 +78,7 @@ export default function AdminPage({ defaultTab }: { defaultTab?: AdminTabKey } =
         { id: 'certificates', label: 'Certificates', icon: Award, roles: ['ADMIN'] },
         { id: 'audit', label: 'Logs', icon: Shield, roles: ['ADMIN'] },
         { id: 'history', label: 'History', icon: History, roles: ['ADMIN', 'ORGANIZER'] },
+        { id: 'operations', label: 'Check-in Ops', icon: Activity, roles: ['ADMIN', 'ORGANIZER'] },
         { id: 'sales', label: 'Sales Control', icon: Power, roles: ['ADMIN'] },
         { id: 'pages', label: 'Pages', icon: FileText, roles: ['ADMIN'] },
     ]), []);
@@ -88,6 +93,15 @@ export default function AdminPage({ defaultTab }: { defaultTab?: AdminTabKey } =
     const [selectedEvent, setSelectedEvent] = useState<string>('all');
     const [attendeeSearch, setAttendeeSearch] = useState('');
     const [checkInFilter, setCheckInFilter] = useState<'all' | 'checked' | 'unchecked'>('all');
+    const [eventPage, setEventPage] = useState(1);
+    const [eventPageData, setEventPageData] = useState<Event[]>([]);
+    const [eventPagination, setEventPagination] = useState({ page: 1, pageSize: 12, total: 0, totalPages: 1 });
+    const [attendeePage, setAttendeePage] = useState(1);
+    const [attendeePageData, setAttendeePageData] = useState<typeof tickets>([]);
+    const [attendeePagination, setAttendeePagination] = useState({ page: 1, pageSize: 25, total: 0, totalPages: 1 });
+    const [listLoading, setListLoading] = useState(false);
+    const [listError, setListError] = useState('');
+    const [attendeeRefresh, setAttendeeRefresh] = useState(0);
     // Calculate daily metrics
     const today = new Date().toDateString();
     const dailyCheckIns = tickets.filter(t => t.checkedIn && t.checkedInAt && new Date(t.checkedInAt).toDateString() === today).length;
@@ -96,6 +110,31 @@ export default function AdminPage({ defaultTab }: { defaultTab?: AdminTabKey } =
     const [ticketDraft, setTicketDraft] = useState<SiteSettings | null>(null);
     const [hasUnsaved, setHasUnsaved] = useState(false);
     const [isSavingTicketDesign, setIsSavingTicketDesign] = useState(false);
+
+    useEffect(() => {
+        if (activeTab !== 'events' || role !== 'ADMIN') return;
+        setListLoading(true); setListError('');
+        fetch(`/api/dashboard/events?page=${eventPage}&pageSize=12`, { cache: 'no-store' })
+            .then(async res => { const data = await res.json(); if (!res.ok) throw new Error(data.error); setEventPageData(data.items || []); setEventPagination(data.pagination); })
+            .catch(error => setListError(error instanceof Error ? error.message : 'Failed to load events'))
+            .finally(() => setListLoading(false));
+    }, [activeTab, eventPage, role, allEvents]);
+
+    useEffect(() => {
+        if (activeTab !== 'attendees' || role !== 'ADMIN') return;
+        const timer = window.setTimeout(() => {
+            setListLoading(true); setListError('');
+            const params = new URLSearchParams({ page: String(attendeePage), pageSize: '25' });
+            if (selectedEvent !== 'all') params.set('eventId', selectedEvent);
+            if (attendeeSearch.trim()) params.set('q', attendeeSearch.trim());
+            if (checkInFilter !== 'all') params.set('checkedIn', checkInFilter === 'checked' ? 'true' : 'false');
+            fetch(`/api/admin/tickets?${params}`, { cache: 'no-store' })
+                .then(async res => { const data = await res.json(); if (!res.ok) throw new Error(data.error); setAttendeePageData(data.items || []); setAttendeePagination(data.pagination); })
+                .catch(error => setListError(error instanceof Error ? error.message : 'Failed to load attendees'))
+                .finally(() => setListLoading(false));
+        }, 250);
+        return () => window.clearTimeout(timer);
+    }, [activeTab, attendeePage, attendeeSearch, checkInFilter, role, selectedEvent, tickets, attendeeRefresh]);
 
     // Initialize draft when entering tickets tab
     useEffect(() => {
@@ -249,6 +288,18 @@ export default function AdminPage({ defaultTab }: { defaultTab?: AdminTabKey } =
     const handleDuplicateEvent = (id: string) => {
         duplicateEvent(id);
         showToast('Event duplicated!', 'success');
+    };
+
+    const handlePublishEvent = async (event: Event & { publicationStatus?: string }) => {
+        const action = event.publicationStatus === 'published' ? 'unpublish' : 'approve';
+        try {
+            const res = await fetch(`/api/admin/events/${event.id}/publish`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action }) });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Publication update failed');
+            setEventPageData((current) => current.map((item) => item.id === event.id ? { ...item, ...data.event } : item));
+            updateEvent(event.id, { publicationStatus: action === 'approve' ? 'published' : 'draft' } as Partial<Event>);
+            showToast(action === 'approve' ? 'Event published' : 'Event moved back to draft', 'success');
+        } catch (error) { showToast(error instanceof Error ? error.message : 'Publication update failed', 'error'); }
     };
 
     const exportCSV = () => {
@@ -1439,7 +1490,7 @@ export default function AdminPage({ defaultTab }: { defaultTab?: AdminTabKey } =
                     activeTab === 'events' && (
                         <div className="space-y-6">
                             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                                <h2 className="text-xl font-semibold text-white">Events ({events.length})</h2>
+                                <h2 className="text-xl font-semibold text-white">Events ({eventPagination.total})</h2>
                                 <div className="flex gap-2">
                                     <ExportButton
                                         data={events.filter(e => e && e.id).map(event => ({
@@ -1462,13 +1513,15 @@ export default function AdminPage({ defaultTab }: { defaultTab?: AdminTabKey } =
                                     </button>
                                 </div>
                             </div>
+                            {listError && <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">{listError}</div>}
+                            {listLoading && <div className="py-3 text-center text-sm text-zinc-500"><Loader2 className="mr-2 inline h-4 w-4 animate-spin" />Loading events…</div>}
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                {events.filter(e => e && e.id).length === 0 && events.length > 0 && (
+                                {eventPageData.filter(e => e && e.id).length === 0 && !listLoading && (
                                     <div className="col-span-full text-center py-8 text-zinc-500">
-                                        Unable to display events. Data may be corrupted.
+                                        No events found.
                                     </div>
                                 )}
-                                {events.filter(e => e && e.id).map(event => {
+                                {eventPageData.filter(e => e && e.id).map(event => {
                                     const categoryStyle = CATEGORY_COLORS[event.category] || CATEGORY_COLORS.other;
                                     const capacity = event.capacity || 1; // Prevent division by zero
                                     // Calculate sold count from verified paid tickets only
@@ -1487,7 +1540,7 @@ export default function AdminPage({ defaultTab }: { defaultTab?: AdminTabKey } =
                                                 {(event.prizePool || 0) > 0 && <span className="absolute bottom-2 right-2 px-2 py-0.5 bg-green-600 text-white rounded-full text-xs font-bold">₹{((event.prizePool || 0) / 100).toLocaleString()} Prize</span>}
                                             </div>
                                             <div className="p-4">
-                                                <h3 className="font-semibold text-white mb-1 truncate">{event.name || 'Untitled Event'}</h3>
+                                                <div className="mb-1 flex items-center justify-between gap-2"><h3 className="font-semibold text-white truncate">{event.name || 'Untitled Event'}</h3><span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${(event as Event & { publicationStatus?: string }).publicationStatus === 'published' ? 'bg-green-500/15 text-green-400' : 'bg-yellow-500/15 text-yellow-300'}`}>{(event as Event & { publicationStatus?: string }).publicationStatus === 'published' ? 'PUBLIC' : 'DRAFT'}</span></div>
                                                 <div className="flex justify-between text-xs text-zinc-400 mb-2">
                                                     <span>{dateStr} • {event.startTime || '09:00'}</span>
                                                     <span>₹{((event.price || 0) / 100).toLocaleString()}</span>
@@ -1507,6 +1560,7 @@ export default function AdminPage({ defaultTab }: { defaultTab?: AdminTabKey } =
                                                     <button onClick={() => handleDuplicateEvent(event.id)} className="px-2 py-1.5 bg-zinc-800 text-white rounded-lg hover:bg-zinc-700 text-xs" title="Duplicate">
                                                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
                                                     </button>
+                                                    <button onClick={() => void handlePublishEvent(event as Event & { publicationStatus?: string })} className="px-2 py-1.5 bg-blue-900/40 text-blue-300 rounded-lg hover:bg-blue-900/70 text-xs">{(event as Event & { publicationStatus?: string }).publicationStatus === 'published' ? 'Unpublish' : 'Approve'}</button>
                                                     <button onClick={() => handleDeleteEvent(event.id)} className="px-2 py-1.5 bg-red-900/50 text-red-400 rounded-lg hover:bg-red-900 text-xs">Delete</button>
                                                 </div>
                                             </div>
@@ -1514,6 +1568,7 @@ export default function AdminPage({ defaultTab }: { defaultTab?: AdminTabKey } =
                                     );
                                 })}
                             </div>
+                            <div className="flex items-center justify-between text-sm text-zinc-500"><span>Page {eventPagination.page} of {eventPagination.totalPages}</span><div className="flex gap-2"><button disabled={eventPage <= 1 || listLoading} onClick={() => setEventPage(p => p - 1)} className="rounded-lg border border-zinc-800 px-3 py-2 disabled:opacity-40">Previous</button><button disabled={eventPage >= eventPagination.totalPages || listLoading} onClick={() => setEventPage(p => p + 1)} className="rounded-lg border border-zinc-800 px-3 py-2 disabled:opacity-40">Next</button></div></div>
                         </div>
                     )
                 }
@@ -1542,7 +1597,7 @@ export default function AdminPage({ defaultTab }: { defaultTab?: AdminTabKey } =
                                         />
                                     )}
                                     <ExportButton
-                                        data={filteredTickets.map(t => {
+                                        data={attendeePageData.map(t => {
                                             const event = events.find(e => e.id === t.eventId);
                                             return {
                                                 'Ticket ID': t.id,
@@ -1566,19 +1621,19 @@ export default function AdminPage({ defaultTab }: { defaultTab?: AdminTabKey } =
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                 <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
                                     <p className="text-zinc-500 text-xs font-medium">Total Attendees</p>
-                                    <p className="text-2xl font-bold text-white mt-1">{tickets.length}</p>
+                                    <p className="text-2xl font-bold text-white mt-1">{attendeePagination.total}</p>
                                 </div>
                                 <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
                                     <p className="text-zinc-500 text-xs font-medium">Checked In</p>
-                                    <p className="text-2xl font-bold text-green-400 mt-1">{tickets.filter(t => t.checkedIn).length}</p>
+                                    <p className="text-2xl font-bold text-green-400 mt-1">{attendeePageData.filter(t => t.checkedIn).length}</p>
                                 </div>
                                 <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
                                     <p className="text-zinc-500 text-xs font-medium">Pending</p>
-                                    <p className="text-2xl font-bold text-yellow-400 mt-1">{tickets.filter(t => !t.checkedIn).length}</p>
+                                    <p className="text-2xl font-bold text-yellow-400 mt-1">{attendeePageData.filter(t => !t.checkedIn).length}</p>
                                 </div>
                                 <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
                                     <p className="text-zinc-500 text-xs font-medium">Check-in Rate</p>
-                                    <p className="text-2xl font-bold text-blue-400 mt-1">{tickets.length > 0 ? Math.round((tickets.filter(t => t.checkedIn).length / tickets.length) * 100) : 0}%</p>
+                                    <p className="text-2xl font-bold text-blue-400 mt-1">{attendeePageData.length > 0 ? Math.round((attendeePageData.filter(t => t.checkedIn).length / attendeePageData.length) * 100) : 0}%</p>
                                 </div>
                             </div>
 
@@ -1592,13 +1647,13 @@ export default function AdminPage({ defaultTab }: { defaultTab?: AdminTabKey } =
                                         type="text"
                                         placeholder="Search by name, email, or phone..."
                                         value={attendeeSearch}
-                                        onChange={(e) => setAttendeeSearch(e.target.value)}
+                                        onChange={(e) => { setAttendeeSearch(e.target.value); setAttendeePage(1); }}
                                         className="w-full pl-10 pr-4 py-3 bg-zinc-900 border border-zinc-800 rounded-xl text-white placeholder-zinc-500 focus:border-red-500 focus:outline-none"
                                     />
                                 </div>
                                 <select
                                     value={selectedEvent}
-                                    onChange={(e) => setSelectedEvent(e.target.value)}
+                                    onChange={(e) => { setSelectedEvent(e.target.value); setAttendeePage(1); }}
                                     className="px-4 py-3 bg-zinc-900 border border-zinc-800 rounded-xl text-white"
                                 >
                                     <option value="all">All Events</option>
@@ -1606,19 +1661,19 @@ export default function AdminPage({ defaultTab }: { defaultTab?: AdminTabKey } =
                                 </select>
                                 <div className="flex bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden">
                                     <button
-                                        onClick={() => setCheckInFilter('all')}
+                                        onClick={() => { setCheckInFilter('all'); setAttendeePage(1); }}
                                         className={`px-4 py-2 text-sm font-medium transition-colors ${checkInFilter === 'all' ? 'bg-red-600 text-white' : 'text-zinc-400 hover:text-white'}`}
                                     >
                                         All
                                     </button>
                                     <button
-                                        onClick={() => setCheckInFilter('checked')}
+                                        onClick={() => { setCheckInFilter('checked'); setAttendeePage(1); }}
                                         className={`px-4 py-2 text-sm font-medium transition-colors ${checkInFilter === 'checked' ? 'bg-green-600 text-white' : 'text-zinc-400 hover:text-white'}`}
                                     >
                                         Checked In
                                     </button>
                                     <button
-                                        onClick={() => setCheckInFilter('unchecked')}
+                                        onClick={() => { setCheckInFilter('unchecked'); setAttendeePage(1); }}
                                         className={`px-4 py-2 text-sm font-medium transition-colors ${checkInFilter === 'unchecked' ? 'bg-yellow-500 text-black' : 'text-zinc-400 hover:text-white'}`}
                                     >
                                         Pending
@@ -1626,16 +1681,19 @@ export default function AdminPage({ defaultTab }: { defaultTab?: AdminTabKey } =
                                 </div>
                             </div>
 
+                            {listError && <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">{listError}<button onClick={() => setAttendeeRefresh(value => value + 1)} className="ml-2 underline">Retry</button></div>}
+                            {listLoading && <div className="py-3 text-center text-sm text-zinc-500"><Loader2 className="mr-2 inline h-4 w-4 animate-spin" />Loading attendees…</div>}
+
                             {/* Results count */}
                             <p className="text-sm text-zinc-500">
-                                Showing {filteredTickets.length} of {tickets.length} attendees
+                                Showing {attendeePageData.length} of {attendeePagination.total} attendees
                                 {attendeeSearch && ` matching "${attendeeSearch}"`}
                             </p>
 
                             {/* Attendee Table */}
                             <div className="light-surface glass-card rounded-2xl overflow-hidden">
                                 <div className="overflow-x-auto">
-                                    {filteredTickets.length === 0 ? (
+                                    {attendeePageData.length === 0 ? (
                                         <div className="p-12 text-center">
                                             <svg className="w-16 h-16 text-zinc-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
@@ -1658,7 +1716,7 @@ export default function AdminPage({ defaultTab }: { defaultTab?: AdminTabKey } =
                                                         </tr>
                                                     </thead>
                                                     <tbody className="divide-y divide-zinc-800">
-                                                        {filteredTickets.map(ticket => {
+                                                        {attendeePageData.map(ticket => {
                                                             const event = events.find(e => e.id === ticket.eventId);
                                                             return (
                                                                 <tr key={ticket.id} className="hover:bg-zinc-800/50">
@@ -1731,6 +1789,7 @@ export default function AdminPage({ defaultTab }: { defaultTab?: AdminTabKey } =
                                     )}
                                 </div>
                             </div>
+                            <div className="flex items-center justify-between text-sm text-zinc-500"><span>Page {attendeePagination.page} of {attendeePagination.totalPages}</span><div className="flex gap-2"><button disabled={attendeePage <= 1 || listLoading} onClick={() => setAttendeePage(p => p - 1)} className="rounded-lg border border-zinc-800 px-3 py-2 disabled:opacity-40">Previous</button><button disabled={attendeePage >= attendeePagination.totalPages || listLoading} onClick={() => setAttendeePage(p => p + 1)} className="rounded-lg border border-zinc-800 px-3 py-2 disabled:opacity-40">Next</button></div></div>
                         </div>
                     )}
 
@@ -1975,6 +2034,9 @@ export default function AdminPage({ defaultTab }: { defaultTab?: AdminTabKey } =
                                 </div>
                             </div>
 
+                            {events.length > 0 && <div className="space-y-3"><div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><div><h3 className="font-semibold text-white">Manual check-in governance</h3><p className="text-sm text-zinc-500">Global permission plus per-event organizer approval.</p></div><select value={sessionEventId || events[0].id} onChange={(e) => setSessionEventId(e.target.value)} className="rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-white">{events.map(event => <option key={event.id} value={event.id}>{event.name}</option>)}</select></div><CheckInPolicyManager eventId={sessionEventId || events[0].id} isAdmin /><EventSettingsManager eventId={sessionEventId || events[0].id} isAdmin /></div>}
+                            <PaymentRecoveryQueue />
+
                             {/* Maintenance Message */}
                             <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
                                 <h3 className="text-lg font-medium text-white mb-4 flex items-center gap-2">
@@ -2107,6 +2169,9 @@ export default function AdminPage({ defaultTab }: { defaultTab?: AdminTabKey } =
                         </div>
                     )
                 }
+
+                {/* Custom Pages */}
+                {activeTab === 'operations' && <CheckInOperationsDashboard events={events} defaultEventId={sessionEventId || events[0]?.id} />}
 
                 {/* Custom Pages */}
                 {

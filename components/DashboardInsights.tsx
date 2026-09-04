@@ -21,6 +21,7 @@ interface DashboardData {
     byDay?: { date: string; revenue: number }[];
     byPaymentMethod?: { method: string; revenue: number }[];
     byPromoCode?: { code: string; revenue: number }[];
+    byRefundStatus?: { status: string; revenue: number }[];
   };
   tickets?: {
     total?: number;
@@ -32,6 +33,7 @@ interface DashboardData {
   };
   topEvents?: { id: string; name: string; soldCount: number; capacity: number; revenue: number; occupancy: string }[];
   checkinVelocity?: { hour: string; count: number }[];
+  capacityForecast?: { eventId: string; name: string; sold: number; capacity: number; remaining: number; dailyRate: number; projectedSoldOutAt: string | null; beforeEvent: boolean }[];
   refunds?: {
     total?: number;
     full?: number;
@@ -112,6 +114,7 @@ export default function DashboardInsights({ eventId, compact = false }: Dashboar
   const refundsByDay = data?.refunds?.byDay || [];
   const paymentMethods = data?.revenue?.byPaymentMethod || [];
   const promoCodes = (data?.revenue?.byPromoCode || []).filter(item => item.code !== 'none');
+  const refundStatuses = data?.revenue?.byRefundStatus || [];
 
   if (loading && !data) {
     return (
@@ -182,6 +185,18 @@ export default function DashboardInsights({ eventId, compact = false }: Dashboar
           </SmallChart>
         )}
 
+        {refundStatuses.length > 0 && (
+          <SmallChart title="Revenue by Refund Status">
+            <BarChart data={refundStatuses}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
+              <XAxis dataKey="status" stroke="#737373" fontSize={11} />
+              <YAxis stroke="#737373" fontSize={11} tickFormatter={(value) => `₹${Math.round(Number(value) / 100)}`} />
+              <Tooltip formatter={(value) => formatMoney(Number(value))} contentStyle={{ backgroundColor: '#111', border: '1px solid #27272a' }} />
+              <Bar dataKey="revenue" fill="#a855f7" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </SmallChart>
+        )}
+
         {refundsByDay.length > 0 && (
           <SmallChart title="Refunds and Partial Refunds">
             <BarChart data={refundsByDay}>
@@ -246,6 +261,11 @@ export default function DashboardInsights({ eventId, compact = false }: Dashboar
             </div>
           </div>
         </div>
+      </div>
+      <div className="bg-[#141414] border border-[#1F1F1F] rounded-2xl p-4">
+        <h3 className="text-white font-semibold">Capacity forecast</h3>
+        <p className="mb-4 text-xs text-[#737373]">Projected from each event&apos;s average paid-ticket pace.</p>
+        <div className="space-y-3">{(data.capacityForecast || []).map(item => <div key={item.eventId} className="grid gap-2 border-b border-[#1F1F1F] pb-3 last:border-0 sm:grid-cols-[1fr_auto_auto]"><div><p className="truncate text-sm text-white">{item.name}</p><p className="text-xs text-[#737373]">{item.sold}/{item.capacity} sold · {item.remaining} remaining</p></div><span className="text-xs text-[#B3B3B3]">{item.dailyRate}/day</span><span className={`text-xs ${item.beforeEvent ? 'text-yellow-400' : 'text-[#737373]'}`}>{item.projectedSoldOutAt ? `Projected ${new Date(item.projectedSoldOutAt).toLocaleDateString()}` : 'Insufficient sales history'}</span></div>)}{(data.capacityForecast || []).length === 0 && <p className="text-sm text-[#737373]">No event capacity data yet.</p>}</div>
       </div>
       <CohortFunnelInsights />
     </section>

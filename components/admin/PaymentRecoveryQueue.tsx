@@ -1,0 +1,12 @@
+'use client';
+
+import { useCallback, useEffect, useState } from 'react';
+import { Loader2, RefreshCw } from '@/components/icons';
+interface Job { id: string; operation: string; orderId?: string | null; paymentId?: string | null; status: string; attempts: number; lastError?: string | null; createdAt: string; }
+export default function PaymentRecoveryQueue() {
+  const [jobs, setJobs] = useState<Job[]>([]); const [loading, setLoading] = useState(true);
+  const load = useCallback(async () => { setLoading(true); try { const res = await fetch('/api/admin/payment-recovery?status=pending&pageSize=50', { cache: 'no-store' }); const data = await res.json(); if (res.ok) setJobs(data.items || []); } finally { setLoading(false); } }, []);
+  useEffect(() => { void load(); }, [load]);
+  const update = async (id: string, action: 'retry' | 'dismiss') => { const res = await fetch('/api/admin/payment-recovery', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, action }) }); if (res.ok) void load(); };
+  return <section className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900 p-5"><div className="flex items-center justify-between"><div><h3 className="font-semibold text-white">Failed payment recovery</h3><p className="text-xs text-zinc-500">Gateway-confirmed payments that need an administrator retry or dismissal.</p></div><button onClick={() => void load()} className="rounded-lg border border-zinc-700 p-2 text-zinc-400"><RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /></button></div>{loading ? <Loader2 className="my-6 h-5 w-5 animate-spin text-zinc-500" /> : jobs.length === 0 ? <p className="py-6 text-sm text-zinc-500">No failed payment jobs.</p> : <div className="mt-4 space-y-2">{jobs.map(job => <div key={job.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-800 bg-zinc-950 p-3"><div><p className="text-sm text-white">{job.operation} · {job.orderId || job.paymentId || job.id}</p><p className="text-xs text-red-300">{job.lastError || 'Needs recovery'} · {new Date(job.createdAt).toLocaleString()}</p></div><div className="flex gap-2"><button onClick={() => void update(job.id, 'retry')} className="rounded-lg border border-blue-500/40 px-3 py-1.5 text-xs text-blue-300">Retry</button><button onClick={() => void update(job.id, 'dismiss')} className="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs text-zinc-400">Dismiss</button></div></div>)}</div>}</section>;
+}

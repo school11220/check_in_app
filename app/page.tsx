@@ -13,6 +13,7 @@ async function getSiteConfig() {
 
 async function getHomeEvents() {
   return prisma.event.findMany({
+    where: { publicationStatus: 'published' },
     orderBy: [{ isFeatured: 'desc' }, { date: 'asc' }],
     take: 6,
     select: {

@@ -9,7 +9,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     let eventEntries: MetadataRoute.Sitemap = [];
     try {
         const events = await prisma.event.findMany({
-            where: { isActive: true },
+            where: { isActive: true, publicationStatus: 'published' },
             select: { id: true, updatedAt: true, date: true },
             orderBy: { date: 'desc' },
             take: 5000,

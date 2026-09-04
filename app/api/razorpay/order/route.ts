@@ -119,6 +119,9 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Only pending tickets can be paid' }, { status: 400 });
         }
 
+        if (primaryTicket.Event.publicationStatus !== 'published') {
+            return NextResponse.json({ error: 'This event is not publicly available yet.' }, { status: 404 });
+        }
         if (!primaryTicket.Event.isActive) {
             return NextResponse.json(
                 { error: 'Ticket sales are paused for this event.' },

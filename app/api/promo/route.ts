@@ -13,9 +13,7 @@ export async function GET(req: NextRequest) {
     const { userId } = await auth();
     if (!userId) return NextResponse.json({ error: 'Auth required' }, { status: 401 });
     const role = await getUserRole(userId);
-    if (!['ADMIN', 'ORGANIZER', 'ORGANISER'].includes(role)) {
-      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
-    }
+    if (role !== 'ADMIN') return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
 
     const url = new URL(req.url);
     const activeOnly = url.searchParams.get('active') === 'true';
@@ -44,9 +42,7 @@ export async function POST(req: NextRequest) {
     const { userId } = await auth();
     if (!userId) return NextResponse.json({ error: 'Auth required' }, { status: 401 });
     const role = await getUserRole(userId);
-    if (!['ADMIN', 'ORGANIZER', 'ORGANISER'].includes(role)) {
-      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
-    }
+    if (role !== 'ADMIN') return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
 
     const body = await req.json();
     const {
@@ -93,9 +89,7 @@ export async function PATCH(req: NextRequest) {
     const { userId } = await auth();
     if (!userId) return NextResponse.json({ error: 'Auth required' }, { status: 401 });
     const role = await getUserRole(userId);
-    if (!['ADMIN', 'ORGANIZER', 'ORGANISER'].includes(role)) {
-      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
-    }
+    if (role !== 'ADMIN') return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
 
     const body = await req.json();
     const { id, ...data } = body;

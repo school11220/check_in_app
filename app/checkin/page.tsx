@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useRef, Suspense, useCallback, useMemo } from 'react';
-import { useApp } from '@/lib/store';
 import { useToast } from '@/components/Toaster';
 import QRScanner from '@/components/QRScanner';
 import Link from 'next/link';
@@ -12,11 +11,14 @@ import SessionScheduler from '@/components/admin/SessionScheduler';
 import { useAuth, useClerk, useUser } from '@clerk/nextjs';
 import { resolveRole } from '@/lib/clerk-role-utils';
 import { parseScanPayload } from '@/lib/scan-payload';
+import type { Event } from '@/lib/store/types';
 
 type CheckinTabKey = 'scanner' | 'history' | 'guestlist' | 'stats';
 
 function CheckinPageContent({ defaultTab, defaultEventId }: { defaultTab?: CheckinTabKey; defaultEventId?: string } = {}) {
-  const { events, isLoading: eventsLoading } = useApp();
+  const [events, setEvents] = useState<Event[]>([]);
+  const [eventsLoading, setEventsLoading] = useState(true);
+  const [eventsError, setEventsError] = useState('');
   const router = useRouter();
   const { showToast } = useToast();
   const searchParams = useSearchParams();
@@ -30,18 +32,15 @@ function CheckinPageContent({ defaultTab, defaultEventId }: { defaultTab?: Check
   const allowedRoles = ['ADMIN', 'ORGANIZER', 'ORGANISER', 'SCANNER'];
   const isAllowed = allowedRoles.includes(userRole);
   const canExport = ['ADMIN', 'ORGANIZER', 'ORGANISER'].includes(userRole);
-  const assignedEventIds = useMemo(() => {
-    const ids = user?.publicMetadata?.assignedEventIds;
-    return Array.isArray(ids) ? ids as string[] : [];
-  }, [user]);
   const accessibleEvents = useMemo(() => {
-    if (userRole === 'ADMIN') return events;
     if (!isAllowed) return [];
-    return events.filter(event => assignedEventIds.includes(event.id));
-  }, [assignedEventIds, events, isAllowed, userRole]);
+    return events;
+  }, [events, isAllowed]);
   const selectedEvent = accessibleEvents.find(event => event.id === eventId);
   const hasInvalidEventSelection = Boolean(eventId && userLoaded && isAllowed && !eventsLoading && !selectedEvent);
   const scannerStorageKey = user?.id ? `eventhub:last-checkin-event:${user.id}` : 'eventhub:last-checkin-event';
+  const scannerLockKey = user?.id ? `eventhub:locked-checkin-event:${user.id}` : 'eventhub:locked-checkin-event';
+  const [eventLocked, setEventLocked] = useState(false);
 
   const [showSchedule, setShowSchedule] = useState(false);
   const [activeTab, setActiveTab] = useState<CheckinTabKey>(defaultTab || 'scanner');
@@ -69,6 +68,8 @@ function CheckinPageContent({ defaultTab, defaultEventId }: { defaultTab?: Check
   // Scanner state
   const [scanResult, setScanResult] = useState<{ success: boolean; message: string; details?: any } | null>(null);
   const [manualCode, setManualCode] = useState('');
+  const [manualReason, setManualReason] = useState('');
+  const [checkInPolicy, setCheckInPolicy] = useState<any>(null);
   const [recentCheckins, setRecentCheckins] = useState<any[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -81,6 +82,33 @@ function CheckinPageContent({ defaultTab, defaultEventId }: { defaultTab?: Check
 
   // Auto-refresh interval for stats
   const [autoRefresh, setAutoRefresh] = useState(true);
+
+  const loadEvents = useCallback(async () => {
+    setEventsLoading(true); setEventsError('');
+    try {
+      const res = await fetch('/api/dashboard/events?page=1&pageSize=100', { cache: 'no-store' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to load assigned events');
+      setEvents(data.items || []);
+    } catch (e) { setEventsError(e instanceof Error ? e.message : 'Failed to load assigned events'); }
+    finally { setEventsLoading(false); }
+  }, []);
+
+  useEffect(() => {
+    if (userLoaded && isSignedIn && isAllowed) void loadEvents();
+  }, [isAllowed, isSignedIn, loadEvents, userLoaded]);
+
+  useEffect(() => {
+    if (!user?.id || !eventId) return;
+    setEventLocked(localStorage.getItem(scannerLockKey) === eventId);
+  }, [eventId, scannerLockKey, user?.id]);
+
+  useEffect(() => {
+    if (!eventId) { setCheckInPolicy(null); return; }
+    fetch(`/api/checkin/policy?eventId=${encodeURIComponent(eventId)}`, { cache: 'no-store' })
+      .then(async res => { const data = await res.json(); if (!res.ok) throw new Error(data.error); setCheckInPolicy(data); })
+      .catch(() => setCheckInPolicy(null));
+  }, [eventId]);
 
   // Pre-loaded error audio for failed check-ins
   const errorAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -158,7 +186,15 @@ function CheckinPageContent({ defaultTab, defaultEventId }: { defaultTab?: Check
       return;
     }
     if (typeof window !== 'undefined') localStorage.setItem(scannerStorageKey, nextEventId);
+    if (typeof window !== 'undefined') localStorage.setItem(scannerLockKey, nextEventId);
+    setEventLocked(true);
     router.replace(`/checkin?event=${encodeURIComponent(nextEventId)}`);
+  };
+
+  const unlockEvent = () => {
+    if (!window.confirm('Unlock this scanner and allow a different event to be selected?')) return;
+    localStorage.removeItem(scannerLockKey);
+    setEventLocked(false);
   };
 
   const fetchTickets = useCallback(async () => {
@@ -242,7 +278,10 @@ function CheckinPageContent({ defaultTab, defaultEventId }: { defaultTab?: Check
   }, [activeTab, eventId, autoRefresh, fetchStats]);
 
   const manualCheckIn = async (ticketId: string) => {
-    handleScan(ticketId, { manual: true });
+    if (!checkInPolicy?.manualAllowed) { showToast('Manual check-in is not approved for this event', 'error'); return; }
+    const reason = manualReason.trim() || window.prompt('Required manual check-in reason')?.trim() || '';
+    if (!reason) { showToast('A manual override reason is required', 'error'); return; }
+    await handleScan(ticketId, { manual: true, reason });
   };
 
   const undoCheckIn = async (ticketId: string) => {
@@ -298,7 +337,7 @@ function CheckinPageContent({ defaultTab, defaultEventId }: { defaultTab?: Check
     await signOut({ redirectUrl: '/login' });
   };
 
-  const handleScan = async (code: string, options?: { manual?: boolean }) => {
+  const handleScan = async (code: string, options?: { manual?: boolean; reason?: string }) => {
     if (isProcessing) return;
     setIsProcessing(true);
 
@@ -320,7 +359,8 @@ function CheckinPageContent({ defaultTab, defaultEventId }: { defaultTab?: Check
           if (!token) {
             throw new Error(options?.manual ? 'Manual check-in requires an internet connection' : 'This QR code cannot be queued offline');
           }
-          addOfflineCheckin(ticketId, token);
+          if (!eventId) throw new Error('Lock an event before scanning offline');
+          await addOfflineCheckin(ticketId, token, eventId);
           setScanResult({
             success: true,
             message: 'Checked in offline - will sync when online',
@@ -346,11 +386,13 @@ function CheckinPageContent({ defaultTab, defaultEventId }: { defaultTab?: Check
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ticketId,
+          eventId,
           token,
           timedToken,
           action: options?.manual ? 'manual_checkin' : undefined,
           deviceId,
           deviceName,
+          reason: options?.reason,
         }),
       });
 
@@ -417,8 +459,8 @@ function CheckinPageContent({ defaultTab, defaultEventId }: { defaultTab?: Check
     if (manualCode.trim()) {
       const resolvedTicketId = await resolveManualTicket(manualCode);
       if (resolvedTicketId === 'multiple') return;
-      handleScan(resolvedTicketId || manualCode.trim(), { manual: true });
-      if (resolvedTicketId !== 'multiple') setManualCode('');
+      await manualCheckIn(resolvedTicketId || manualCode.trim());
+      if (resolvedTicketId !== 'multiple') { setManualCode(''); setManualReason(''); }
     }
   };
 
@@ -564,7 +606,7 @@ function CheckinPageContent({ defaultTab, defaultEventId }: { defaultTab?: Check
         </div>
 
         {/* Event Selector */}
-        <section className="mb-6 glass rounded-2xl border border-[#1F1F1F] p-4 md:p-5">
+        {!eventLocked ? <section className="mb-6 glass rounded-2xl border border-[#1F1F1F] p-4 md:p-5">
           <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
             <div>
               <p className="text-xs uppercase tracking-wider text-[#737373] mb-1">Active Event</p>
@@ -626,6 +668,7 @@ function CheckinPageContent({ defaultTab, defaultEventId }: { defaultTab?: Check
               {!eventsLoading && accessibleEvents.length === 0 && (
                 <p className="text-xs text-yellow-400">No assigned events: ask an admin to assign this scanner to at least one event.</p>
               )}
+              {eventsError && <p className="text-xs text-red-400">{eventsError} <button onClick={loadEvents} className="underline">Retry</button></p>}
               {!eventsLoading && accessibleEvents.length > 0 && visibleEvents.length === 0 && (
                 <p className="text-xs text-yellow-400">No assigned events match the current search/filter.</p>
               )}
@@ -634,7 +677,7 @@ function CheckinPageContent({ defaultTab, defaultEventId }: { defaultTab?: Check
               )}
             </div>
           </div>
-        </section>
+        </section> : <section className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-green-500/30 bg-green-500/10 px-4 py-3"><div className="min-w-0"><p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-green-400"><Lock className="h-3.5 w-3.5" />Event locked</p><p className="truncate font-semibold text-white">{selectedEvent?.name || 'Assigned event'}</p></div><button onClick={unlockEvent} className="shrink-0 rounded-lg border border-white/10 px-3 py-2 text-xs text-zinc-300 hover:text-white">Change event</button></section>}
 
         {/* Tabs */}
         <div className="sticky top-24 z-30 mb-6 md:mb-8 bg-[#0B0B0B]/95 backdrop-blur-sm pt-2 -mt-2 pb-2">
@@ -663,8 +706,8 @@ function CheckinPageContent({ defaultTab, defaultEventId }: { defaultTab?: Check
           {/* Scanner Tab */}
           {activeTab === 'scanner' && (
             <div className="lg:col-span-2 grid grid-cols-1 lg:grid-cols-12 gap-6 animate-fade-in items-start">
-              <div className="lg:col-span-7 xl:col-span-8 bg-[#0D0D0D] border border-[#1F1F1F] rounded-2xl overflow-hidden shadow-2xl flex flex-col">
-                <div className="p-5 border-b border-[#1F1F1F] flex justify-between items-center bg-[#141414]">
+              <div className="lg:col-span-8 xl:col-span-9 bg-[#0D0D0D] border border-[#1F1F1F] rounded-2xl overflow-hidden shadow-2xl flex flex-col">
+                <div className="p-3 sm:p-4 border-b border-[#1F1F1F] flex flex-wrap gap-2 justify-between items-center bg-[#141414]">
                   <h2 className="font-heading text-lg font-semibold text-white flex items-center gap-3">
                     <span className="relative flex h-3 w-3">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#E11D2E] opacity-75"></span>
@@ -698,7 +741,7 @@ function CheckinPageContent({ defaultTab, defaultEventId }: { defaultTab?: Check
                   </div>
                 </div>
 
-                <div className="relative aspect-square bg-black group overflow-hidden flex items-center justify-center">
+                <div className="relative h-[calc(100dvh-15rem)] min-h-[28rem] sm:min-h-[34rem] bg-black group overflow-hidden flex items-center justify-center">
                   <QRScanner onScan={handleScan} continuousMode={continuousMode} />
                   <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center z-10">
                     <div className="w-64 h-64 border-2 border-white/20 rounded-3xl relative">
@@ -714,7 +757,7 @@ function CheckinPageContent({ defaultTab, defaultEventId }: { defaultTab?: Check
                   </div>
                 </div>
 
-                <div className="p-5 bg-[#0D0D0D] border-t border-[#1F1F1F] space-y-5">
+                <div className="p-4 bg-[#0D0D0D] border-t border-[#1F1F1F] space-y-3">
                   <div className="flex items-start gap-3 p-4 rounded-xl bg-[#141414] border border-[#1F1F1F]">
                     <div className="p-1.5 bg-[#E11D2E]/10 rounded-full text-[#E11D2E] flex-shrink-0 mt-0.5">
                       <Radio className="w-4 h-4" />
@@ -725,21 +768,25 @@ function CheckinPageContent({ defaultTab, defaultEventId }: { defaultTab?: Check
                     </p>
                   </div>
 
-                  <form onSubmit={handleManualSubmit} className="relative">
+                  <form onSubmit={handleManualSubmit} className="space-y-2">
+                    <input type="text" value={manualReason} onChange={(e) => setManualReason(e.target.value)} disabled={!checkInPolicy?.manualAllowed} placeholder={checkInPolicy?.manualAllowed ? 'Required override reason' : 'Manual check-in requires organizer approval'} className="w-full rounded-xl border border-[#1F1F1F] bg-[#141414] px-4 py-3 text-sm text-white disabled:opacity-50" required />
+                    <div className="relative">
                     <input
                       type="text"
                       value={manualCode}
                       onChange={(e) => setManualCode(e.target.value)}
                       placeholder="Enter ticket ID, name, email, or phone"
-                      className="w-full pl-5 pr-28 py-4 bg-[#141414] border border-[#1F1F1F] rounded-xl text-white text-sm focus:outline-none focus:border-[#E11D2E]/50 focus:ring-2 focus:ring-[#E11D2E]/20 transition-all placeholder:text-[#737373]"
+                      disabled={!checkInPolicy?.manualAllowed}
+                      className="w-full pl-5 pr-28 py-4 bg-[#141414] border border-[#1F1F1F] rounded-xl text-white text-sm focus:outline-none focus:border-[#E11D2E]/50 focus:ring-2 focus:ring-[#E11D2E]/20 transition-all placeholder:text-[#737373] disabled:opacity-50"
                     />
                     <button
                       type="submit"
-                      disabled={!manualCode.trim() || isProcessing}
+                      disabled={!manualCode.trim() || !manualReason.trim() || !checkInPolicy?.manualAllowed || isProcessing}
                       className="absolute right-2 top-2 bottom-2 px-5 bg-gradient-to-r from-[#E11D2E] to-[#B91C1C] hover:from-[#FF2D3F] hover:to-[#E11D2E] text-white rounded-lg transition-all text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       {isProcessing ? '...' : 'Verify'}
                     </button>
+                    </div>
                   </form>
                   {manualMatches.length > 1 && (
                     <div className="rounded-xl border border-[#2A2A2A] bg-[#141414] overflow-hidden">
@@ -770,7 +817,7 @@ function CheckinPageContent({ defaultTab, defaultEventId }: { defaultTab?: Check
               </div>
 
               {/* Result & Recent - Side Panel */}
-              <div className="lg:col-span-5 xl:col-span-4 space-y-6 flex flex-col h-full">
+              <div className="lg:col-span-4 xl:col-span-3 space-y-4 flex flex-col h-full">
                 {scanResult && (
                   <div className={`p-6 rounded-2xl backdrop-blur-md border animate-scale-in ${scanResult.success
                     ? 'bg-[#22C55E]/10 border-[#22C55E]/30 shadow-[0_0_40px_rgba(34,197,94,0.1)]'
@@ -794,6 +841,16 @@ function CheckinPageContent({ defaultTab, defaultEventId }: { defaultTab?: Check
 
                     {scanResult.details && (
                       <div className="space-y-3 bg-black/20 rounded-xl p-5 border border-white/5">
+                        {!scanResult.success && scanResult.details.lastCheckIn && (
+                          <div className="rounded-xl border border-yellow-500/30 bg-yellow-500/10 p-4">
+                            <p className="mb-3 flex items-center gap-2 font-semibold text-yellow-300"><AlertTriangle className="h-4 w-4" />Duplicate ticket</p>
+                            <dl className="grid gap-2 text-xs">
+                              <div className="flex justify-between gap-3"><dt className="text-yellow-100/60">Checked in by</dt><dd className="text-right text-white">{scanResult.details.lastCheckIn.performedBy || scanResult.details.checkedInBy || 'Unknown operator'} ({scanResult.details.lastCheckIn.performedRole || 'unknown role'})</dd></div>
+                              <div className="flex justify-between gap-3"><dt className="text-yellow-100/60">When</dt><dd className="text-right text-white">{new Date(scanResult.details.lastCheckIn.createdAt || scanResult.details.checkedInAt).toLocaleString()}</dd></div>
+                              <div className="flex justify-between gap-3"><dt className="text-yellow-100/60">Device</dt><dd className="break-all text-right font-mono text-white">{scanResult.details.lastCheckIn.deviceId || 'Not recorded'}</dd></div>
+                            </dl>
+                          </div>
+                        )}
                         <div className="flex justify-between items-center border-b border-white/5 pb-3">
                           <span className="text-[#737373] text-sm">Guest</span>
                           <span className="text-white font-semibold">{scanResult.details.name}</span>
@@ -976,7 +1033,9 @@ function CheckinPageContent({ defaultTab, defaultEventId }: { defaultTab?: Check
                           ) : (
                             <button
                               onClick={() => manualCheckIn(ticket.id)}
-                              className="px-4 py-1.5 bg-[#E11D2E]/10 text-[#E11D2E] hover:bg-[#E11D2E] hover:text-white border border-[#E11D2E]/30 rounded-lg text-sm font-medium transition-all"
+                              disabled={!checkInPolicy?.manualAllowed || isProcessing}
+                              title={!checkInPolicy?.manualAllowed ? 'Manual check-in requires admin enablement and organizer approval' : 'Manually check in with a required reason'}
+                              className="px-4 py-1.5 bg-[#E11D2E]/10 text-[#E11D2E] hover:bg-[#E11D2E] hover:text-white border border-[#E11D2E]/30 rounded-lg text-sm font-medium transition-all disabled:cursor-not-allowed disabled:opacity-40"
                             >
                               Check In
                             </button>

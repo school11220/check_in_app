@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getSession, hasEventAccess, hasRole, ORGANIZER_ROLES } from '@/lib/auth';
+import { getSession } from '@/lib/auth';
 import { getTicketFinancials, PAID_LIKE_STATUSES } from '@/lib/ticket-lifecycle';
 
 /**
@@ -18,17 +18,11 @@ export async function GET(req: NextRequest) {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: 'Auth required' }, { status: 401 });
-    if (!hasRole(session.user.role, ORGANIZER_ROLES)) {
-      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
-    }
+    if (session.user.role !== 'ADMIN') return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
 
     const url = new URL(req.url);
     const eventId = url.searchParams.get('eventId');
-    if (eventId && !hasEventAccess(session, eventId)) {
-      return NextResponse.json({ error: 'You do not have access to this event' }, { status: 403 });
-    }
-
-    const scopedEventIds = session.user.role === 'ADMIN' ? null : session.user.assignedEventIds || [];
+    const scopedEventIds = null;
     const eventScope = eventId
       ? { id: eventId }
       : scopedEventIds
@@ -98,7 +92,7 @@ export async function GET(req: NextRequest) {
         where: eventScope,
         orderBy: { soldCount: 'desc' },
         take: 5,
-        select: { id: true, name: true, soldCount: true, capacity: true, price: true, date: true },
+        select: { id: true, name: true, soldCount: true, capacity: true, price: true, date: true, createdAt: true },
       }),
     ]);
 
@@ -112,6 +106,7 @@ export async function GET(req: NextRequest) {
       revenueByDay: [] as { date: string; revenue: number }[],
       revenueByPaymentMethod: [] as { method: string; revenue: number }[],
       revenueByPromoCode: [] as { code: string; revenue: number }[],
+      revenueByRefundStatus: [] as { status: string; revenue: number }[],
       refundedAmount: 0,
       discountedAmount: 0,
     };
@@ -138,6 +133,7 @@ export async function GET(req: NextRequest) {
       const revenueByDay = new Map<string, number>();
       const revenueByPaymentMethod = new Map<string, number>();
       const revenueByPromoCode = new Map<string, number>();
+      const revenueByRefundStatus = new Map<string, number>();
       let refundedAmount = 0;
       let discountedAmount = 0;
 
@@ -158,6 +154,7 @@ export async function GET(req: NextRequest) {
         const method = t.paymentMethod || (t.razorpayPaymentId ? 'razorpay' : 'unknown');
         revenueByPaymentMethod.set(method, (revenueByPaymentMethod.get(method) || 0) + price);
         revenueByPromoCode.set(t.promoCodeId || 'none', (revenueByPromoCode.get(t.promoCodeId || 'none') || 0) + price);
+        revenueByRefundStatus.set(t.status, (revenueByRefundStatus.get(t.status) || 0) + price);
         refundedAmount += t.refundedAmount || 0;
         discountedAmount += t.discountAmount || 0;
       }
@@ -166,6 +163,7 @@ export async function GET(req: NextRequest) {
       revenueBreakdown.revenueByDay = Array.from(revenueByDay.entries()).sort(([a], [b]) => a.localeCompare(b)).map(([date, revenue]) => ({ date, revenue }));
       revenueBreakdown.revenueByPaymentMethod = Array.from(revenueByPaymentMethod.entries()).map(([method, revenue]) => ({ method, revenue }));
       revenueBreakdown.revenueByPromoCode = Array.from(revenueByPromoCode.entries()).map(([code, revenue]) => ({ code, revenue }));
+      revenueBreakdown.revenueByRefundStatus = Array.from(revenueByRefundStatus.entries()).map(([status, revenue]) => ({ status, revenue }));
       revenueBreakdown.refundedAmount = refundedAmount;
       revenueBreakdown.discountedAmount = discountedAmount;
     } catch { /* ignore revenue calc errors */ }
@@ -237,6 +235,7 @@ export async function GET(req: NextRequest) {
         byDay: revenueBreakdown.revenueByDay,
         byPaymentMethod: revenueBreakdown.revenueByPaymentMethod,
         byPromoCode: revenueBreakdown.revenueByPromoCode,
+        byRefundStatus: revenueBreakdown.revenueByRefundStatus,
       },
       tickets: {
         total: totalTickets,
@@ -279,6 +278,23 @@ export async function GET(req: NextRequest) {
         occupancy: e.capacity > 0 ? ((e.soldCount / e.capacity) * 100).toFixed(1) : '0',
         date: e.date,
       })),
+      capacityForecast: topEvents.map((e: any) => {
+        const elapsedDays = Math.max(1, (now.getTime() - new Date(e.createdAt).getTime()) / 86_400_000);
+        const dailyRate = e.soldCount / elapsedDays;
+        const remaining = Math.max(0, e.capacity - e.soldCount);
+        const daysToSellOut = dailyRate > 0 ? Math.ceil(remaining / dailyRate) : null;
+        const projectedSoldOutAt = daysToSellOut === null ? null : new Date(now.getTime() + daysToSellOut * 86_400_000);
+        return {
+          eventId: e.id,
+          name: e.name,
+          sold: e.soldCount,
+          capacity: e.capacity,
+          remaining,
+          dailyRate: Number(dailyRate.toFixed(1)),
+          projectedSoldOutAt,
+          beforeEvent: projectedSoldOutAt ? projectedSoldOutAt <= new Date(e.date) : false,
+        };
+      }),
       checkinVelocity: hourlyCheckins.map((count, hour) => ({
         hour: `${hour.toString().padStart(2, '0')}:00`,
         count,

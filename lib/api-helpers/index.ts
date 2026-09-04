@@ -15,25 +15,30 @@ import { NextRequest, NextResponse } from 'next/server';
  *   }, { auth: 'admin' });
  */
 export class ApiError extends Error {
-    constructor(public status: number, message: string, public details?: unknown) {
+    constructor(public status: number, message: string, public details?: unknown, public code?: string) {
         super(message);
     }
 }
 
 export function badRequest(message: string, details?: unknown) {
-    return new ApiError(400, message, details);
+    return new ApiError(400, message, details, 'VALIDATION_ERROR');
 }
 export function unauthorized(message = 'Unauthorized') {
-    return new ApiError(401, message);
+    return new ApiError(401, message, undefined, 'AUTHENTICATION_REQUIRED');
 }
 export function forbidden(message = 'Forbidden') {
-    return new ApiError(403, message);
+    return new ApiError(403, message, undefined, 'AUTHORIZATION_ERROR');
 }
 export function notFound(message = 'Not found') {
-    return new ApiError(404, message);
+    return new ApiError(404, message, undefined, 'NOT_FOUND');
 }
 export function conflict(message: string) {
-    return new ApiError(409, message);
+    return new ApiError(409, message, undefined, 'CONFLICT');
+}
+
+export function apiErrorResponse(message: string, status: number, code?: string, details?: unknown) {
+    const fallback = status === 401 ? 'AUTHENTICATION_REQUIRED' : status === 403 ? 'AUTHORIZATION_ERROR' : status === 400 ? 'VALIDATION_ERROR' : status >= 500 ? 'DATABASE_ERROR' : 'REQUEST_ERROR';
+    return NextResponse.json({ success: false, error: message, code: code || fallback, ...(details ? { details } : {}) }, { status });
 }
 
 type Handler = (req: NextRequest, ctx: { params: any }) => Promise<Response> | Response;
@@ -55,14 +60,14 @@ const ROLE_SETS: Record<string, readonly string[]> = {
 export function respond(handler: Handler, options: Options = {}) {
     return async (req: NextRequest, ctx: { params: any }) => {
         try {
-            if (!options.public) {
+                if (!options.public) {
                 const { getSession, hasRole } = await import('@/lib/auth');
                 const session = await getSession();
-                if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+                if (!session) return NextResponse.json({ success: false, error: 'Unauthorized', code: 'AUTHENTICATION_REQUIRED' }, { status: 401 });
                 if (options.auth) {
                     const allowed = Array.isArray(options.auth) ? options.auth : ROLE_SETS[options.auth as string] || [];
                     if (!hasRole(session.user.role, allowed)) {
-                        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+                        return NextResponse.json({ success: false, error: 'Forbidden', code: 'AUTHORIZATION_ERROR' }, { status: 403 });
                     }
                 }
             }
@@ -70,7 +75,7 @@ export function respond(handler: Handler, options: Options = {}) {
         } catch (err) {
             if (err instanceof ApiError) {
                 return NextResponse.json(
-                    { error: err.message, ...(err.details ? { details: err.details } : {}) },
+                    { success: false, error: err.message, code: err.code || (err.status >= 500 ? 'DATABASE_ERROR' : 'REQUEST_ERROR'), ...(err.details ? { details: err.details } : {}) },
                     { status: err.status },
                 );
             }
@@ -86,7 +91,7 @@ export function respond(handler: Handler, options: Options = {}) {
             } catch {
                 console.error('[api]', err);
             }
-            return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+            return NextResponse.json({ success: false, error: 'Internal server error', code: 'DATABASE_ERROR' }, { status: 500 });
         }
     };
 }

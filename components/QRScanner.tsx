@@ -26,6 +26,11 @@ export default function QRScanner({
   const [selectedDevice, setSelectedDevice] = useState<string>('');
   const [flashlightOn, setFlashlightOn] = useState(false);
   const [flashlightSupported, setFlashlightSupported] = useState(false);
+  const [zoomSupported, setZoomSupported] = useState(false);
+  const [zoom, setZoom] = useState(1);
+  const [zoomRange, setZoomRange] = useState({ min: 1, max: 1, step: 0.1 });
+  const [lowLightMode, setLowLightMode] = useState(false);
+  const [permissionState, setPermissionState] = useState<'unknown' | 'granted' | 'denied'>('unknown');
   const [lastScannedCode, setLastScannedCode] = useState<string>('');
   const [scanSuccess, setScanSuccess] = useState(false);
   const [cameraError, setCameraError] = useState<string>('');
@@ -165,6 +170,21 @@ export default function QRScanner({
     }
   }, [flashlightOn]);
 
+  const applyZoom = useCallback(async (value: number) => {
+    const track = trackRef.current;
+    if (!track) return;
+    try {
+      await track.applyConstraints({ advanced: [{ zoom: value } as any] });
+      setZoom(value);
+    } catch (error) { console.warn('Camera zoom unavailable', error); }
+  }, []);
+
+  const toggleLowLight = useCallback(async () => {
+    const next = !lowLightMode;
+    setLowLightMode(next);
+    if (next && flashlightSupported && !flashlightOn) await toggleFlashlight();
+  }, [flashlightOn, flashlightSupported, lowLightMode, toggleFlashlight]);
+
   useEffect(() => {
     const reader = new BrowserQRCodeReader();
     readerRef.current = reader;
@@ -206,6 +226,13 @@ export default function QRScanner({
     setIsScanning(true);
 
     try {
+      // Ask explicitly so the operator sees the browser permission prompt before
+      // the scanner UI starts. The temporary stream is immediately released.
+      if (navigator.mediaDevices?.getUserMedia) {
+        const permissionStream = await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: deviceId } } });
+        permissionStream.getTracks().forEach((track) => track.stop());
+      }
+      setPermissionState('granted');
       await readerRef.current.decodeFromVideoDevice(
         deviceId,
         videoRef.current,
@@ -230,10 +257,16 @@ export default function QRScanner({
         if (capabilities.torch) {
           setFlashlightSupported(true);
         }
+        if (typeof capabilities.zoom === 'number' || capabilities.zoom) {
+          setZoomSupported(true);
+          setZoomRange({ min: Number(capabilities.zoom.min || 1), max: Number(capabilities.zoom.max || 1), step: Number(capabilities.zoom.step || 0.1) });
+          setZoom(Number(capabilities.zoom.min || 1));
+        } else setZoomSupported(false);
       }
     } catch (err: any) {
       console.error('Error starting scanner:', err);
       setCameraError(err.message || 'Failed to start camera');
+      if (err?.name === 'NotAllowedError' || err?.name === 'PermissionDeniedError') setPermissionState('denied');
       onError?.('Failed to start camera scanner.');
       setIsScanning(false);
     }
@@ -255,6 +288,8 @@ export default function QRScanner({
     setIsScanning(false);
     setFlashlightOn(false);
     setFlashlightSupported(false);
+    setZoomSupported(false);
+    setZoom(1);
   };
 
   const switchCamera = (deviceId: string) => {
@@ -269,7 +304,7 @@ export default function QRScanner({
       <div className={`absolute inset-0 bg-zinc-950 transition-colors duration-300 ${scanSuccess ? 'ring-2 ring-inset ring-green-500' : ''}`}>
         <video
           ref={videoRef}
-          className="w-full h-full object-cover"
+          className={`w-full h-full object-cover transition-[filter] duration-300 ${lowLightMode ? 'brightness-125 contrast-125 saturate-110' : ''}`}
           playsInline
           muted
         />
@@ -281,7 +316,8 @@ export default function QRScanner({
               <svg className="w-16 h-16 mx-auto mb-3 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
-              <p className="text-sm text-red-400 mb-4">{cameraError}</p>
+              <p className="text-sm text-red-400 mb-2">{cameraError}</p>
+              {permissionState === 'denied' && <p className="text-xs text-zinc-400 mb-4">Allow camera access in the browser address-bar settings, then retry. Camera access is used only while this scanner is open.</p>}
               <button
                 onClick={() => startScanningWithDevice(selectedDevice)}
                 className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm"
@@ -318,6 +354,7 @@ export default function QRScanner({
 
         {/* Top Controls */}
         <div className="absolute top-4 left-4 right-4 flex justify-between items-center">
+          <div className="flex items-center gap-2">
           {/* Flashlight Toggle - Always visible */}
           <button
             onClick={flashlightSupported ? toggleFlashlight : undefined}
@@ -341,6 +378,8 @@ export default function QRScanner({
               <FlashlightOff className="w-5 h-5" />
             )}
           </button>
+          <button onClick={() => void toggleLowLight()} className={`rounded-full px-3 py-2 text-xs font-semibold shadow-lg ${lowLightMode ? 'bg-amber-400 text-black' : 'bg-zinc-800/80 text-white'}`} title="Improve scanning in low light">Low light</button>
+          </div>
 
           {/* Status indicator */}
           {isScanning && (
@@ -350,6 +389,7 @@ export default function QRScanner({
             </div>
           )}
         </div>
+        {isScanning && zoomSupported && <div className="absolute bottom-4 left-4 right-4 rounded-xl bg-black/65 px-4 py-3 text-white backdrop-blur-sm"><div className="flex items-center justify-between text-xs"><span>Zoom</span><span>{zoom.toFixed(1)}×</span></div><input aria-label="Camera zoom" type="range" min={zoomRange.min} max={zoomRange.max} step={zoomRange.step} value={zoom} onChange={(event) => void applyZoom(Number(event.target.value))} className="mt-2 w-full accent-red-500" /></div>}
       </div>
 
       {/* Camera Selection */}

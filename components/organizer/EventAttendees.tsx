@@ -37,6 +37,10 @@ export default function EventAttendees({ eventId }: EventAttendeesProps) {
     const [resendingId, setResendingId] = useState<string | null>(null);
     const [selected, setSelected] = useState<Set<string>>(new Set());
     const [bulkRunning, setBulkRunning] = useState(false);
+    const [cursor, setCursor] = useState<string | null>(null);
+    const [cursorHistory, setCursorHistory] = useState<string[]>([]);
+    const [nextCursor, setNextCursor] = useState<string | null>(null);
+    const [error, setError] = useState('');
 
     const toggleSelect = (id: string) => {
         setSelected((prev) => {
@@ -93,35 +97,33 @@ export default function EventAttendees({ eventId }: EventAttendeesProps) {
     };
 
     useEffect(() => {
-        fetchTickets();
-    }, [eventId]);
+        const timer = window.setTimeout(() => void fetchTickets(), 250);
+        return () => window.clearTimeout(timer);
+    }, [eventId, cursor, searchTerm, statusFilter]);
 
     const fetchTickets = async () => {
+        setLoading(true);
+        setError('');
         try {
-            const res = await fetch(`/api/tickets?eventId=${eventId}`);
-            if (res.ok) {
-                const data = await res.json();
-                setTickets(data);
-            }
+            const params = new URLSearchParams({ eventId, pageSize: '25' });
+            if (cursor) params.set('cursor', cursor);
+            if (searchTerm.trim()) params.set('q', searchTerm.trim());
+            if (statusFilter !== 'all') params.set('status', statusFilter);
+            const res = await fetch(`/api/tickets?${params}`, { cache: 'no-store' });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Failed to load attendees');
+            setTickets(data.items || []);
+            setNextCursor(data.pagination?.nextCursor || null);
+            setSelected(new Set());
         } catch (error) {
             console.error('Failed to fetch tickets:', error);
-            showToast('Failed to load attendees', 'error');
+            setError(error instanceof Error ? error.message : 'Failed to load attendees');
         } finally {
             setLoading(false);
         }
     };
 
-    const filteredTickets = tickets.filter(t => {
-        const query = searchTerm.toLowerCase();
-        const matchesQuery =
-            t.name?.toLowerCase().includes(query) ||
-            t.email?.toLowerCase().includes(query) ||
-            t.phone?.includes(searchTerm) ||
-            t.id?.toLowerCase().includes(query);
-        const lifecycle = t.lifecycleStatus || (t.checkedIn ? 'checked_in' : t.status);
-        const matchesStatus = statusFilter === 'all' || lifecycle === statusFilter || t.status === statusFilter;
-        return matchesQuery && matchesStatus;
-    });
+    const filteredTickets = tickets;
 
     const formatMoney = (amount = 0) => new Intl.NumberFormat('en-IN', {
         style: 'currency',
@@ -207,12 +209,14 @@ export default function EventAttendees({ eventId }: EventAttendeesProps) {
         }
     };
 
-    if (loading) return (
+    if (loading && tickets.length === 0) return (
         <div className="text-center py-10 text-[#737373]">
             <div className="w-8 h-8 border-2 border-[#E11D2E] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
             Loading attendees...
         </div>
     );
+
+    if (error && tickets.length === 0) return <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-6 text-center text-red-200"><p>{error}</p><button onClick={fetchTickets} className="mt-3 rounded-lg bg-red-500 px-3 py-2 text-sm text-white">Retry</button></div>;
 
     return (
         <div className="space-y-4">
@@ -225,13 +229,13 @@ export default function EventAttendees({ eventId }: EventAttendeesProps) {
                         type="text"
                         placeholder="Search attendees..."
                         value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
+                        onChange={(e) => { setSearchTerm(e.target.value); setCursor(null); setCursorHistory([]); }}
                         className="w-full pl-10 pr-4 py-2.5 bg-[#1A1A1A] border border-[#1F1F1F] rounded-xl text-white placeholder-[#737373] focus:outline-none focus:border-[#E11D2E]"
                     />
                 </div>
                 <select
                     value={statusFilter}
-                    onChange={(event) => setStatusFilter(event.target.value)}
+                    onChange={(event) => { setStatusFilter(event.target.value); setCursor(null); setCursorHistory([]); }}
                     className="px-3 py-2.5 bg-[#1A1A1A] border border-[#1F1F1F] rounded-xl text-white focus:outline-none focus:border-[#E11D2E] text-sm"
                 >
                     <option value="all">All statuses</option>
@@ -405,9 +409,9 @@ export default function EventAttendees({ eventId }: EventAttendeesProps) {
             </div>
 
             {/* Footer Stats */}
-            <div className="pt-3 border-t border-[#1F1F1F] flex justify-between text-sm text-[#737373]">
-                <span>Total: <span className="text-white">{tickets.length}</span></span>
-                <span>Filtered: <span className="text-white">{filteredTickets.length}</span></span>
+            <div className="pt-3 border-t border-[#1F1F1F] flex flex-wrap items-center justify-between gap-3 text-sm text-[#737373]">
+                <span>Showing {tickets.length} attendees · Cursor pagination</span>
+                <div className="flex gap-2"><button disabled={cursorHistory.length === 0 || loading} onClick={() => { const history = [...cursorHistory]; const previous = history.pop() || null; setCursorHistory(history); setCursor(previous); }} className="rounded-lg border border-[#333] px-3 py-1.5 disabled:opacity-40">Previous</button><button disabled={!nextCursor || loading} onClick={() => { if (nextCursor) { setCursorHistory((history) => [...history, cursor || '']); setCursor(nextCursor); } }} className="rounded-lg border border-[#333] px-3 py-1.5 disabled:opacity-40">Next</button></div>
             </div>
         </div>
     );

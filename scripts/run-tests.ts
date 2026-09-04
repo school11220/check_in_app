@@ -17,6 +17,9 @@ import {
 import { attendeeSegmentFiltersSchema, buildAttendeeWhere } from '../lib/attendee-segments';
 import { snapshotEventTemplate, templateChildren, templateEventCreateData } from '../lib/event-templates';
 import { getEventStart, reminderOffsetLabel, reminderScheduledFor } from '../lib/reminders';
+import { classifyOfflineSyncResponse } from '../lib/offline-checkin';
+import { paginationMeta, parsePagination } from '../lib/pagination';
+import { readCheckInPolicy } from '../lib/checkin-policy';
 
 process.env.TICKET_SECRET_KEY = process.env.TICKET_SECRET_KEY || 'test-ticket-secret';
 
@@ -322,9 +325,28 @@ function testContentSanitization() {
   assert.equal(safeExternalUrl('javascript:alert(1)'), null);
 }
 
+function testDashboardSafetyHelpers() {
+  assert.equal(classifyOfflineSyncResponse(200, {}), 'synced');
+  assert.equal(classifyOfflineSyncResponse(400, { message: 'Ticket already checked in' }), 'synced');
+  assert.equal(classifyOfflineSyncResponse(400, { message: 'Ticket payment is pending' }), 'retry');
+  assert.equal(classifyOfflineSyncResponse(403, { message: 'Forbidden' }), 'retry');
+
+  const parsed = parsePagination(new URLSearchParams('page=-2&pageSize=999'));
+  assert.deepEqual(parsed, { page: 1, pageSize: 100, skip: 0 });
+  assert.deepEqual(paginationMeta(2, 25, 51), { page: 2, pageSize: 25, total: 51, totalPages: 3 });
+
+  assert.deepEqual(readCheckInPolicy({}), {
+    manualCheckInEnabled: false,
+    requireManualReason: true,
+    organizerApprovedEventIds: [],
+  });
+  assert.equal(readCheckInPolicy({ checkInPolicy: { manualCheckInEnabled: true, organizerApprovedEventIds: ['event-1'] } }).manualCheckInEnabled, true);
+}
+
 testTicketLifecycleStatus();
 testTicketFinancials();
 testTimedQRToken();
 testScanPayloadEdgeCases();
 testPaidLikeStatuses();
 testContentSanitization();
+testDashboardSafetyHelpers();

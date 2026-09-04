@@ -7,6 +7,8 @@ import { getSession, hasEventAccess } from '@/lib/auth';
 import { ticketTokenMatches } from '@/lib/ticket-security';
 import { isPaidLikeStatus, PAID_LIKE_STATUSES } from '@/lib/ticket-lifecycle';
 import { isSecurityKeyBlocked, logSecurityEvent } from '@/lib/security-events';
+import { readCheckInPolicy } from '@/lib/checkin-policy';
+import { readEventSettings } from '@/lib/event-settings';
 
 const ALLOWED_ROLES = ['ADMIN', 'ORGANIZER', 'ORGANISER', 'SCANNER'];
 
@@ -65,7 +67,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { ticketId, token, timedToken, deviceId, deviceName, offlineTimestamp, reason } = body;
+    const { ticketId, token, timedToken, deviceId, deviceName, offlineTimestamp, reason, eventId: expectedEventId } = body;
     const action = body.action || 'checkin';
 
     if (!ticketId) {
@@ -107,10 +109,36 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    if (expectedEventId && ticket.eventId !== expectedEventId) {
+      return NextResponse.json<CheckInResponse>(
+        { success: false, message: 'This ticket belongs to a different event. Unlock the scanner to change events.' },
+        { status: 409 }
+      );
+    }
+
     if (!hasEventAccess(session, ticket.eventId)) {
       return NextResponse.json<CheckInResponse>(
         { success: false, message: 'You do not have access to this event' },
         { status: 403 }
+      );
+    }
+
+    if (action === 'manual_checkin') {
+      const config = await prisma.siteConfig.findUnique({ where: { id: 'default' }, select: { settings: true } });
+      const policy = readCheckInPolicy(config?.settings);
+      const eventSettings = readEventSettings(config?.settings, ticket.eventId);
+      const organizerApproved = policy.organizerApprovedEventIds.includes(ticket.eventId);
+      if (role !== 'ADMIN' && (!policy.manualCheckInEnabled || !eventSettings.checkIn.manualEnabled || !organizerApproved)) {
+        return NextResponse.json<CheckInResponse>(
+          { success: false, message: 'Manual check-in is not approved for this event' },
+          { status: 403 }
+        );
+      }
+    }
+    if ((action === 'manual_checkin' || action === 'undo_checkin') && !String(reason || '').trim()) {
+      return NextResponse.json<CheckInResponse>(
+        { success: false, message: 'An override reason is required' },
+        { status: 400 }
       );
     }
 
@@ -179,6 +207,10 @@ export async function POST(req: NextRequest) {
 
     // --- Check-in vs Undo ---
     if (action === 'undo_checkin') {
+      const config = await prisma.siteConfig.findUnique({ where: { id: 'default' }, select: { settings: true } });
+      if (!readEventSettings(config?.settings, ticket.eventId).checkIn.allowUndo) {
+        return NextResponse.json<CheckInResponse>({ success: false, message: 'Undo check-in is disabled for this event' }, { status: 403 });
+      }
       if (!ticket.checkedIn) {
         return NextResponse.json<CheckInResponse>(
           { success: false, message: 'Ticket is not checked in' },
@@ -277,8 +309,14 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
+    if (offlineTimestamp && (actionAt.getTime() > now.getTime() + 5 * 60 * 1000 || actionAt.getTime() < now.getTime() - 24 * 60 * 60 * 1000)) {
+      return NextResponse.json<CheckInResponse>(
+        { success: false, message: 'Offline check-in timestamp is outside the allowed 24-hour sync window' },
+        { status: 400 }
+      );
+    }
     const actionTimestamp = actionAt.toISOString();
-    const checkinAction = action === 'manual_checkin' ? 'manual_checkin' : deviceId ? 'offline_checkin' : 'checkin';
+    const checkinAction = action === 'manual_checkin' ? 'manual_checkin' : offlineTimestamp ? 'offline_checkin' : 'checkin';
     const checksum = generateAuditChecksum(ticketId, checkinAction, actionTimestamp, userId);
 
     // Use a conditional update so overlapping scans cannot both check in the same ticket.
@@ -310,7 +348,7 @@ export async function POST(req: NextRequest) {
           deviceId: deviceId || deviceName || null,
           reason: reason || null,
           checksum,
-          syncedAt: deviceId ? now : null,
+          syncedAt: offlineTimestamp ? now : null,
           createdAt: actionAt,
         },
       });

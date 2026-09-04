@@ -117,7 +117,7 @@ export default function EventModal({ event, onSave, onClose, isOrganizer = false
                                     <option value="other">Other</option>
                                 </select>
                             </div>
-                            <div className="flex items-center gap-2"><input type="checkbox" id="featured" checked={formData.isFeatured} onChange={(e) => setFormData({ ...formData, isFeatured: e.target.checked })} className="w-4 h-4 rounded" /><label htmlFor="featured" className="text-sm text-zinc-300">Featured Event</label></div>
+                            {!isOrganizer && <div className="flex items-center gap-2"><input type="checkbox" id="featured" checked={formData.isFeatured} onChange={(e) => setFormData({ ...formData, isFeatured: e.target.checked })} className="w-4 h-4 rounded" /><label htmlFor="featured" className="text-sm text-zinc-300">Featured Event</label></div>}
                         </>
                     )}
 

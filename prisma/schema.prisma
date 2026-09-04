@@ -63,6 +63,11 @@ model Event {
   capacity             Int                  @default(100)
   soldCount            Int                  @default(0)
   isActive             Boolean              @default(true)
+  // Sales availability and public publication are separate controls.
+  publicationStatus    String               @default("published")
+  publishApprovedBy    String?
+  publishApprovedAt    DateTime?
+  timezone             String               @default("Asia/Kolkata")
   isFeatured           Boolean              @default(false)
   schedule             Json                 @default("[]")
   speakers             Json                 @default("[]")
@@ -97,6 +102,7 @@ model Event {
   @@index([organizerId])
   @@index([isActive, date])
   @@index([isFeatured, isActive])
+  @@index([publicationStatus, date])
   @@index([date])
 }
 
@@ -336,6 +342,29 @@ model SecurityEvent {
   @@index([eventId])
   @@index([createdAt])
   @@index([type, createdAt])
+}
+
+model PaymentRecoveryJob {
+  id                String    @id @default(uuid())
+  provider          String    @default("razorpay")
+  operation         String
+  orderId           String?
+  paymentId         String?
+  ticketId          String?
+  eventId           String?
+  payload           Json
+  status            String    @default("pending")
+  attempts          Int       @default(0)
+  lastError         String?
+  nextAttemptAt     DateTime  @default(now())
+  processedAt       DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([status, nextAttemptAt])
+  @@index([orderId])
+  @@index([paymentId])
+  @@index([eventId, createdAt])
 }
 
 model PromoCodeRecord {

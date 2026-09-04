@@ -28,9 +28,13 @@ export default function AuditLogViewer() {
     const [from, setFrom] = useState('');
     const [to, setTo] = useState('');
     const [exporting, setExporting] = useState(false);
+    const [page, setPage] = useState(1);
+    const [pagination, setPagination] = useState({ page: 1, pageSize: 50, total: 0, totalPages: 1 });
+    const [error, setError] = useState('');
 
     const fetchLogs = useCallback(async () => {
         setLoading(true);
+        setError('');
         try {
             const params = new URLSearchParams();
             if (action && action !== 'ALL') params.set('action', action);
@@ -38,18 +42,20 @@ export default function AuditLogViewer() {
             if (search) params.set('q', search);
             if (from) params.set('from', from);
             if (to) params.set('to', to);
-            params.set('limit', '500');
+            params.set('page', String(page));
+            params.set('pageSize', '50');
             const res = await fetch(`/api/admin/audit-logs?${params}`);
-            if (res.ok) {
-                const data = await res.json();
-                setLogs(data);
-            }
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Failed to load audit logs');
+            setLogs(data.items || []);
+            setPagination(data.pagination);
         } catch (err) {
             console.error('Error fetching logs:', err);
+            setError(err instanceof Error ? err.message : 'Failed to load audit logs');
         } finally {
             setLoading(false);
         }
-    }, [action, resource, search, from, to]);
+    }, [action, resource, search, from, to, page]);
 
     useEffect(() => {
         fetchLogs();
@@ -70,6 +76,7 @@ export default function AuditLogViewer() {
         setSearch('');
         setFrom('');
         setTo('');
+        setPage(1);
     };
 
     const exportCsv = async () => {
@@ -163,6 +170,8 @@ export default function AuditLogViewer() {
 
             {loading ? (
                 <div className="text-center py-10 text-zinc-400"><Loader2 className="w-5 h-5 animate-spin mx-auto" /></div>
+            ) : error ? (
+                <div className="text-center py-10 bg-red-500/10 border border-red-500/30 rounded-2xl text-red-200 text-sm">{error}<button onClick={fetchLogs} className="mt-3 mx-auto flex items-center gap-1 underline"><RefreshCw className="w-3 h-3" />Retry</button></div>
             ) : logs.length === 0 ? (
                 <div className="text-center py-10 bg-zinc-900/50 border border-dashed border-zinc-800 rounded-2xl text-zinc-500 text-sm">
                     No audit logs match the current filters.
@@ -197,8 +206,9 @@ export default function AuditLogViewer() {
                 </div>
             )}
 
-            <div className="text-xs text-zinc-500 text-right">
-                Showing {logs.length} entries (max 500)
+            <div className="flex items-center justify-between gap-3 text-xs text-zinc-500">
+                <span>{pagination.total} entries · Page {pagination.page} of {pagination.totalPages}</span>
+                <div className="flex gap-2"><button disabled={page <= 1 || loading} onClick={() => setPage(p => p - 1)} className="rounded-lg border border-zinc-800 px-3 py-1.5 disabled:opacity-40">Previous</button><button disabled={page >= pagination.totalPages || loading} onClick={() => setPage(p => p + 1)} className="rounded-lg border border-zinc-800 px-3 py-1.5 disabled:opacity-40">Next</button></div>
             </div>
         </div>
     );

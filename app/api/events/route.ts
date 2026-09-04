@@ -1,20 +1,35 @@
 import { NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { calculateDynamicPrice } from '@/lib/pricing';
 import { getSession, hasEventAccess } from '@/lib/auth';
 import { logAudit } from '@/lib/logger';
+import { paginationMeta, parsePagination } from '@/lib/pagination';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(request: Request) {
     try {
+        const url = new URL(request.url);
+        const paginated = url.searchParams.has('page') || url.searchParams.has('pageSize');
+        const { page, pageSize, skip } = parsePagination(url.searchParams);
         // Use raw SQL here because Prisma can fail when the live database schema
         // drifts from the generated client. Raw reads keep the list endpoint alive.
+        const paginationSql = paginated ? Prisma.sql`LIMIT ${pageSize} OFFSET ${skip}` : Prisma.empty;
+        const session = await getSession();
+        const canViewUnpublished = session?.user.role === 'ADMIN';
+        const publicationSql = canViewUnpublished
+            ? Prisma.empty
+            : Prisma.sql`WHERE "publicationStatus" = 'published'`;
         const events: any[] = await prisma.$queryRaw`
             SELECT *
             FROM "Event"
+            ${publicationSql}
             ORDER BY "date" ASC
+            ${paginationSql}
         `;
+        const totalRows = paginated ? await prisma.$queryRaw<Array<{ count: bigint }>>`SELECT COUNT(*)::bigint as count FROM "Event"` : [];
+        const total = paginated ? Number(totalRows[0]?.count || 0) : 0;
 
         const eventsWithPrice = events.map(event => {
             const eventForPricing = {
@@ -27,7 +42,7 @@ export async function GET() {
             };
         });
 
-        return NextResponse.json(eventsWithPrice);
+        return NextResponse.json(paginated ? { items: eventsWithPrice, pagination: paginationMeta(page, pageSize, total) } : eventsWithPrice);
     } catch (error) {
         console.error('Failed to fetch events:', error);
         return NextResponse.json({ error: 'Failed to fetch events' }, { status: 500 });
@@ -37,9 +52,8 @@ export async function GET() {
 export async function POST(request: Request) {
     try {
         const session = await getSession();
-        if (!session || session.user.role !== 'ADMIN') {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
+        if (!session) return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+        if (session.user.role !== 'ADMIN') return NextResponse.json({ error: 'Only admins can create events' }, { status: 403 });
 
         const rest = await request.json();
         delete rest.id;
@@ -56,6 +70,9 @@ export async function POST(request: Request) {
                 organizer: rest.organizer || session.user.name || session.user.email,
                 organizerId: session.user.id,
                 date: new Date(rest.date),
+                publicationStatus: 'draft',
+                publishApprovedBy: null,
+                publishApprovedAt: null,
             },
         });
 
@@ -99,15 +116,15 @@ export async function PATCH(request: Request) {
         }
 
         const updateData: Record<string, unknown> = {};
-        const allowedFields = [
+        const organizerFields = [
             'name', 'description', 'startTime', 'endTime', 'venue', 'address',
-            'price', 'entryFee', 'prizePool', 'category', 'imageUrl', 'capacity',
-            'isActive', 'isFeatured', 'organizer', 'contactEmail', 'contactPhone',
-            'termsAndConditions', 'registrationDeadline', 'earlyBirdEnabled',
-            'earlyBirdPrice', 'earlyBirdDeadline', 'sendReminders', 'videoLink',
+            'category', 'imageUrl', 'organizer', 'contactEmail', 'contactPhone',
+            'termsAndConditions', 'registrationDeadline', 'sendReminders', 'videoLink',
             'organizerVideoLink', 'tags', 'registrationFields', 'schedule',
-            'speakers', 'sponsors'
+            'speakers', 'timezone'
         ];
+        const adminOnlyFields = ['price', 'entryFee', 'prizePool', 'capacity', 'isActive', 'isFeatured', 'earlyBirdEnabled', 'earlyBirdPrice', 'earlyBirdDeadline', 'sponsors'];
+        const allowedFields = session.user.role === 'ADMIN' ? [...organizerFields, ...adminOnlyFields] : organizerFields;
 
         for (const field of allowedFields) {
             if (data[field] !== undefined) {

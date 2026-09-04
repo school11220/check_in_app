@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { clerkClient } from '@clerk/nextjs/server';
 import { clerkRoleKey, getCurrentClerkRole, normalizeLegacyRole } from '@/lib/clerk-roles';
+import { paginationMeta, parsePagination } from '@/lib/pagination';
 
 // POST: Create a new user in Clerk with role
 export const dynamic = 'force-dynamic';
@@ -18,7 +19,8 @@ export async function POST(request: Request) {
         }
 
         const body = await request.json();
-        const { email, password, name, role, assignedEventIds } = body;
+        const { email, name, role, assignedEventIds } = body;
+        const expiresInDays = Math.min(30, Math.max(1, Number(body.expiresInDays || 7)));
 
         if (!email || !role) {
             return NextResponse.json({ error: 'Email and role are required' }, { status: 400 });
@@ -32,18 +34,10 @@ export async function POST(request: Request) {
         const existingUsers = await client.users.getUserList({ emailAddress: [email] });
 
         if (existingUsers.data.length > 0) {
-            // Update existing user's role
-            // Only update password if provided
-            if (password && password.length >= 8) {
-                await client.users.updateUser(existingUsers.data[0].id, {
-                    password: password
-                });
-            } else if (password && password.length < 8) {
-                return NextResponse.json({ error: 'Password must be at least 8 characters' }, { status: 400 });
-            }
-
             await client.users.updateUser(existingUsers.data[0].id, {
-                publicMetadata: { role: appRole, assignedEventIds: assignedEventIds || [] }
+                firstName: name?.trim().split(/\s+/)[0] || existingUsers.data[0].firstName || undefined,
+                lastName: name?.trim().split(/\s+/).slice(1).join(' ') || existingUsers.data[0].lastName || undefined,
+                publicMetadata: { ...existingUsers.data[0].publicMetadata, role: appRole, assignedEventIds: assignedEventIds || [] }
             });
             if (orgId) {
                 try {
@@ -67,47 +61,27 @@ export async function POST(request: Request) {
             });
         }
 
-        // New User Validation
-        if (!password) {
-            return NextResponse.json({ error: 'Password is required for new users' }, { status: 400 });
-        }
-
-        if (password.length < 8) {
-            return NextResponse.json({ error: 'Password must be at least 8 characters' }, { status: 400 });
-        }
-
-        // Generate unique username
-        const timestamp = Date.now().toString(36);
-        const randomPart = Math.random().toString(36).substring(2, 6);
-        const username = `user_${timestamp}_${randomPart}`;
-
-        // Create new user in Clerk
-        const newUser = await client.users.createUser({
-            emailAddress: [email],
-            password: password,
-            username: username,
-            firstName: name?.split(' ')[0] || 'User',
-            lastName: name?.split(' ').slice(1).join(' ') || '',
-            publicMetadata: {
-                role: appRole,
-                assignedEventIds: assignedEventIds || []
-            }
-        });
-
+        const redirectUrl = `${new URL(request.url).origin}/login`;
         if (orgId) {
-            await client.organizations.createOrganizationMembership({
+            const invitation = await client.organizations.createOrganizationInvitation({
                 organizationId: orgId,
-                userId: newUser.id,
+                inviterUserId: userId,
+                emailAddress: email,
                 role: clerkRoleKey(appRole),
+                redirectUrl,
+                publicMetadata: { assignedEventIds: assignedEventIds || [], name: name || '' },
+                expiresInDays,
             });
+            return NextResponse.json({ success: true, message: 'Secure organization invitation sent', invitationId: invitation.id });
         }
-
-        return NextResponse.json({
-            success: true,
-            message: 'User created successfully',
-            userId: newUser.id,
-            email: email
+        const invitation = await client.invitations.createInvitation({
+            emailAddress: email,
+            redirectUrl,
+            notify: true,
+            publicMetadata: { role: appRole, assignedEventIds: assignedEventIds || [], name: name || '' },
+            expiresInDays,
         });
+        return NextResponse.json({ success: true, message: 'Secure invitation sent', invitationId: invitation.id });
 
     } catch (error: any) {
         console.error('Create user error:', error);
@@ -117,7 +91,7 @@ export async function POST(request: Request) {
 }
 
 // GET: List all Clerk users with their roles
-export async function GET() {
+export async function GET(request: Request) {
     try {
         const { userId, orgId, role: currentRole } = await getCurrentClerkRole();
         if (!userId) {
@@ -129,8 +103,12 @@ export async function GET() {
             return NextResponse.json({ error: 'Only admins can view users' }, { status: 403 });
         }
 
+        const { searchParams } = new URL(request.url);
+        const { page, pageSize, skip } = parsePagination(searchParams);
+        const q = (searchParams.get('q') || '').trim();
         if (orgId) {
-            const memberships = await client.organizations.getOrganizationMembershipList({ organizationId: orgId, limit: 100 });
+            const matchedUsers = q ? await client.users.getUserList({ query: q, organizationId: [orgId], limit: pageSize, offset: skip }) : null;
+            const memberships = await client.organizations.getOrganizationMembershipList({ organizationId: orgId, limit: pageSize, offset: matchedUsers ? 0 : skip, ...(matchedUsers ? { userId: matchedUsers.data.map(user => user.id) } : {}) });
             const formattedMembers = await Promise.all(memberships.data.map(async membership => {
                 const memberId = membership.publicUserData?.userId;
                 const user = memberId ? await client.users.getUser(memberId) : null;
@@ -141,12 +119,16 @@ export async function GET() {
                     role: normalizeLegacyRole(membership.role.replace(/^org:/, '')),
                     assignedEventIds: (user?.publicMetadata?.assignedEventIds as string[]) || [],
                     createdAt: membership.createdAt,
+                    lastActiveAt: user?.lastActiveAt ? new Date(user.lastActiveAt).toISOString() : null,
+                    lastSignInAt: user?.lastSignInAt ? new Date(user.lastSignInAt).toISOString() : null,
+                    accountStatus: user?.banned ? 'banned' : user?.locked ? 'locked' : 'active',
+                    membershipActivityStatus: user?.lastActiveAt && Date.now() - user.lastActiveAt < 30 * 86400000 ? 'active' : 'inactive',
                 };
             }));
-            return NextResponse.json(formattedMembers);
+            return NextResponse.json({ items: formattedMembers, pagination: paginationMeta(page, pageSize, matchedUsers?.totalCount ?? memberships.totalCount) });
         }
 
-        const users = await client.users.getUserList({ limit: 100 });
+        const users = await client.users.getUserList({ limit: pageSize, offset: skip, ...(q ? { query: q } : {}) });
 
         const formattedUsers = users.data.map(user => ({
             id: user.id,
@@ -155,9 +137,13 @@ export async function GET() {
             role: normalizeLegacyRole(user.publicMetadata?.role),
             assignedEventIds: (user.publicMetadata?.assignedEventIds as string[]) || [],
             createdAt: user.createdAt
+            , lastActiveAt: user.lastActiveAt ? new Date(user.lastActiveAt).toISOString() : null
+            , lastSignInAt: user.lastSignInAt ? new Date(user.lastSignInAt).toISOString() : null
+            , accountStatus: user.banned ? 'banned' : user.locked ? 'locked' : 'active'
+            , membershipActivityStatus: user.lastActiveAt && Date.now() - user.lastActiveAt < 30 * 86400000 ? 'active' : 'inactive'
         }));
 
-        return NextResponse.json(formattedUsers);
+        return NextResponse.json({ items: formattedUsers, pagination: paginationMeta(page, pageSize, users.totalCount) });
 
     } catch (error: any) {
         console.error('Get users error:', error);

@@ -1,19 +1,15 @@
 import { NextResponse } from 'next/server';
 import { randomUUID } from 'crypto';
 import { prisma } from '@/lib/prisma';
-import { getSession, hasEventAccess, hasRole, ORGANIZER_ROLES } from '@/lib/auth';
+import { getSession } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
     const session = await getSession();
-    if (!session || !hasRole(session.user.role, ORGANIZER_ROLES)) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const where = session.user.role === 'ADMIN'
-        ? {}
-        : { eventId: { in: session.user.assignedEventIds || [] } };
+    if (!session) return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    if (session.user.role !== 'ADMIN') return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+    const where = {};
 
     const rules = await prisma.pricingRule.findMany({
         where,
@@ -32,16 +28,13 @@ export async function GET() {
 
 export async function POST(request: Request) {
     const session = await getSession();
-    if (!session || !hasRole(session.user.role, ORGANIZER_ROLES)) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    if (!session) return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    if (session.user.role !== 'ADMIN') return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
 
     try {
         const body = await request.json();
         const { eventId, triggerType, triggerValue, adjustmentType, adjustmentValue } = body;
-        if (!eventId || !hasEventAccess(session, eventId)) {
-            return NextResponse.json({ error: 'You do not have access to this event' }, { status: 403 });
-        }
+        if (!eventId) return NextResponse.json({ error: 'Event ID is required' }, { status: 400 });
 
         const rule = await prisma.pricingRule.create({
             data: {

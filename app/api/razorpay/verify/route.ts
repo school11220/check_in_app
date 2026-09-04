@@ -8,6 +8,7 @@ import { generateTicketToken, timingSafeStringEqual } from '@/lib/ticket-securit
 import { isPaidLikeStatus } from '@/lib/ticket-lifecycle';
 import { logSecurityEvent } from '@/lib/security-events';
 import { EVENT_WITH_PRICING_SELECT, EVENT_SELECT } from '@/lib/event-select';
+import { enqueuePaymentRecovery } from '@/lib/payment-recovery';
 
 function createRequestError(message: string, status = 400) {
     const error = new Error(message) as Error & { status?: number };
@@ -17,12 +18,17 @@ function createRequestError(message: string, status = 400) {
 
 // Verify Razorpay payment
 export async function POST(request: NextRequest) {
+    let gatewayConfirmed = false;
+    let recoveryContext: { orderId?: string; paymentId?: string; ticketId?: string; eventId?: string } = {};
+    let recoverySignature = '';
     try {
         const rateLimited = await enforceRateLimit(request, 'razorpay-verify', { requests: 10, window: '1 m' });
         if (rateLimited) return rateLimited;
 
         const body = await request.json();
         const { razorpay_order_id, razorpay_payment_id, razorpay_signature, ticketId, emailStyles } = body;
+        recoveryContext = { orderId: razorpay_order_id, paymentId: razorpay_payment_id, ticketId };
+        recoverySignature = razorpay_signature;
 
         if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature || !ticketId) {
             return NextResponse.json({ error: 'Missing payment verification details' }, { status: 400 });
@@ -71,6 +77,7 @@ export async function POST(request: NextRequest) {
             });
             return NextResponse.json({ error: 'Payment could not be verified with Razorpay' }, { status: 400 });
         }
+        gatewayConfirmed = true;
 
         const paidTotal = Number(payment.amount || 0);
         if (!Number.isFinite(paidTotal) || paidTotal <= 0) {
@@ -92,6 +99,7 @@ export async function POST(request: NextRequest) {
         }
 
         const eventId = orderTickets[0].eventId;
+        recoveryContext.eventId = eventId;
         if (orderTickets.some((ticket) => ticket.eventId !== eventId)) {
             return NextResponse.json({ error: 'Order contains tickets from multiple events' }, { status: 400 });
         }
@@ -270,6 +278,13 @@ export async function POST(request: NextRequest) {
         });
     } catch (error: any) {
         console.error('Payment verification failed:', error);
+        if (gatewayConfirmed) {
+            await enqueuePaymentRecovery({
+                operation: 'payment_verification', ...recoveryContext,
+                payload: { orderId: recoveryContext.orderId || null, paymentId: recoveryContext.paymentId || null, ticketId: recoveryContext.ticketId || null, signature: recoverySignature },
+                error,
+            });
+        }
         if (error?.status) {
             return NextResponse.json({ error: error.message }, { status: error.status });
         }

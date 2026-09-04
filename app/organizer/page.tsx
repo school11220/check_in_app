@@ -2,16 +2,16 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import {Calendar, Users, BarChart3, LogOut, Globe, Edit3, Save, Loader2, LayoutDashboard, Home, Ticket, CheckCircle, Power, Play, Pause, AlertTriangle, History, MessageSquare, Plus} from '@/components/icons';
+import {Calendar, Users, LogOut, Globe, Edit3, Save, Loader2, LayoutDashboard, Home, Ticket, CheckCircle, MessageSquare, RefreshCw} from '@/components/icons';
 import { useToast } from '@/components/Toaster';
 import SessionScheduler from '@/components/admin/SessionScheduler';
 
 import EventAttendees from '@/components/organizer/EventAttendees';
 import EventReviews from '@/components/organizer/EventReviews';
 import EventModal from '@/components/EventModal';
-import DashboardInsights from '@/components/DashboardInsights';
 import ScannerAssignmentManager from '@/components/ScannerAssignmentManager';
-import OnboardingWizard from '@/components/OnboardingWizard';
+import CheckInPolicyManager from '@/components/CheckInPolicyManager';
+import EventSettingsManager from '@/components/EventSettingsManager';
 import { useClerk } from '@clerk/nextjs';
 import { Event } from '@/lib/store';
 import AttendeeSegments from '@/components/admin/AttendeeSegments';
@@ -26,21 +26,22 @@ interface User {
     assignedEventIds: string[];
 }
 
-type TabId = 'overview' | 'events' | 'schedule' | 'attendees' | 'segments' | 'reminders' | 'templates' | 'sales' | 'reviews';
+type TabId = 'overview' | 'events' | 'schedule' | 'attendees' | 'segments' | 'reminders' | 'templates' | 'reviews';
 
-export default function OrganizerDashboard({ defaultTab }: { defaultTab?: TabId } = {}) {
+export default function OrganizerDashboard({ defaultTab, defaultEventId }: { defaultTab?: TabId; defaultEventId?: string } = {}) {
     const router = useRouter();
     const { showToast } = useToast();
     const [events, setEvents] = useState<Event[]>([]);
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<TabId>(defaultTab || 'overview');
-    const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+    const [selectedEventId, setSelectedEventId] = useState<string | null>(defaultEventId || null);
     const [showEventModal, setShowEventModal] = useState(false);
     const [editingEvent, setEditingEvent] = useState<Event | null>(null);
     const [saving, setSaving] = useState(false);
+    const [loadError, setLoadError] = useState('');
 
-    const selectedEvent = events.find(e => e.id === selectedEventId) || events[0];
+    const selectedEvent = selectedEventId ? events.find(e => e.id === selectedEventId) : events[0];
 
     useEffect(() => {
         checkSession();
@@ -48,7 +49,7 @@ export default function OrganizerDashboard({ defaultTab }: { defaultTab?: TabId 
 
     useEffect(() => {
         if (events.length > 0 && !selectedEventId) {
-            setSelectedEventId(events[0].id);
+            changeEvent(events[0].id, false);
         }
     }, [events]);
 
@@ -62,7 +63,7 @@ export default function OrganizerDashboard({ defaultTab }: { defaultTab?: TabId 
             if (meRes.ok) {
                 const userData = await meRes.json();
                 setUser(userData);
-                fetchEvents(userData.assignedEventIds, userData.role);
+                fetchEvents();
             } else {
                 router.push('/login');
             }
@@ -71,19 +72,17 @@ export default function OrganizerDashboard({ defaultTab }: { defaultTab?: TabId 
         }
     };
 
-    const fetchEvents = async (assignedIds: string[], role: string) => {
+    const fetchEvents = async () => {
+        setLoading(true);
+        setLoadError('');
         try {
-            const res = await fetch('/api/events');
-            if (res.ok) {
-                const allEvents: Event[] = await res.json();
-                if (role === 'ADMIN') {
-                    setEvents(allEvents);
-                } else {
-                    setEvents(allEvents.filter(e => assignedIds.includes(e.id)));
-                }
-            }
+            const res = await fetch('/api/dashboard/events?page=1&pageSize=100', { cache: 'no-store' });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Failed to load assigned events');
+            setEvents(data.items || []);
         } catch (error) {
             console.error('Failed to fetch events', error);
+            setLoadError(error instanceof Error ? error.message : 'Failed to load assigned events');
         } finally {
             setLoading(false);
         }
@@ -97,20 +96,21 @@ export default function OrganizerDashboard({ defaultTab }: { defaultTab?: TabId 
 
     const handleSaveEvent = async (data: Partial<Event>) => {
         const eventId = editingEvent?.id;
+        if (!eventId) {
+            showToast('Only administrators can create events', 'error');
+            return;
+        }
         setSaving(true);
         try {
-            const url = eventId ? `/api/events/${eventId}` : '/api/events';
-            const method = eventId ? 'PATCH' : 'POST';
-
-            const res = await fetch(url, {
-                method,
+            const res = await fetch(`/api/events/${eventId}`, {
+                method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data),
             });
 
             if (res.ok) {
-                showToast(`Event ${eventId ? 'updated' : 'created'} successfully!`, 'success');
-                if (user) await fetchEvents(user.assignedEventIds, user.role);
+                showToast('Event updated successfully!', 'success');
+                await fetchEvents();
                 setShowEventModal(false);
             } else {
                 const err = await res.json();
@@ -123,17 +123,28 @@ export default function OrganizerDashboard({ defaultTab }: { defaultTab?: TabId 
         }
     };
 
+    const workspaceUrl = (tab: TabId, event = selectedEventId) => `/organizer/${tab}${event ? `?event=${encodeURIComponent(event)}` : ''}`;
+    const changeTab = (tab: TabId) => {
+        setActiveTab(tab);
+        router.push(workspaceUrl(tab));
+    };
+    const changeEvent = (eventId: string, navigate = true) => {
+        setSelectedEventId(eventId);
+        if (navigate) router.push(workspaceUrl(activeTab, eventId));
+    };
+
     if (loading) return (
         <div className="min-h-screen bg-[#0B0B0B] text-white flex items-center justify-center">
             <Loader2 className="w-8 h-8 animate-spin text-[#E11D2E]" />
         </div>
     );
 
+    if (loadError) return <div className="min-h-screen bg-[#0B0B0B] text-white flex items-center justify-center p-6"><div className="max-w-md rounded-2xl border border-red-500/30 bg-red-500/10 p-6 text-center"><p className="mb-4 text-red-200">{loadError}</p><button onClick={fetchEvents} className="inline-flex items-center gap-2 rounded-xl bg-[#E11D2E] px-4 py-2"><RefreshCw className="h-4 w-4" />Retry</button></div></div>;
+
     const tabs = [
         { id: 'overview' as TabId, label: 'Overview', icon: LayoutDashboard },
         { id: 'events' as TabId, label: 'Events', icon: Calendar },
         { id: 'schedule' as TabId, label: 'Schedule', icon: Calendar },
-        { id: 'sales' as TabId, label: 'Sales', icon: Power },
         { id: 'attendees' as TabId, label: 'Attendees', icon: Users },
         { id: 'segments' as TabId, label: 'Segments', icon: Users },
         { id: 'reminders' as TabId, label: 'Reminders', icon: Calendar },
@@ -174,11 +185,12 @@ export default function OrganizerDashboard({ defaultTab }: { defaultTab?: TabId 
                     </div>
 
                     {/* Event Selector (Global - for other tabs) */}
-                    {activeTab !== 'events' && activeTab !== 'overview' && events.length > 0 && (
+                    {events.length > 0 && (
                         <select
                             value={selectedEventId || ''}
-                            onChange={(e) => setSelectedEventId(e.target.value)}
+                            onChange={(e) => changeEvent(e.target.value)}
                             className="w-full px-4 py-3 bg-[#141414] border border-[#1F1F1F] text-white rounded-xl text-sm mb-4"
+                            aria-label="Selected event workspace"
                         >
                             {events.map(e => (
                                 <option key={e.id} value={e.id}>{e.name}</option>
@@ -187,14 +199,18 @@ export default function OrganizerDashboard({ defaultTab }: { defaultTab?: TabId 
                     )}
 
                     {/* Tabs */}
-                    <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0">
+                    <nav
+                        aria-label="Organizer sections"
+                        className="flex min-w-0 max-w-full flex-nowrap gap-2 overflow-x-auto pb-2 scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0"
+                    >
                         {tabs.map(tab => {
                             const Icon = tab.icon;
                             return (
                                 <button
                                     key={tab.id}
-                                    onClick={() => setActiveTab(tab.id)}
-                                    className={`px-4 py-2.5 rounded-xl font-medium whitespace-nowrap transition-all flex items-center gap-2 text-sm ${activeTab === tab.id
+                                    onClick={() => changeTab(tab.id)}
+                                    aria-current={activeTab === tab.id ? 'page' : undefined}
+                                    className={`flex shrink-0 items-center gap-2 whitespace-nowrap px-4 py-2.5 rounded-xl font-medium text-sm transition-all ${activeTab === tab.id
                                         ? 'bg-[#E11D2E] text-white shadow-[0_0_20px_rgba(225,29,46,0.3)]'
                                         : 'bg-[#141414] text-[#737373] hover:bg-[#1A1A1A] hover:text-[#B3B3B3] border border-[#1F1F1F]'
                                         }`}
@@ -204,16 +220,17 @@ export default function OrganizerDashboard({ defaultTab }: { defaultTab?: TabId 
                                 </button>
                             );
                         })}
-                    </div>
+                    </nav>
                 </div>
             </div>
 
             {/* Main Content */}
             <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+                {selectedEventId && !selectedEvent && <div className="mb-6 rounded-2xl border border-yellow-500/30 bg-yellow-500/10 p-5 text-yellow-100"><p className="font-semibold">Event unavailable</p><p className="mt-1 text-sm text-yellow-100/70">This event is not assigned to your account or no longer exists.</p><button onClick={() => { setSelectedEventId(null); router.replace('/organizer/overview'); }} className="mt-3 rounded-lg border border-yellow-500/40 px-3 py-2 text-sm">Choose an assigned event</button></div>}
                 {/* Overview Tab */}
                 {activeTab === 'overview' && (
                     <div className="space-y-6">
-                        <OnboardingWizard hasEvents={events.length > 0} />
+                        {selectedEvent && <div className="rounded-2xl border border-[#E11D2E]/30 bg-[#E11D2E]/10 p-4"><p className="text-xs font-semibold uppercase tracking-wider text-[#E11D2E]">Selected event workspace</p><h2 className="mt-1 text-xl font-bold">{selectedEvent.name}</h2><p className="mt-1 text-sm text-[#B3B3B3]">All attendee, schedule, review, reminder, and scanner actions below are scoped to this event.</p></div>}
                         {/* Stats */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="bg-[#141414] border border-[#1F1F1F] p-5 rounded-2xl">
@@ -243,13 +260,13 @@ export default function OrganizerDashboard({ defaultTab }: { defaultTab?: TabId 
                                     <h3 className="text-lg font-semibold text-white">Quick Actions</h3>
                                     <select
                                         value={selectedEvent.id}
-                                        onChange={(event) => setSelectedEventId(event.target.value)}
+                                        onChange={(event) => changeEvent(event.target.value)}
                                         className="px-3 py-2 bg-[#0D0D0D] border border-[#1F1F1F] text-white rounded-xl text-sm"
                                     >
                                         {events.map(event => <option key={event.id} value={event.id}>{event.name}</option>)}
                                     </select>
                                 </div>
-                                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                                     <button
                                         onClick={() => window.open(`/checkin?event=${selectedEvent.id}`, '_blank')}
                                         className="p-4 bg-[#1A1A1A] border border-[#1F1F1F] rounded-xl hover:bg-[#222] transition-colors text-center"
@@ -268,7 +285,7 @@ export default function OrganizerDashboard({ defaultTab }: { defaultTab?: TabId 
                                         <span className="text-sm text-white">Edit Event</span>
                                     </button>
                                     <button
-                                        onClick={() => setActiveTab('attendees')}
+                                        onClick={() => changeTab('attendees')}
                                         className="p-4 bg-[#1A1A1A] border border-[#1F1F1F] rounded-xl hover:bg-[#222] transition-colors text-center"
                                     >
                                         <Users className="w-6 h-6 mx-auto mb-2 text-[#E11D2E]" />
@@ -281,17 +298,10 @@ export default function OrganizerDashboard({ defaultTab }: { defaultTab?: TabId 
                                         <Globe className="w-6 h-6 mx-auto mb-2 text-[#E11D2E]" />
                                         <span className="text-sm text-white">Public Page</span>
                                     </button>
-                                    <button
-                                        onClick={() => setActiveTab('sales')}
-                                        className="p-4 bg-[#1A1A1A] border border-[#1F1F1F] rounded-xl hover:bg-[#222] transition-colors text-center"
-                                    >
-                                        <BarChart3 className="w-6 h-6 mx-auto mb-2 text-[#E11D2E]" />
-                                        <span className="text-sm text-white">Reports</span>
-                                    </button>
                                 </div>
                             </div>
                         )}
-                        {selectedEvent && <DashboardInsights eventId={selectedEvent.id} compact />}
+                        {selectedEvent && <><CheckInPolicyManager eventId={selectedEvent.id} /><EventSettingsManager eventId={selectedEvent.id} /></>}
                         <ScannerAssignmentManager events={events} />
                     </div>
                 )}
@@ -299,19 +309,7 @@ export default function OrganizerDashboard({ defaultTab }: { defaultTab?: TabId 
                 {/* Events Tab */}
                 {activeTab === 'events' && (
                     <>
-                        <div className="flex justify-between items-center mb-6">
-                            <h2 className="text-xl font-bold text-white">Your Events</h2>
-                            <button
-                                onClick={() => {
-                                    setEditingEvent(null);
-                                    setShowEventModal(true);
-                                }}
-                                className="flex items-center gap-2 px-4 py-2 bg-[#E11D2E] text-white rounded-xl hover:bg-[#B91C1C] transition-colors text-sm font-medium"
-                            >
-                                <Plus className="w-4 h-4" />
-                                Create Event
-                            </button>
-                        </div>
+                        <div className="mb-6"><h2 className="text-xl font-bold text-white">Assigned Events</h2><p className="mt-1 text-sm text-[#737373]">Event creation and sales controls are managed by administrators.</p></div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                             {events.length === 0 ? (
@@ -365,76 +363,6 @@ export default function OrganizerDashboard({ defaultTab }: { defaultTab?: TabId 
                             showToast={showToast}
                             readOnly={true}
                         />
-                    </div>
-                )}
-
-                {/* Sales Control Tab */}
-                {activeTab === 'sales' && selectedEvent && (
-                    <div className="space-y-6">
-                    <div className="bg-[#141414] border border-[#1F1F1F] rounded-2xl p-6 md:p-8 max-w-2xl mx-auto">
-                        <div className="text-center mb-8">
-                            <h2 className="text-2xl font-bold text-white mb-2">Sales Control</h2>
-                            <p className="text-[#737373]">Manage availability for {selectedEvent.name}</p>
-                        </div>
-
-                        <div className={`border rounded-2xl p-8 transition-all ${selectedEvent.isActive
-                            ? 'bg-[#1A1A1A] border-green-500/30'
-                            : 'bg-[#1A1A1A] border-red-500/30'
-                            }`}>
-
-                            <div className="flex flex-col items-center justify-center text-center space-y-6">
-                                <div className={`w-20 h-20 rounded-full flex items-center justify-center ${selectedEvent.isActive ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
-                                    <Power className="w-10 h-10" />
-                                </div>
-
-                                <div>
-                                    <h3 className="text-xl font-bold text-white mb-2">
-                                        {selectedEvent.isActive ? 'Sales are Live' : 'Sales Paused'}
-                                    </h3>
-                                    <p className="text-[#737373] text-sm max-w-sm mx-auto">
-                                        {selectedEvent.isActive
-                                            ? "Tickets are available for purchase."
-                                            : "Ticket sales are halted. Resume when ready."}
-                                    </p>
-                                </div>
-
-                                <div className="flex items-center gap-4">
-                                    <span className={`text-sm font-medium ${!selectedEvent.isActive ? 'text-white' : 'text-[#737373]'}`}>Paused</span>
-                                    <button
-                                        onClick={async () => {
-                                            if (saving) return;
-                                            setSaving(true);
-                                            try {
-                                                const res = await fetch(`/api/events/${selectedEvent.id}`, {
-                                                    method: 'PATCH',
-                                                    headers: { 'Content-Type': 'application/json' },
-                                                    body: JSON.stringify({ isActive: !selectedEvent.isActive }),
-                                                });
-                                                if (res.ok) {
-                                                    showToast(`Sales ${!selectedEvent.isActive ? 'resumed' : 'paused'} successfully`, 'success');
-                                                    if (user) fetchEvents(user.assignedEventIds, user.role);
-                                                } else {
-                                                    throw new Error();
-                                                }
-                                            } catch (e) {
-                                                showToast('Failed to update status', 'error');
-                                            } finally {
-                                                setSaving(false);
-                                            }
-                                        }}
-                                        disabled={saving}
-                                        className={`w-16 h-8 rounded-full p-1 transition-colors relative ${selectedEvent.isActive ? 'bg-green-500' : 'bg-[#2A2A2A]'
-                                            }`}
-                                    >
-                                        <div className={`w-6 h-6 bg-white rounded-full shadow-md transition-transform duration-200 ease-in-out ${selectedEvent.isActive ? 'translate-x-8' : 'translate-x-0'
-                                            }`} />
-                                    </button>
-                                    <span className={`text-sm font-medium ${selectedEvent.isActive ? 'text-white' : 'text-[#737373]'}`}>Active</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <DashboardInsights eventId={selectedEvent.id} compact />
                     </div>
                 )}
 

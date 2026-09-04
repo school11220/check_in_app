@@ -12,9 +12,7 @@ interface FunnelStage {
 export async function GET(request: NextRequest) {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    if (!['ADMIN', 'ORGANIZER', 'ORGANISER'].includes(session.user.role)) {
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
+    if (session.user.role !== 'ADMIN') return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
 
     const requestedEventIds = request.nextUrl.searchParams.getAll('eventId');
     const eventIds = session.user.role === 'ADMIN'

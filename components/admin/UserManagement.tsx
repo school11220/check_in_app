@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import {Plus, Trash2, Users, UserCheck, Shield, Check} from '@/components/icons';
+import {Plus, Trash2, Users, UserCheck, Shield, Check, Search, RefreshCw, Loader2} from '@/components/icons';
 import { useToast } from '@/components/Toaster';
 import { ROLE_PERMISSIONS } from '@/lib/store';
 
@@ -12,7 +12,13 @@ interface User {
     role: 'ADMIN' | 'ORGANIZER' | 'SCANNER' | 'USER';
     assignedEventIds: string[];
     createdAt: string;
+    lastActiveAt?: string | null;
+    lastSignInAt?: string | null;
+    accountStatus?: string;
+    membershipActivityStatus?: string;
 }
+
+interface Invitation { id: string; email: string; role: string; status: string; createdAt: string; expiresAt?: string | null; }
 
 interface Event {
     id: string;
@@ -24,41 +30,66 @@ export default function UserManagement({ events }: { events: Event[] }) {
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
+    const [page, setPage] = useState(1);
+    const [search, setSearch] = useState('');
+    const [pagination, setPagination] = useState({ page: 1, pageSize: 25, total: 0, totalPages: 1 });
+    const [error, setError] = useState('');
+    const [invitations, setInvitations] = useState<Invitation[]>([]);
+    const [invitationLoading, setInvitationLoading] = useState(false);
     const { showToast } = useToast();
 
     const [formData, setFormData] = useState({
         name: '',
         email: '',
-        password: '',
         role: 'SCANNER',
         assignedEventIds: [] as string[],
+        expiresInDays: 7,
     });
 
     useEffect(() => {
-        fetchUsers();
-    }, []);
+        const timer = window.setTimeout(() => void fetchUsers(), 250);
+        return () => window.clearTimeout(timer);
+    }, [page, search]);
 
     const fetchUsers = async () => {
+        setLoading(true);
+        setError('');
         try {
-            const res = await fetch('/api/admin/clerk-users');
-            if (res.ok) {
-                const data = await res.json();
-                setUsers(data);
-            }
+            const params = new URLSearchParams({ page: String(page), pageSize: '25' });
+            if (search.trim()) params.set('q', search.trim());
+            const res = await fetch(`/api/admin/clerk-users?${params}`, { cache: 'no-store' });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Failed to load team');
+            setUsers(data.items || []);
+            setPagination(data.pagination);
         } catch (error) {
             console.error(error);
+            setError(error instanceof Error ? error.message : 'Failed to load team');
         } finally {
             setLoading(false);
         }
     };
 
+    const fetchInvitations = async () => {
+        setInvitationLoading(true);
+        try {
+            const res = await fetch('/api/admin/invitations?page=1&pageSize=50', { cache: 'no-store' });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Failed to load invitations');
+            setInvitations(data.items || []);
+        } catch (err) { showToast(err instanceof Error ? err.message : 'Failed to load invitations', 'error'); }
+        finally { setInvitationLoading(false); }
+    };
+
+    useEffect(() => { void fetchInvitations(); }, []);
+
     const handleEdit = (user: User) => {
         setFormData({
             name: user.name,
             email: user.email,
-            password: '', // Leave empty to keep existing
             role: user.role,
             assignedEventIds: user.assignedEventIds || [],
+            expiresInDays: 7,
         });
         setIsEditing(true);
         setShowModal(true);
@@ -73,10 +104,11 @@ export default function UserManagement({ events }: { events: Event[] }) {
                 body: JSON.stringify(formData),
             });
             if (res.ok) {
-                showToast(isEditing ? 'User updated successfully' : 'User created successfully', 'success');
+                showToast(isEditing ? 'Member updated successfully' : 'Invitation sent successfully', 'success');
                 setShowModal(false);
                 fetchUsers();
-                setFormData({ name: '', email: '', password: '', role: 'SCANNER', assignedEventIds: [] });
+                void fetchInvitations();
+                setFormData({ name: '', email: '', role: 'SCANNER', assignedEventIds: [], expiresInDays: 7 });
                 setIsEditing(false);
             } else {
                 const data = await res.json();
@@ -85,6 +117,23 @@ export default function UserManagement({ events }: { events: Event[] }) {
         } catch (error) {
             showToast('Error processing request', 'error');
         }
+    };
+
+    const revokeInvitation = async (id: string) => {
+        if (!confirm('Revoke this invitation?')) return;
+        const res = await fetch(`/api/admin/invitations?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) return showToast(data.error || 'Failed to revoke invitation', 'error');
+        showToast('Invitation revoked', 'success');
+        void fetchInvitations();
+    };
+
+    const resendInvitation = async (id: string) => {
+        const res = await fetch('/api/admin/invitations', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ invitationId: id }) });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) return showToast(data.error || 'Failed to resend invitation', 'error');
+        showToast('Invitation resent', 'success');
+        void fetchInvitations();
     };
 
     const handleDelete = async (id: string) => {
@@ -133,18 +182,24 @@ export default function UserManagement({ events }: { events: Event[] }) {
                     </h2>
                     <button
                         onClick={() => {
-                            setFormData({ name: '', email: '', password: '', role: 'SCANNER', assignedEventIds: [] });
+                            setFormData({ name: '', email: '', role: 'SCANNER', assignedEventIds: [], expiresInDays: 7 });
                             setIsEditing(false);
                             setShowModal(true);
                         }}
                         className="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 shadow-lg shadow-blue-900/20 flex items-center gap-2 w-full md:w-auto justify-center"
                     >
-                        <Plus className="w-4 h-4" /> Add User
+                        <Plus className="w-4 h-4" /> Invite Member
                     </button>
                 </div>
 
+                <div className="relative max-w-md"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" /><input value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} placeholder="Search name or email…" className="w-full rounded-xl border border-zinc-800 bg-zinc-900 py-2.5 pl-10 pr-4 text-sm text-white outline-none focus:border-blue-500" /></div>
+
                 {loading ? (
-                    <div className="text-center py-10 text-zinc-500">Loading users...</div>
+                    <div className="text-center py-10 text-zinc-500"><Loader2 className="mx-auto h-5 w-5 animate-spin" /><span className="mt-2 block">Loading team…</span></div>
+                ) : error ? (
+                    <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-6 text-center text-red-200">{error}<button onClick={fetchUsers} className="mx-auto mt-3 flex items-center gap-2 underline"><RefreshCw className="h-4 w-4" />Retry</button></div>
+                ) : users.length === 0 ? (
+                    <div className="rounded-2xl border border-dashed border-zinc-800 p-10 text-center text-zinc-500">No team members match this search.</div>
                 ) : (
                     <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
                         <div className="overflow-x-auto">
@@ -153,6 +208,7 @@ export default function UserManagement({ events }: { events: Event[] }) {
                                     <tr>
                                         <th className="text-left py-4 px-6 text-zinc-400 font-medium text-sm whitespace-nowrap">User</th>
                                         <th className="text-left py-4 px-6 text-zinc-400 font-medium text-sm whitespace-nowrap">Role</th>
+                                        <th className="text-left py-4 px-6 text-zinc-400 font-medium text-sm whitespace-nowrap">Activity</th>
                                         <th className="text-left py-4 px-6 text-zinc-400 font-medium text-sm whitespace-nowrap">Assigned Events</th>
                                         <th className="text-right py-4 px-6 text-zinc-400 font-medium text-sm whitespace-nowrap">Actions</th>
                                     </tr>
@@ -173,6 +229,10 @@ export default function UserManagement({ events }: { events: Event[] }) {
                                             </td>
                                             <td className="py-4 px-6 whitespace-nowrap">
                                                 {getRoleBadge(user.role)}
+                                                <p className={`mt-1 text-[10px] ${user.accountStatus === 'active' ? 'text-green-400' : 'text-red-400'}`}>{user.accountStatus || 'active'}</p>
+                                            </td>
+                                            <td className="py-4 px-6 whitespace-nowrap text-xs text-zinc-400">
+                                                <span className={user.membershipActivityStatus === 'active' ? 'text-green-400' : 'text-zinc-500'}>{user.membershipActivityStatus === 'active' ? 'Active recently' : 'Inactive'}</span><br />{user.lastActiveAt ? `Last seen ${new Date(user.lastActiveAt).toLocaleDateString()}` : 'Never active'}
                                             </td>
                                             <td className="py-4 px-6">
                                                 {user.assignedEventIds.length > 0 ? (
@@ -209,15 +269,25 @@ export default function UserManagement({ events }: { events: Event[] }) {
                         </div>
                     </div>
                 )}
+                {!loading && !error && <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-zinc-500"><span>{pagination.total} members · Page {pagination.page} of {pagination.totalPages}</span><div className="flex gap-2"><button disabled={page <= 1} onClick={() => setPage(p => p - 1)} className="rounded-lg border border-zinc-800 px-3 py-1.5 disabled:opacity-40">Previous</button><button disabled={page >= pagination.totalPages} onClick={() => setPage(p => p + 1)} className="rounded-lg border border-zinc-800 px-3 py-1.5 disabled:opacity-40">Next</button></div></div>}
             </div>
 
 
+
+            <div className="space-y-4 rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
+                <div className="flex items-center justify-between">
+                    <div><h3 className="font-semibold text-white">Pending invitations</h3><p className="text-xs text-zinc-500">Revoke or issue a fresh expiring invitation.</p></div>
+                    <button onClick={() => void fetchInvitations()} className="rounded-lg border border-zinc-700 p-2 text-zinc-400 hover:text-white" aria-label="Refresh invitations"><RefreshCw className={`h-4 w-4 ${invitationLoading ? 'animate-spin' : ''}`} /></button>
+                </div>
+                {invitations.length === 0 ? <p className="text-sm text-zinc-500">No pending invitations.</p> : <div className="space-y-2">{invitations.map(inv => <div key={inv.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-800 bg-zinc-950 p-3"><div><p className="text-sm text-white">{inv.email}</p><p className="text-xs text-zinc-500">{inv.role} · expires {inv.expiresAt ? new Date(inv.expiresAt).toLocaleDateString() : 'per Clerk policy'}</p></div><div className="flex gap-2"><button onClick={() => void resendInvitation(inv.id)} className="rounded-lg border border-blue-500/40 px-3 py-1.5 text-xs text-blue-300">Resend</button><button onClick={() => void revokeInvitation(inv.id)} className="rounded-lg border border-red-500/40 px-3 py-1.5 text-xs text-red-300">Revoke</button></div></div>)}</div>}
+            </div>
 
             {/* Modal - Standardized Style */}
             {showModal && (
                 <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
                     <div className="bg-zinc-900 border border-zinc-700 w-full max-w-lg rounded-2xl p-6 animate-scale-in max-h-[90vh] overflow-y-auto shadow-2xl">
-                        <h3 className="text-xl font-bold text-white mb-6">{isEditing ? 'Edit User' : 'Add New User'}</h3>
+                        <h3 className="text-xl font-bold text-white mb-2">{isEditing ? 'Edit Member' : 'Invite Team Member'}</h3>
+                        {!isEditing && <p className="mb-6 text-sm text-zinc-400">The member sets their own credentials through Clerk. Event access is limited to the assignments below.</p>}
                         <form onSubmit={handleSubmit} className="space-y-4">
                             <div>
                                 <label className="block text-sm text-zinc-400 mb-1">Full Name</label>
@@ -241,17 +311,12 @@ export default function UserManagement({ events }: { events: Event[] }) {
                                 />
                                 {isEditing && <p className="text-xs text-zinc-600 mt-1">Email cannot be changed.</p>}
                             </div>
-                            <div>
-                                <label className="block text-sm text-zinc-400 mb-1">Password {isEditing && '(Leave blank to keep current)'}</label>
-                                <input
-                                    type="password"
-                                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-white placeholder-zinc-600 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
-                                    value={formData.password}
-                                    onChange={e => setFormData({ ...formData, password: e.target.value })}
-                                    required={!isEditing}
-                                    minLength={8}
-                                />
-                            </div>
+                            {!isEditing && <div>
+                                <label className="block text-sm text-zinc-400 mb-1">Invitation expiry</label>
+                                <select value={formData.expiresInDays} onChange={e => setFormData({ ...formData, expiresInDays: Number(e.target.value) })} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-white">
+                                    <option value={1}>1 day</option><option value={7}>7 days</option><option value={30}>30 days</option>
+                                </select>
+                            </div>}
                             <div>
                                 <label className="block text-sm text-zinc-400 mb-1">Role</label>
                                 <select
@@ -290,7 +355,7 @@ export default function UserManagement({ events }: { events: Event[] }) {
                             <div className="flex gap-3 mt-6">
                                 <button type="button" onClick={() => setShowModal(false)} className="flex-1 py-3 bg-zinc-800 text-zinc-300 rounded-xl font-medium hover:bg-zinc-700 border border-zinc-700">Cancel</button>
                                 <button type="submit" className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700">
-                                    {isEditing ? 'Update User' : 'Create User'}
+                                    {isEditing ? 'Update Member' : 'Send Invitation'}
                                 </button>
                             </div>
                         </form>

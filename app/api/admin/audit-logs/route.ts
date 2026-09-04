@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { respond } from '@/lib/api-helpers';
+import { paginationMeta, parsePagination } from '@/lib/pagination';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,6 +26,8 @@ export const GET = respond(
         const format = url.searchParams.get('format') || '';
         const limitParam = parseInt(url.searchParams.get('limit') || '200', 10);
         const limit = Math.min(Math.max(isNaN(limitParam) ? 200 : limitParam, 1), 5000);
+        const paginated = url.searchParams.has('page') || url.searchParams.has('pageSize');
+        const { page, pageSize, skip } = parsePagination(url.searchParams);
 
         const where: any = {};
         if (action && action !== 'ALL') where.action = { contains: action };
@@ -44,11 +47,12 @@ export const GET = respond(
             if (to) where.createdAt.lte = new Date(to);
         }
 
-        const logs = await prisma.auditLog.findMany({
+        const [logs, total] = await Promise.all([prisma.auditLog.findMany({
             where,
             orderBy: { createdAt: 'desc' },
-            take: limit,
-        });
+            take: paginated ? pageSize : limit,
+            ...(paginated ? { skip } : {}),
+        }), paginated && format !== 'csv' ? prisma.auditLog.count({ where }) : Promise.resolve(0)]);
 
         if (format === 'csv') {
             const headers = ['Timestamp', 'Action', 'Resource', 'Resource ID', 'User', 'User Role', 'IP', 'Details'];
@@ -73,7 +77,7 @@ export const GET = respond(
             });
         }
 
-        return NextResponse.json(logs);
+        return NextResponse.json(paginated ? { items: logs, pagination: paginationMeta(page, pageSize, total) } : logs);
     },
     { auth: 'admin' },
 );

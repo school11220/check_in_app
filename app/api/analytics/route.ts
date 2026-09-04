@@ -1,25 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { PAID_LIKE_STATUSES } from '@/lib/ticket-lifecycle';
-import { getSession, hasEventAccess } from '@/lib/auth';
+import { getSession } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
     try {
         const session = await getSession();
         if (!session) return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
-        if (!['ADMIN', 'ORGANIZER', 'ORGANISER'].includes(session.user.role)) {
-            return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
-        }
+        if (session.user.role !== 'ADMIN') return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
 
         const searchParams = request.nextUrl.searchParams;
         const timeRange = searchParams.get('timeRange') || '30d';
         const eventId = searchParams.get('eventId');
-        if (eventId && !hasEventAccess(session, eventId)) {
-            return NextResponse.json({ error: 'You do not have access to this event' }, { status: 403 });
-        }
-        if (!eventId && session.user.role !== 'ADMIN') {
-            return NextResponse.json({ error: 'Event ID is required' }, { status: 400 });
-        }
 
         // Calculate date cutoff
         let dateCutoff = new Date();

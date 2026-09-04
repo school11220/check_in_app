@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { calculateDynamicPrice } from '@/lib/pricing';
 import { getSession } from '@/lib/auth';
+import { hasEventAccess } from '@/lib/auth';
 import { logAudit } from '@/lib/logger';
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -34,6 +35,13 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
         if (!event) {
             return NextResponse.json({ error: 'Event not found' }, { status: 404 });
+        }
+
+        if ((event as any).publicationStatus !== 'published') {
+            const session = await getSession();
+            if (session?.user.role !== 'ADMIN' && !(session && hasEventAccess(session, id))) {
+                return NextResponse.json({ error: 'Event not found' }, { status: 404 });
+            }
         }
 
         // Safely compute currentPrice — pricing logic can throw if data is unexpected.
@@ -80,15 +88,15 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         // This prevents any relation or immutable field from breaking the update
         const updateData: any = {};
 
-        const allowedFields = [
+        const organizerFields = [
             'name', 'description', 'startTime', 'endTime', 'venue', 'address',
-            'price', 'entryFee', 'prizePool', 'category', 'imageUrl', 'capacity',
-            'isActive', 'isFeatured', 'organizer', 'contactEmail', 'contactPhone',
-            'termsAndConditions', 'registrationDeadline', 'earlyBirdEnabled',
-            'earlyBirdPrice', 'earlyBirdDeadline', 'sendReminders', 'videoLink',
+            'category', 'imageUrl', 'organizer', 'contactEmail', 'contactPhone',
+            'termsAndConditions', 'registrationDeadline', 'sendReminders', 'videoLink',
             'organizerVideoLink', 'tags', 'registrationFields', 'schedule',
-            'speakers', 'sponsors'
+            'speakers', 'timezone'
         ];
+        const adminOnlyFields = ['price', 'entryFee', 'prizePool', 'capacity', 'isActive', 'isFeatured', 'earlyBirdEnabled', 'earlyBirdPrice', 'earlyBirdDeadline', 'sponsors'];
+        const allowedFields = session.user.role === 'ADMIN' ? [...organizerFields, ...adminOnlyFields] : organizerFields;
 
         // Copy only allowed fields
         for (const field of allowedFields) {
