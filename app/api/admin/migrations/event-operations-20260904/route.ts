@@ -5,8 +5,9 @@ import { timingSafeStringEqual } from '@/lib/ticket-security';
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
-  const expected = process.env.ADMIN_BOOTSTRAP_SECRET || '';
-  const provided = request.headers.get('x-admin-bootstrap-secret') || '';
+  const expected = process.env.EVENTHUB_SCHEMA_MIGRATION_TOKEN || '';
+  const authorization = request.headers.get('authorization') || '';
+  const provided = authorization.startsWith('Bearer ') ? authorization.slice(7) : '';
   if (!expected || !provided || !timingSafeStringEqual(expected, provided)) {
     return NextResponse.json({ success: false, error: 'Unauthorized', code: 'AUTHENTICATION_REQUIRED' }, { status: 401 });
   }
