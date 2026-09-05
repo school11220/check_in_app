@@ -29,13 +29,16 @@ export const PATCH = respond(async (request: NextRequest, { params }: { params: 
   const existing = currentConfig?.settings && typeof currentConfig.settings === 'object'
     ? currentConfig.settings as Record<string, unknown> : {};
   const current = readEventSettings(existing, id);
+  const requestedCheckIn = body.checkIn && typeof body.checkIn === 'object'
+    ? body.checkIn as Record<string, unknown>
+    : {};
   const next = {
     ...current,
     timezone: typeof body.timezone === 'string' && body.timezone.trim() ? body.timezone.trim() : current.timezone,
     checkIn: {
-      ...current.checkIn,
-      ...(body.checkIn && typeof body.checkIn === 'object' ? body.checkIn as Record<string, unknown> : {}),
-      requireReason: true,
+      manualEnabled: typeof requestedCheckIn.manualEnabled === 'boolean' ? requestedCheckIn.manualEnabled : current.checkIn.manualEnabled,
+      allowUndo: typeof requestedCheckIn.allowUndo === 'boolean' ? requestedCheckIn.allowUndo : current.checkIn.allowUndo,
+      lowLightMode: typeof requestedCheckIn.lowLightMode === 'boolean' ? requestedCheckIn.lowLightMode : current.checkIn.lowLightMode,
     },
     staffAccessIds: Array.isArray(body.staffAccessIds)
       ? body.staffAccessIds.filter((value): value is string => typeof value === 'string') : current.staffAccessIds,

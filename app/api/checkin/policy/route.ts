@@ -40,7 +40,6 @@ export async function PATCH(request: NextRequest) {
   let next = { ...current };
   if (session.user.role === 'ADMIN') {
     if (typeof body.manualCheckInEnabled === 'boolean') next.manualCheckInEnabled = body.manualCheckInEnabled;
-    next.requireManualReason = true;
   }
   if (eventId && typeof body.organizerApproved === 'boolean') {
     const ids = new Set(next.organizerApprovedEventIds);

@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { readJsonResponse } from '@/lib/client-response';
 
 type EventOption = { id: string; name: string };
 type Filters = { statuses: string[]; checkedIn: boolean | null; hasEmail: boolean | null; hasPhone: boolean | null; paymentMethods: string[]; createdFrom: string | null; createdTo: string | null; search: string };
@@ -21,8 +22,8 @@ export default function AttendeeSegments({ events }: { events: EventOption[] }) 
 
   const load = useCallback(async () => {
     const response = await fetch('/api/admin/attendee-segments');
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error || 'Failed to load segments');
+    const data = await readJsonResponse<Segment[] | { error?: string }>(response, 'Failed to load segments');
+    if (!response.ok || !Array.isArray(data)) throw new Error(!Array.isArray(data) ? data.error || 'Failed to load segments' : 'Failed to load segments');
     setSegments(data);
   }, []);
 
@@ -32,7 +33,7 @@ export default function AttendeeSegments({ events }: { events: EventOption[] }) 
     setBusy(true); setError('');
     try {
       const response = await fetch('/api/admin/attendee-segments/preview', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ eventId: nextEventId || null, filters: nextFilters }) });
-      const data = await response.json();
+      const data = await readJsonResponse<{ count: number; attendees: any[]; error?: string }>(response, 'Preview failed');
       if (!response.ok) throw new Error(data.error || 'Preview failed');
       setPreview(data);
     } catch (err) { setError(err instanceof Error ? err.message : 'Preview failed'); }
@@ -44,7 +45,7 @@ export default function AttendeeSegments({ events }: { events: EventOption[] }) 
     setBusy(true); setError('');
     try {
       const response = await fetch('/api/admin/attendee-segments', { method: editingId ? 'PATCH' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...(editingId ? { id: editingId } : {}), name, description, eventId: eventId || null, filters }) });
-      const data = await response.json();
+      const data = await readJsonResponse<{ error?: string }>(response, 'Failed to save segment');
       if (!response.ok) throw new Error(data.error || 'Failed to save segment');
       setName(''); setDescription(''); setEditingId(null); setPreview(null); setFilters(EMPTY_FILTERS);
       await load();
@@ -55,7 +56,7 @@ export default function AttendeeSegments({ events }: { events: EventOption[] }) 
   const remove = async (id: string) => {
     if (!confirm('Delete this saved segment?')) return;
     const response = await fetch(`/api/admin/attendee-segments?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
-    if (response.ok) await load(); else setError((await response.json()).error || 'Delete failed');
+    if (response.ok) await load(); else setError((await readJsonResponse<{ error?: string }>(response, 'Delete failed')).error || 'Delete failed');
   };
 
   const toggleStatus = (status: string) => setFilters((current) => ({ ...current, statuses: current.statuses.includes(status) ? current.statuses.filter((item) => item !== status) : [...current.statuses, status] }));

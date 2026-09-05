@@ -135,9 +135,9 @@ export async function POST(req: NextRequest) {
         );
       }
     }
-    if ((action === 'manual_checkin' || action === 'undo_checkin') && !String(reason || '').trim()) {
+    if (action === 'undo_checkin' && !String(reason || '').trim()) {
       return NextResponse.json<CheckInResponse>(
-        { success: false, message: 'An override reason is required' },
+        { success: false, message: 'An undo reason is required' },
         { status: 400 }
       );
     }

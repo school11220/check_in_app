@@ -337,7 +337,6 @@ function testDashboardSafetyHelpers() {
 
   assert.deepEqual(readCheckInPolicy({}), {
     manualCheckInEnabled: false,
-    requireManualReason: true,
     organizerApprovedEventIds: [],
   });
   assert.equal(readCheckInPolicy({ checkInPolicy: { manualCheckInEnabled: true, organizerApprovedEventIds: ['event-1'] } }).manualCheckInEnabled, true);

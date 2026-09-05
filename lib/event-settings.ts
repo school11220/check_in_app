@@ -2,7 +2,6 @@ export interface EventSettings {
   timezone: string;
   checkIn: {
     manualEnabled: boolean;
-    requireReason: boolean;
     allowUndo: boolean;
     lowLightMode: boolean;
   };
@@ -11,7 +10,7 @@ export interface EventSettings {
 
 export const DEFAULT_EVENT_SETTINGS: EventSettings = {
   timezone: 'Asia/Kolkata',
-  checkIn: { manualEnabled: true, requireReason: true, allowUndo: true, lowLightMode: false },
+  checkIn: { manualEnabled: true, allowUndo: true, lowLightMode: false },
   staffAccessIds: [],
 };
 
@@ -25,7 +24,6 @@ export function readEventSettings(settings: unknown, eventId: string): EventSett
     timezone: typeof raw.timezone === 'string' && raw.timezone ? raw.timezone : DEFAULT_EVENT_SETTINGS.timezone,
     checkIn: {
       manualEnabled: checkIn.manualEnabled !== false,
-      requireReason: checkIn.requireReason !== false,
       allowUndo: checkIn.allowUndo !== false,
       lowLightMode: checkIn.lowLightMode === true,
     },

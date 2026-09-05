@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { readJsonResponse } from '@/lib/client-response';
 
 type EventOption = { id: string; name: string; date?: string; sendReminders?: boolean };
 type Schedule = { id: string; eventId: string; enabled: boolean; offsetsMinutes: number[]; channels: string[]; lastProcessedAt?: string | null; event: EventOption; deliveryStats: Record<string, number> };
@@ -16,7 +17,7 @@ export default function ReminderManager({ events, isAdmin = false }: { events: E
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
-  const load = useCallback(async () => { const response = await fetch('/api/admin/reminders'); const data = await response.json(); if (!response.ok) throw new Error(data.error || 'Failed to load reminders'); setSchedules(data); }, []);
+  const load = useCallback(async () => { const response = await fetch('/api/admin/reminders'); const data = await readJsonResponse<Schedule[] & { error?: string }>(response, 'Failed to load reminders'); if (!response.ok) throw new Error(data.error || 'Failed to load reminders'); setSchedules(data); }, []);
   useEffect(() => { load().catch((err) => setError(err.message)); }, [load]);
   useEffect(() => { if (!eventId && events[0]) setEventId(events[0].id); }, [eventId, events]);
   const current = useMemo(() => schedules.find((item) => item.eventId === eventId), [schedules, eventId]);
@@ -25,11 +26,11 @@ export default function ReminderManager({ events, isAdmin = false }: { events: E
   const save = async () => {
     if (!eventId || !offsets.length || !channels.length) return setError('Select an event, at least one time, and one channel');
     setBusy(true); setError(''); setMessage('');
-    try { const response = await fetch('/api/admin/reminders', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ eventId, enabled, offsetsMinutes: offsets, channels }) }); const data = await response.json(); if (!response.ok) throw new Error(data.error || 'Save failed'); setMessage(enabled ? 'Reminder schedule enabled.' : 'Reminder schedule saved but disabled.'); await load(); }
+    try { const response = await fetch('/api/admin/reminders', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ eventId, enabled, offsetsMinutes: offsets, channels }) }); const data = await readJsonResponse<{ error?: string }>(response, 'Save failed'); if (!response.ok) throw new Error(data.error || 'Save failed'); setMessage(enabled ? 'Reminder schedule enabled.' : 'Reminder schedule saved but disabled.'); await load(); }
     catch (err) { setError(err instanceof Error ? err.message : 'Save failed'); } finally { setBusy(false); }
   };
-  const runNow = async () => { setBusy(true); setError(''); setMessage(''); try { const response = await fetch('/api/admin/reminders', { method: 'POST' }); const data = await response.json(); if (!response.ok) throw new Error(data.error || 'Processing failed'); setMessage(`Processed ${data.attempted} deliveries: ${data.sent} sent, ${data.failed} failed.`); await load(); } catch (err) { setError(err instanceof Error ? err.message : 'Processing failed'); } finally { setBusy(false); } };
-  const retryFailures = async () => { if (!eventId) return; setBusy(true); setError(''); setMessage(''); try { const response = await fetch('/api/admin/reminders', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ eventId }) }); const data = await response.json(); if (!response.ok) throw new Error(data.error || 'Retry reset failed'); setMessage(`${data.reset} failed reminder${data.reset === 1 ? '' : 's'} queued for retry.`); await load(); } catch (err) { setError(err instanceof Error ? err.message : 'Retry reset failed'); } finally { setBusy(false); } };
+  const runNow = async () => { setBusy(true); setError(''); setMessage(''); try { const response = await fetch('/api/admin/reminders', { method: 'POST' }); const data = await readJsonResponse<{ error?: string; attempted: number; sent: number; failed: number }>(response, 'Processing failed'); if (!response.ok) throw new Error(data.error || 'Processing failed'); setMessage(`Processed ${data.attempted} deliveries: ${data.sent} sent, ${data.failed} failed.`); await load(); } catch (err) { setError(err instanceof Error ? err.message : 'Processing failed'); } finally { setBusy(false); } };
+  const retryFailures = async () => { if (!eventId) return; setBusy(true); setError(''); setMessage(''); try { const response = await fetch('/api/admin/reminders', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ eventId }) }); const data = await readJsonResponse<{ error?: string; reset: number }>(response, 'Retry reset failed'); if (!response.ok) throw new Error(data.error || 'Retry reset failed'); setMessage(`${data.reset} failed reminder${data.reset === 1 ? '' : 's'} queued for retry.`); await load(); } catch (err) { setError(err instanceof Error ? err.message : 'Retry reset failed'); } finally { setBusy(false); } };
   const toggle = (list: any[], value: any, setter: (value: any[]) => void) => setter(list.includes(value) ? list.filter((item) => item !== value) : [...list, value]);
 
   return <div className="space-y-6"><div><h2 className="text-2xl font-bold text-white">Reliable Event Reminders</h2><p className="text-sm text-zinc-400">Scheduled, idempotent email/SMS reminders with retries and delivery status.</p></div>{error && <div className="rounded-xl border border-red-900 bg-red-950/40 px-4 py-3 text-sm text-red-300">{error}</div>}{message && <div className="rounded-xl border border-green-900 bg-green-950/40 px-4 py-3 text-sm text-green-300">{message}</div>}

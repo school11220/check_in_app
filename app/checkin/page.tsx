@@ -68,7 +68,6 @@ function CheckinPageContent({ defaultTab, defaultEventId }: { defaultTab?: Check
   // Scanner state
   const [scanResult, setScanResult] = useState<{ success: boolean; message: string; details?: any } | null>(null);
   const [manualCode, setManualCode] = useState('');
-  const [manualReason, setManualReason] = useState('');
   const [checkInPolicy, setCheckInPolicy] = useState<any>(null);
   const [recentCheckins, setRecentCheckins] = useState<any[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -279,9 +278,7 @@ function CheckinPageContent({ defaultTab, defaultEventId }: { defaultTab?: Check
 
   const manualCheckIn = async (ticketId: string) => {
     if (!checkInPolicy?.manualAllowed) { showToast('Manual check-in is not approved for this event', 'error'); return; }
-    const reason = manualReason.trim() || window.prompt('Required manual check-in reason')?.trim() || '';
-    if (!reason) { showToast('A manual override reason is required', 'error'); return; }
-    await handleScan(ticketId, { manual: true, reason });
+    await handleScan(ticketId, { manual: true });
   };
 
   const undoCheckIn = async (ticketId: string) => {
@@ -337,7 +334,7 @@ function CheckinPageContent({ defaultTab, defaultEventId }: { defaultTab?: Check
     await signOut({ redirectUrl: '/login' });
   };
 
-  const handleScan = async (code: string, options?: { manual?: boolean; reason?: string }) => {
+  const handleScan = async (code: string, options?: { manual?: boolean }) => {
     if (isProcessing) return;
     setIsProcessing(true);
 
@@ -392,7 +389,6 @@ function CheckinPageContent({ defaultTab, defaultEventId }: { defaultTab?: Check
           action: options?.manual ? 'manual_checkin' : undefined,
           deviceId,
           deviceName,
-          reason: options?.reason,
         }),
       });
 
@@ -460,7 +456,7 @@ function CheckinPageContent({ defaultTab, defaultEventId }: { defaultTab?: Check
       const resolvedTicketId = await resolveManualTicket(manualCode);
       if (resolvedTicketId === 'multiple') return;
       await manualCheckIn(resolvedTicketId || manualCode.trim());
-      if (resolvedTicketId !== 'multiple') { setManualCode(''); setManualReason(''); }
+      if (resolvedTicketId !== 'multiple') setManualCode('');
     }
   };
 
@@ -559,7 +555,7 @@ function CheckinPageContent({ defaultTab, defaultEventId }: { defaultTab?: Check
 
       <div className="max-w-5xl mx-auto relative z-10">
         {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8 glass p-4 md:p-5 rounded-2xl sticky top-2 z-40 backdrop-blur-xl bg-[#0B0B0B]/80 border border-white/5">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6 md:mb-8 glass p-4 md:p-5 rounded-2xl sticky top-2 z-40 backdrop-blur-xl bg-[#0B0B0B]/80 border border-white/5">
           <div className="flex items-center gap-3 md:gap-4">
             <img src="/logo.png" alt="EventHub" className="w-10 h-10 md:w-14 md:h-14 rounded-xl shadow-lg shadow-red-900/30" />
             <div>
@@ -584,7 +580,7 @@ function CheckinPageContent({ defaultTab, defaultEventId }: { defaultTab?: Check
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-2 md:gap-3 self-start md:self-auto overflow-x-auto max-w-full pb-1 md:pb-0">
+          <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto lg:justify-end md:gap-3">
             <a href="/" target="_blank" rel="noopener noreferrer" className="interactive-control px-3 py-2 md:px-5 md:py-2.5 rounded-xl bg-[#141414] hover:bg-[#1A1A1A] text-[#B3B3B3] hover:text-white text-xs md:text-sm flex items-center transition-colors border border-[#1F1F1F] hover:border-[#2A2A2A] whitespace-nowrap">
               <Home className="w-3.5 h-3.5 md:w-4 md:h-4 mr-1.5 md:mr-2" /> Home
             </a>
@@ -769,7 +765,6 @@ function CheckinPageContent({ defaultTab, defaultEventId }: { defaultTab?: Check
                   </div>
 
                   <form onSubmit={handleManualSubmit} className="space-y-2">
-                    <input type="text" value={manualReason} onChange={(e) => setManualReason(e.target.value)} disabled={!checkInPolicy?.manualAllowed} placeholder={checkInPolicy?.manualAllowed ? 'Required override reason' : 'Manual check-in requires organizer approval'} className="w-full rounded-xl border border-[#1F1F1F] bg-[#141414] px-4 py-3 text-sm text-white disabled:opacity-50" required />
                     <div className="relative">
                     <input
                       type="text"
@@ -781,7 +776,7 @@ function CheckinPageContent({ defaultTab, defaultEventId }: { defaultTab?: Check
                     />
                     <button
                       type="submit"
-                      disabled={!manualCode.trim() || !manualReason.trim() || !checkInPolicy?.manualAllowed || isProcessing}
+                      disabled={!manualCode.trim() || !checkInPolicy?.manualAllowed || isProcessing}
                       className="absolute right-2 top-2 bottom-2 px-5 bg-gradient-to-r from-[#E11D2E] to-[#B91C1C] hover:from-[#FF2D3F] hover:to-[#E11D2E] text-white rounded-lg transition-all text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       {isProcessing ? '...' : 'Verify'}
