@@ -82,14 +82,19 @@ export async function POST(request: NextRequest) {
     `);
     if (tables.length !== 4) throw new Error('Not all feature tables were created');
 
-    await prisma.$executeRawUnsafe(
-      `INSERT INTO "_prisma_migrations" (id, checksum, finished_at, migration_name, logs, rolled_back_at, started_at, applied_steps_count)
-       SELECT $1, $2, CURRENT_TIMESTAMP, $3, NULL, NULL, CURRENT_TIMESTAMP, 1
-       WHERE NOT EXISTS (SELECT 1 FROM "_prisma_migrations" WHERE migration_name = $3)`,
-      crypto.randomUUID(), MIGRATION_CHECKSUM, MIGRATION_NAME,
+    const migrationRegistry = await prisma.$queryRawUnsafe<Array<{ exists: boolean }>>(
+      `SELECT to_regclass('public._prisma_migrations') IS NOT NULL AS exists`,
     );
+    if (migrationRegistry[0]?.exists) {
+      await prisma.$executeRawUnsafe(
+        `INSERT INTO "_prisma_migrations" (id, checksum, finished_at, migration_name, logs, rolled_back_at, started_at, applied_steps_count)
+         SELECT $1, $2, CURRENT_TIMESTAMP, $3, NULL, NULL, CURRENT_TIMESTAMP, 1
+         WHERE NOT EXISTS (SELECT 1 FROM "_prisma_migrations" WHERE migration_name = $3)`,
+        crypto.randomUUID(), MIGRATION_CHECKSUM, MIGRATION_NAME,
+      );
+    }
 
-    return NextResponse.json({ success: true, tables: tables.map((row) => row.table_name), migration: MIGRATION_NAME });
+    return NextResponse.json({ success: true, tables: tables.map((row) => row.table_name), migration: MIGRATION_NAME, migrationTracked: migrationRegistry[0]?.exists === true });
   } catch (error) {
     console.error('Feature table migration failed', error);
     return NextResponse.json({ success: false, error: 'Schema migration failed' }, { status: 500 });
